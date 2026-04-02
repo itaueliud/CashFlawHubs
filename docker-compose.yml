@@ -1,0 +1,183 @@
+version: '3.9'
+
+services:
+  # ============================================================
+  # Nginx Load Balancer
+  # ============================================================
+  nginx:
+    image: nginx:alpine
+    container_name: earnhub-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/letsencrypt:ro
+    depends_on:
+      - api1
+      - api2
+      - api3
+      - api4
+    restart: unless-stopped
+    networks:
+      - earnhub-net
+
+  # ============================================================
+  # Backend API Instances (4 instances behind load balancer)
+  # ============================================================
+  api1:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: earnhub-api-1
+    environment:
+      - PORT=5001
+      - NODE_ENV=production
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - mongo
+      - redis
+      - rabbitmq
+    restart: unless-stopped
+    networks:
+      - earnhub-net
+    expose:
+      - "5001"
+
+  api2:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: earnhub-api-2
+    environment:
+      - PORT=5002
+      - NODE_ENV=production
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - mongo
+      - redis
+      - rabbitmq
+    restart: unless-stopped
+    networks:
+      - earnhub-net
+    expose:
+      - "5002"
+
+  api3:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: earnhub-api-3
+    environment:
+      - PORT=5003
+      - NODE_ENV=production
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - mongo
+      - redis
+      - rabbitmq
+    restart: unless-stopped
+    networks:
+      - earnhub-net
+    expose:
+      - "5003"
+
+  api4:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: earnhub-api-4
+    environment:
+      - PORT=5004
+      - NODE_ENV=production
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - mongo
+      - redis
+      - rabbitmq
+    restart: unless-stopped
+    networks:
+      - earnhub-net
+    expose:
+      - "5004"
+
+  # ============================================================
+  # MongoDB
+  # ============================================================
+  mongo:
+    image: mongo:7
+    container_name: earnhub-mongo
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASS:-changeme}
+      MONGO_INITDB_DATABASE: earnhub
+    restart: unless-stopped
+    networks:
+      - earnhub-net
+    expose:
+      - "27017"
+
+  # ============================================================
+  # Redis Cache
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: earnhub-redis
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:-changeme}
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - earnhub-net
+    expose:
+      - "6379"
+
+  # ============================================================
+  # RabbitMQ Message Queue
+  # ============================================================
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: earnhub-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-changeme}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    restart: unless-stopped
+    networks:
+      - earnhub-net
+    expose:
+      - "5672"
+    ports:
+      - "15672:15672"  # Management UI (remove in production)
+
+  # ============================================================
+  # Frontend (Next.js)
+  # ============================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: earnhub-frontend
+    environment:
+      - NEXT_PUBLIC_API_URL=https://api.earnhub.app
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    networks:
+      - earnhub-net
+
+volumes:
+  mongo-data:
+  redis-data:
+  rabbitmq-data:
+
+networks:
+  earnhub-net:
+    driver: bridge

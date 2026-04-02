@@ -1,0 +1,19 @@
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  images: {
+    domains: [
+      'images.unsplash.com',
+      'via.placeholder.com',
+      'logo.clearbit.com',
+      'remotive.com',
+      'jobicy.com',
+    ],
+  },
+  env: {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    NEXT_PUBLIC_APP_NAME: 'CashflowConnect',
+  },
+};
+
+module.exports = nextConfig;

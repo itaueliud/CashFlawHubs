@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+* { box-sizing: border-box; padding: 0; margin: 0; }
+
+html, body { max-width: 100vw; overflow-x: hidden; }
+
+@layer components {
+  .card {
+    @apply bg-slate-800 border border-slate-700 rounded-2xl p-5;
+  }
+  .btn-primary {
+    @apply bg-green-600 hover:bg-green-500 text-white font-semibold px-5 py-2.5 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply bg-slate-700 hover:bg-slate-600 text-white font-medium px-5 py-2.5 rounded-xl transition-all duration-200;
+  }
+  .btn-outline {
+    @apply border border-slate-600 hover:border-green-500 text-slate-300 hover:text-green-400 font-medium px-5 py-2.5 rounded-xl transition-all duration-200;
+  }
+  .input {
+    @apply w-full bg-slate-700 border border-slate-600 text-white placeholder-slate-400 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full;
+  }
+  .badge-green  { @apply badge bg-green-500/20 text-green-400; }
+  .badge-yellow { @apply badge bg-yellow-500/20 text-yellow-400; }
+  .badge-blue   { @apply badge bg-blue-500/20 text-blue-400; }
+  .badge-red    { @apply badge bg-red-500/20 text-red-400; }
+  .stat-card {
+    @apply card flex flex-col gap-1;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #1e293b; }
+::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #64748b; }
