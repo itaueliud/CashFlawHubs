@@ -18,6 +18,7 @@ const EMPTY_FORM = {
   applicationUrl: '',
   budgetAmount: '',
   budgetCurrency: 'KES',
+  durationMonths: '1',
 };
 
 export default function JobsPage() {
@@ -53,6 +54,7 @@ export default function JobsPage() {
       const payload = {
         ...form,
         budgetAmount: form.budgetAmount ? Number(form.budgetAmount) : undefined,
+        durationMonths: Number(form.durationMonths),
         tags: [],
       };
       const response = await api.post('/jobs', payload);
@@ -182,6 +184,20 @@ export default function JobsPage() {
             <div>
               <label className="text-sm text-slate-300 mb-1 block">Budget Currency</label>
               <input className="input" value={form.budgetCurrency} onChange={(e) => updateField('budgetCurrency', e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-slate-300 mb-1 block">Posting Period</label>
+              <select className="input" value={form.durationMonths} onChange={(e) => updateField('durationMonths', e.target.value)}>
+                <option value="1">1 month</option>
+                <option value="2">2 months</option>
+                <option value="3">3 months (max)</option>
+              </select>
+            </div>
+            <div className="rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm text-slate-400">
+              Internal jobs are auto-deleted once the selected posting period ends.
             </div>
           </div>
 

@@ -10,8 +10,12 @@ exports.getJobs = async (req, res) => {
   try {
     const { category, search, page = 1, limit = 20 } = req.query;
     const skip = (page - 1) * limit;
+    const now = new Date();
 
-    const query = { isActive: true };
+    const query = {
+      isActive: true,
+      $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
+    };
     if (category) query.category = category;
     if (search) query.$text = { $search: search };
 
@@ -64,14 +68,27 @@ exports.createJobPosting = async (req, res) => {
       tags = [],
       budgetAmount,
       budgetCurrency = 'KES',
+      durationMonths,
     } = req.body;
 
     if (!title || !company || !category || !description || !applicationUrl) {
       return res.status(400).json({ success: false, message: 'Missing required job posting fields' });
     }
 
+    const parsedDurationMonths = Number(durationMonths || 1);
+    if (!Number.isInteger(parsedDurationMonths) || parsedDurationMonths < 1 || parsedDurationMonths > 3) {
+      return res.status(400).json({
+        success: false,
+        message: 'Posting period must be between 1 and 3 months',
+      });
+    }
+
     const normalizedBudget = Number(budgetAmount) || 0;
     const applicationTokenCost = getApplicationTokenCost(normalizedBudget);
+    const publishedAt = new Date();
+    const expiresAt = new Date(publishedAt);
+    expiresAt.setMonth(expiresAt.getMonth() + parsedDurationMonths);
+
     user.consumeTokens(JOB_POSTING_TOKEN_COST);
     await user.save();
 
@@ -92,7 +109,9 @@ exports.createJobPosting = async (req, res) => {
       budgetCurrency,
       postingTokenCost: JOB_POSTING_TOKEN_COST,
       applicationTokenCost,
-      publishedAt: new Date(),
+      durationMonths: parsedDurationMonths,
+      publishedAt,
+      expiresAt,
       isActive: true,
     });
 
@@ -128,7 +147,11 @@ exports.createJobPosting = async (req, res) => {
 // @GET /api/jobs/categories
 exports.getCategories = async (req, res) => {
   try {
-    const categories = await Job.distinct('category', { isActive: true });
+    const now = new Date();
+    const categories = await Job.distinct('category', {
+      isActive: true,
+      $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
+    });
     res.json({ success: true, categories });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -139,7 +162,9 @@ exports.getCategories = async (req, res) => {
 exports.getJob = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
-    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+    if (!job || !job.isActive || (job.expiresAt && job.expiresAt <= new Date())) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
     job.views += 1;
     await job.save();
     res.json({ success: true, job });

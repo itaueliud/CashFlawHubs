@@ -18,6 +18,8 @@ const jobSchema = new mongoose.Schema({
   budgetCurrency: { type: String, default: null },
   postingTokenCost: { type: Number, default: 0 },
   applicationTokenCost: { type: Number, default: 0 },
+  durationMonths: { type: Number, default: null, min: 1, max: 3 },
+  expiresAt: { type: Date, default: null },
   publishedAt: { type: Date, required: true },
   isActive: { type: Boolean, default: true },
   views: { type: Number, default: 0 },
@@ -29,6 +31,7 @@ const jobSchema = new mongoose.Schema({
 jobSchema.index({ category: 1 });
 jobSchema.index({ publishedAt: -1 });
 jobSchema.index({ isActive: 1 });
+jobSchema.index({ expiresAt: 1 });
 jobSchema.index({ title: 'text', company: 'text', description: 'text' });
 
 module.exports = mongoose.model('Job', jobSchema);

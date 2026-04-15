@@ -114,6 +114,27 @@ const createDailyChallenges = async () => {
 };
 
 const dailyCleanup = async () => {
+  const Job = require('../models/Job');
+  const JobApplication = require('../models/JobApplication');
+  const now = new Date();
+
+  const expiredJobs = await Job.find({
+    source: 'internal',
+    expiresAt: { $lte: now },
+  }).select('_id');
+
+  if (expiredJobs.length > 0) {
+    const jobIds = expiredJobs.map((job) => job._id);
+    const [deletedApplications, deletedJobs] = await Promise.all([
+      JobApplication.deleteMany({ jobId: { $in: jobIds } }),
+      Job.deleteMany({ _id: { $in: jobIds } }),
+    ]);
+
+    logger.info(
+      `Daily cleanup removed ${deletedJobs.deletedCount} expired internal jobs and ${deletedApplications.deletedCount} related applications`
+    );
+  }
+
   logger.info('Daily cleanup complete');
 };
 
