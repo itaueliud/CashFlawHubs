@@ -18,6 +18,7 @@ import {
   Trophy,
   Radio,
   ShieldCheck,
+  Shield,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -56,7 +57,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null;
 
   const nav = user.role === 'admin'
-    ? [...BASE_NAV, { href: '/dashboard/admin/provider-health', icon: ShieldCheck, label: 'Provider Health' }]
+    ? [...BASE_NAV, { href: '/dashboard/admin', icon: Shield, label: 'Admin Workspace' }, { href: '/dashboard/admin/provider-health', icon: ShieldCheck, label: 'Provider Health' }]
+    : user.role === 'superadmin'
+      ? [...BASE_NAV, { href: '/dashboard/admin', icon: Shield, label: 'Admin Workspace' }, { href: '/dashboard/admin/ledger', icon: TrendingUp, label: 'Ledger' }, { href: '/dashboard/admin/admins', icon: ShieldCheck, label: 'Admins' }, { href: '/dashboard/admin/users', icon: User, label: 'Users' }, { href: '/dashboard/admin/provider-health', icon: ShieldCheck, label: 'Provider Health' }]
     : BASE_NAV;
 
   const SidebarContent = () => (

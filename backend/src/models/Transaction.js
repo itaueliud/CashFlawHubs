@@ -25,6 +25,9 @@ const transactionSchema = new mongoose.Schema({
   direction: { type: String, enum: ['credit', 'debit'], required: true },
   metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
   failureReason: { type: String, default: null },
+  payoutStatus: { type: String, enum: ['pending', 'executed'], default: 'pending' },
+  payoutExecutedAt: { type: Date, default: null },
+  payoutExecutedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   processedAt: { type: Date, default: null },
 }, {
   timestamps: true,

@@ -80,7 +80,10 @@ const userSchema = new mongoose.Schema({
   failedLoginAttempts: { type: Number, default: 0 },
   lockUntil: { type: Date, default: null },
 
-  role: { type: String, enum: ['user', 'admin'], default: 'user' },
+  role: { type: String, enum: ['user', 'admin', 'superadmin'], default: 'user' },
+
+  managedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  managedAt: { type: Date, default: null },
 
   // Profile
   avatar: { type: String, default: null },

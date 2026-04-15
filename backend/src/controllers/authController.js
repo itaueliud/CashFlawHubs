@@ -297,6 +297,7 @@ exports.register = async (req, res) => {
         tokenPackages: TOKEN_PACKAGES,
         role: user.role,
         level: user.level,
+        managedBy: user.managedBy || null,
       },
     });
   } catch (error) {
@@ -420,6 +421,7 @@ exports.login = async (req, res) => {
         streak: user.streak,
         badges: user.badges,
         balanceUSD: wallet?.balanceUSD || 0,
+        managedBy: user.managedBy || null,
       },
     });
   } catch (error) {

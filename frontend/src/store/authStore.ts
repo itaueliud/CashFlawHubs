@@ -11,7 +11,7 @@ const safeStorage = {
 interface User {
   id: string;
   userId: string;
-  role?: 'user' | 'admin';
+  role?: 'user' | 'admin' | 'superadmin';
   firstName?: string;
   lastName?: string;
   name: string;

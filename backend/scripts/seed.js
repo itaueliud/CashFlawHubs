@@ -25,6 +25,21 @@ const seedDB = async () => {
     Job.deleteMany({}),
   ]);
 
+  // Create superadmin user
+  const superadmin = await User.create({
+    name: 'CashFlawHubs Superadmin',
+    phone: '+254700000001',
+    email: 'superadmin@cashflawhubs.app',
+    passwordHash: 'Superadmin@1234',
+    country: 'KE',
+    role: 'superadmin',
+    activationStatus: true,
+    phoneVerified: true,
+    emailVerified: true,
+  });
+  await Wallet.create({ userId: superadmin._id, balanceUSD: 0 });
+  console.log('✅ Superadmin user created — phone: +254700000001 / password: Superadmin@1234');
+
   // Create admin user
   const admin = await User.create({
     name: 'CashFlawHubs Admin',
@@ -91,6 +106,7 @@ const seedDB = async () => {
 
   console.log('\n🎉 Database seeding complete!');
   console.log('\nTest credentials:');
+  console.log('  Superadmin → +254700000001 / Superadmin@1234');
   console.log('  Admin  → +254700000000 / Admin@1234');
   console.log('  User   → +254711111111 / Test@1234');
   process.exit(0);
