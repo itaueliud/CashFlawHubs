@@ -8,6 +8,9 @@ const paymentOrchestrator = require('../services/paymentOrchestrator');
 const { publishToQueue, QUEUES } = require('../services/queueWorker');
 const logger = require('../utils/logger');
 
+const getEatDate = () => new Date(Date.now() + (3 * 60 * 60 * 1000));
+const isFriday = () => getEatDate().getUTCDay() === 5;
+
 const getWithdrawalCallbackUrl = (strategy) => {
   const base = process.env.BACKEND_URL;
   switch (strategy) {
@@ -33,6 +36,10 @@ exports.requestWithdrawal = async (req, res) => {
 
     if (!user.activationStatus) {
       return res.status(403).json({ success: false, message: 'Account must be activated to withdraw' });
+    }
+
+    if (!isFriday()) {
+      return res.status(403).json({ success: false, message: 'Withdrawals are only available on Fridays' });
     }
 
     const wallet = await Wallet.findOne({ userId: user._id });

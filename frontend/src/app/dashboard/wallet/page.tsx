@@ -64,6 +64,7 @@ export default function WalletPage() {
   const tokenPackages = user?.tokenPackages || [];
   const pendingReference = pendingPurchase?.reference || null;
   const pendingDepositReference = pendingDeposit?.reference || null;
+  const withdrawalOpen = Boolean(wallet.withdrawalOpen);
 
   const persistPendingPurchase = (payload: PendingTokenPurchase | null) => {
     if (typeof window === 'undefined') return;
@@ -194,6 +195,11 @@ export default function WalletPage() {
   }, [pendingDeposit]);
 
   const onWithdraw = async (data: { amountUSD: number; phoneNumber: string }) => {
+    if (!withdrawalOpen) {
+      toast.error('Withdrawals are only available on Fridays');
+      return;
+    }
+
     setWithdrawing(true);
 
     try {
@@ -420,9 +426,13 @@ export default function WalletPage() {
             <input {...register('phoneNumber')} placeholder="+254712345678" className="input" />
           </div>
 
-          <button type="submit" disabled={withdrawing} className="btn-primary flex items-center gap-2">
+          <button
+            type="submit"
+            disabled={withdrawing || !withdrawalOpen}
+            className={`flex items-center gap-2 ${withdrawalOpen ? 'btn-primary' : 'cursor-not-allowed bg-slate-700 text-slate-400'}`}
+          >
             {withdrawing && <Loader2 size={16} className="animate-spin" />}
-            Request Withdrawal
+            {withdrawalOpen ? 'Request Withdrawal' : 'Withdrawals Open Friday'}
           </button>
 
           <p className="text-xs text-slate-500">Withdrawals are routed through your country&apos;s configured provider rail, with fallback where available.</p>

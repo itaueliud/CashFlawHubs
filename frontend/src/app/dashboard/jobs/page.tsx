@@ -1,8 +1,9 @@
 'use client';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import api from '@/lib/api';
-import { ExternalLink, Search, Building2, Clock, Plus, Loader2 } from 'lucide-react';
+import { Search, Building2, Clock, Plus, Loader2, ArrowRight, BriefcaseBusiness, Filter, SearchCheck, ShieldCheck, Sparkles, TrendingUp } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import toast from 'react-hot-toast';
 
@@ -70,37 +71,79 @@ export default function JobsPage() {
   };
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-black">Remote Jobs</h1>
-          <p className="text-slate-400 text-sm mt-1">Browse external jobs or post your own internal listings</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="card px-4 py-3">
-            <div className="text-xs text-slate-400">Available Tokens</div>
-            <div className="text-2xl font-black text-green-400">{user?.tokenBalance || 0}T</div>
+    <div className="space-y-6">
+      <div className="overflow-hidden rounded-[2rem] border border-emerald-500/20 bg-gradient-to-br from-emerald-950 via-slate-950 to-slate-900 shadow-2xl shadow-emerald-950/20">
+        <div className="grid gap-8 p-6 lg:grid-cols-[1.4fr_0.8fr] lg:p-8">
+          <div className="space-y-5">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-emerald-300">
+              <Sparkles size={12} /> Upwork-style remote board
+            </div>
+            <div>
+              <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">Remote Jobs</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
+                Discover remote roles in a clean, search-first board with a polished, Upwork-inspired feel.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <div className="text-xs text-slate-400">Visible jobs</div>
+                <div className="text-2xl font-black text-emerald-300">{jobs.length || '—'}</div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <div className="text-xs text-slate-400">Sources</div>
+                <div className="text-2xl font-black text-white">2</div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <div className="text-xs text-slate-400">Token balance</div>
+                <div className="text-2xl font-black text-white">{user?.tokenBalance || 0}T</div>
+              </div>
+            </div>
           </div>
-          <button onClick={() => setTab('post')} className="btn-primary text-sm flex items-center gap-2">
-            <Plus size={16} /> Post Job
-          </button>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+            {[
+              { label: 'Fast apply', value: 'Internal application flow', icon: SearchCheck },
+              { label: 'Remote-first', value: 'Location is always remote', icon: BriefcaseBusiness },
+              { label: 'Trusted flow', value: 'Apply inside the platform', icon: ShieldCheck },
+              { label: 'Marketplace feel', value: 'Clean cards and focused CTAs', icon: TrendingUp },
+            ].map((item) => (
+              <div key={item.label} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+                <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-300">
+                  <item.icon size={18} />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-white">{item.label}</div>
+                  <div className="text-xs leading-5 text-slate-400">{item.value}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="flex gap-2 border-b border-slate-700 pb-2">
-        {(['browse', 'post'] as const).map((tabName) => (
-          <button
-            key={tabName}
-            onClick={() => setTab(tabName)}
-            className={`px-4 py-2 rounded-t-xl text-sm font-medium transition-all capitalize ${tab === tabName ? 'text-green-400 border-b-2 border-green-400' : 'text-slate-400 hover:text-white'}`}
-          >
-            {tabName}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-500/10 bg-slate-900/90 p-4">
+        <div className="flex items-center gap-2">
+          {(['browse', 'post'] as const).map((tabName) => (
+            <button
+              key={tabName}
+              onClick={() => setTab(tabName)}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition-all capitalize ${tab === tabName ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+            >
+              {tabName}
+            </button>
+          ))}
+        </div>
+        <div className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950 px-4 py-2 text-xs text-slate-400">
+          <Filter size={12} /> Search-first job board
+        </div>
       </div>
 
       {tab === 'post' ? (
-        <div className="card max-w-3xl space-y-4">
+        <div className="mx-auto max-w-4xl space-y-4 rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 shadow-xl shadow-emerald-950/10 md:p-6">
+          <div className="mb-2">
+            <h2 className="text-2xl font-black text-white">Post a remote role</h2>
+            <p className="mt-1 text-sm text-slate-400">Use a clean Upwork-like layout for internal job listings.</p>
+          </div>
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm text-slate-300 mb-1 block">Job Title</label>
@@ -159,15 +202,20 @@ export default function JobsPage() {
         </div>
       ) : (
         <>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search jobs..." className="input pl-9" />
+          <div className="rounded-2xl border border-emerald-500/10 bg-slate-900/90 p-4">
+            <div className="flex flex-col gap-3 lg:flex-row">
+              <div className="relative flex-1">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search remote jobs..." className="input border-slate-700 bg-slate-950 pl-9" />
+              </div>
+              <select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }} className="input border-slate-700 bg-slate-950 lg:w-56">
+                <option value="">All Categories</option>
+                {(catData || []).map((c: string) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <button onClick={() => setTab('post')} className="btn-primary inline-flex items-center gap-2 lg:shrink-0">
+                <Plus size={16} /> Post Job
+              </button>
             </div>
-            <select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }} className="input sm:w-48">
-              <option value="">All Categories</option>
-              {(catData || []).map((c: string) => <option key={c} value={c}>{c}</option>)}
-            </select>
           </div>
 
           {isLoading ? (
@@ -175,27 +223,33 @@ export default function JobsPage() {
           ) : jobs.length === 0 ? (
             <div className="card text-center py-12 text-slate-400">No jobs found. Try a different search.</div>
           ) : (
-            <div className="space-y-3">
+            <div className="grid gap-3">
               {jobs.map((job: any) => (
-                <div key={job._id} className="card hover:border-slate-600 transition-all">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-sm">{job.title}</h3>
+                <div key={job._id} className="rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 transition-all hover:-translate-y-1 hover:border-emerald-400/30 hover:shadow-xl hover:shadow-emerald-950/15">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0 flex-1 space-y-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="badge-green">Remote</span>
                         <span className="badge-blue">{job.category}</span>
-                        {job.salary && <span className="badge-green">{job.salary}</span>}
-                        {job.source === 'internal' && <span className="badge-green">{job.applicationTokenCost}T apply</span>}
+                        {job.source === 'internal' && <span className="badge-yellow">{job.applicationTokenCost}T apply</span>}
+                        {job.salary && <span className="badge" style={{ background: 'rgba(16,185,129,0.14)', color: '#6ee7b7' }}>{job.salary}</span>}
                       </div>
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                        <span className="flex items-center gap-1"><Building2 size={11} />{job.company}</span>
-                        <span className="flex items-center gap-1"><Clock size={11} />{new Date(job.publishedAt).toLocaleDateString()}</span>
-                        <span className="capitalize">{job.jobType}</span>
-                        <span className="capitalize text-slate-500">{job.source}</span>
+                      <div className="space-y-2">
+                        <h3 className="text-xl font-bold text-white">{job.title}</h3>
+                        <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400">
+                          <span className="flex items-center gap-1"><Building2 size={12} />{job.company}</span>
+                          <span className="flex items-center gap-1"><Clock size={12} />{new Date(job.publishedAt).toLocaleDateString()}</span>
+                          <span className="capitalize">{job.jobType}</span>
+                          <span className="capitalize text-slate-500">{job.source}</span>
+                        </div>
                       </div>
                     </div>
-                    <a href={job.applicationUrl} target="_blank" rel="noopener noreferrer" className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1 flex-shrink-0">
-                      Apply <ExternalLink size={12} />
-                    </a>
+                    <div className="flex flex-col items-start gap-3 lg:items-end">
+                      <Link href={`/dashboard/jobs/${job._id}`} className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400">
+                        Apply on site <ArrowRight size={14} />
+                      </Link>
+                      <div className="text-xs uppercase tracking-[0.2em] text-slate-500">Upwork-inspired remote board</div>
+                    </div>
                   </div>
                 </div>
               ))}

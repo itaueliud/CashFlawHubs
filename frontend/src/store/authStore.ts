@@ -2,6 +2,12 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import api from '@/lib/api';
 
+const safeStorage = {
+  getItem: (_name: string) => null,
+  setItem: (_name: string, _value: string) => {},
+  removeItem: (_name: string) => {},
+};
+
 interface User {
   id: string;
   userId: string;
@@ -91,7 +97,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'earnhub-auth',
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : safeStorage)),
       partialize: (state) => ({ token: state.token, user: state.user }),
       onRehydrateStorage: () => (state) => {
         const token = state?.token;
