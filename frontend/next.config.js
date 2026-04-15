@@ -2,6 +2,10 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: false,
+  experimental: {
+    // Fallback to Babel instead of SWC
+    esmExternals: true,
+  },
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
