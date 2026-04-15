@@ -5,6 +5,55 @@ const Transaction = require('../models/Transaction');
 const { getRedis } = require('../config/redis');
 const logger = require('../utils/logger');
 const { updateChallengeProgress } = require('./challengeController');
+const { getCategoryProviders } = require('../config/categoryProviders');
+
+const SURVEY_TEMPLATE = [
+  {
+    id: 'mobile-phone-usage',
+    title: 'Mobile Phone Usage Survey',
+    description: 'Answer a short consumer survey about daily mobile habits and app usage.',
+    estimatedMinutes: 7,
+    rewardUSD: 0.8,
+    providerKey: 'cpx',
+    countryNote: 'Available for active users in supported African countries.',
+  },
+  {
+    id: 'shopping-habits',
+    title: 'Shopping Habits Survey',
+    description: 'Share how you shop online and offline to qualify for higher-value surveys.',
+    estimatedMinutes: 9,
+    rewardUSD: 1.1,
+    providerKey: 'bitlabs',
+    countryNote: 'Good fit for users with completed profiles.',
+  },
+  {
+    id: 'finance-app-review',
+    title: 'Finance App Feedback Survey',
+    description: 'Review a digital banking or mobile money product and earn a reward.',
+    estimatedMinutes: 12,
+    rewardUSD: 1.4,
+    providerKey: 'cpx',
+    countryNote: 'Short screening questionnaire may apply.',
+  },
+];
+
+const resolveSurveyWallUrl = (providerKey, user) => {
+  if (providerKey === 'cpx') {
+    const appId = process.env.CPX_RESEARCH_APP_ID;
+    const hashKey = process.env.CPX_RESEARCH_HASH_KEY;
+    if (!appId || !hashKey) return null;
+
+    const hash = crypto.createHash('md5').update(`${user.userId}-${hashKey}`).digest('hex');
+    return `https://offers.cpx-research.com/index.php?app_id=${appId}&ext_user_id=${user.userId}&secure_hash=${hash}&username=${encodeURIComponent(user.name)}&email=${encodeURIComponent(user.email || '')}&subid_1=${user.country}`;
+  }
+
+  if (providerKey === 'bitlabs') {
+    if (!process.env.BITLABS_API_TOKEN) return null;
+    return `https://web.bitlabs.ai/?token=${process.env.BITLABS_API_TOKEN}&uid=${user.userId}`;
+  }
+
+  return null;
+};
 
 // @GET /api/surveys/cpx
 // Returns CPX Research offerwall URL for the user
@@ -15,14 +64,11 @@ exports.getCPXSurveyWall = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Account activation required' });
     }
 
-    const appId = process.env.CPX_RESEARCH_APP_ID;
-    const hashKey = process.env.CPX_RESEARCH_HASH_KEY;
-    const userId = user.userId;
+    const wallUrl = resolveSurveyWallUrl('cpx', user);
 
-    // CPX requires a secure hash: md5(user_id + "-" + hash_key)
-    const hash = crypto.createHash('md5').update(`${userId}-${hashKey}`).digest('hex');
-
-    const wallUrl = `https://offers.cpx-research.com/index.php?app_id=${appId}&ext_user_id=${userId}&secure_hash=${hash}&username=${encodeURIComponent(user.name)}&email=${encodeURIComponent(user.email || '')}&subid_1=${user.country}`;
+    if (!wallUrl) {
+      return res.status(503).json({ success: false, message: 'CPX survey wall is not configured' });
+    }
 
     res.json({ success: true, wallUrl });
   } catch (error) {
@@ -39,15 +85,58 @@ exports.getBitLabsWall = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Account activation required' });
     }
 
-    const token = process.env.BITLABS_API_TOKEN;
-    const userId = user.userId;
+    const wallUrl = resolveSurveyWallUrl('bitlabs', user);
 
-    // BitLabs offerwall link
-    const wallUrl = `https://web.bitlabs.ai/?token=${token}&uid=${userId}`;
+    if (!wallUrl) {
+      return res.status(503).json({ success: false, message: 'BitLabs survey wall is not configured' });
+    }
 
     res.json({ success: true, wallUrl });
   } catch (error) {
     logger.error(`getBitLabsWall error: ${error.message}`);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @GET /api/surveys/feed
+exports.getSurveyFeed = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user.activationStatus) {
+      return res.status(403).json({ success: false, message: 'Account activation required' });
+    }
+
+    const surveyCategory = getCategoryProviders('surveys');
+    const providers = (surveyCategory?.providers || []).map((provider) => {
+      const url = resolveSurveyWallUrl(provider.key, user);
+      return {
+        key: provider.key,
+        name: provider.name,
+        description: provider.description,
+        integrationType: provider.integrationType,
+        access: provider.access,
+        badge: provider.badge,
+        url,
+        live: Boolean(url),
+      };
+    });
+
+    const surveys = SURVEY_TEMPLATE.map((survey) => {
+      const provider = providers.find((entry) => entry.key === survey.providerKey) || null;
+      return {
+        ...survey,
+        provider,
+        canStart: Boolean(provider?.url),
+      };
+    });
+
+    res.json({
+      success: true,
+      surveys,
+      providers,
+    });
+  } catch (error) {
+    logger.error(`getSurveyFeed error: ${error.message}`);
     res.status(500).json({ success: false, message: error.message });
   }
 };
