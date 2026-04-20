@@ -15,6 +15,7 @@ const walletSchema = new mongoose.Schema({
   pendingBalance: { type: Number, default: 0 }, // Awaiting confirmation
   totalWithdrawn: { type: Number, default: 0 },
   totalEarned: { type: Number, default: 0 },
+  totalDeposited: { type: Number, default: 0 },
 }, {
   timestamps: true,
 });
@@ -40,6 +41,12 @@ walletSchema.methods.debit = async function (amount) {
   if (this.balanceUSD < amount) throw new Error('Insufficient balance');
   this.balanceUSD -= amount;
   this.totalWithdrawn += amount;
+  return this.save();
+};
+
+walletSchema.methods.deposit = async function (amount) {
+  this.balanceUSD += amount;
+  this.totalDeposited += amount;
   return this.save();
 };
 

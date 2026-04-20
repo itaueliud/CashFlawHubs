@@ -43,6 +43,7 @@ exports.getWallet = async (req, res) => {
         currency: countryConfig.currency,
         symbol: countryConfig.symbol,
         totalEarned: wallet.totalEarned,
+        totalDeposited: wallet.totalDeposited,
         totalWithdrawn: wallet.totalWithdrawn,
         breakdown: {
           surveys: wallet.surveyEarnings,
