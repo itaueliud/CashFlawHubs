@@ -36,14 +36,22 @@ const BASE_NAV = [
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, logout } = useAuthStore();
+  const { user, logout, hasHydrated } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    if (!user) router.push('/login');
-  }, [router, user]);
+    if (hasHydrated && !user) router.push('/login');
+  }, [hasHydrated, router, user]);
+
+  if (!hasHydrated) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-950 text-slate-400">
+        Loading dashboard...
+      </div>
+    );
+  }
 
   if (!user) return null;
 

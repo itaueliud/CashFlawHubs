@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import api from '@/lib/api';
 
 interface User {
@@ -40,8 +40,10 @@ interface AuthState {
   user: User | null;
   token: string | null;
   isLoading: boolean;
+  hasHydrated: boolean;
   setUser: (user: User) => void;
   setToken: (token: string) => void;
+  setHasHydrated: (hasHydrated: boolean) => void;
   login: (identifier: string, password: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -53,9 +55,14 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
       isLoading: false,
+      hasHydrated: false,
 
       setUser: (user) => set({ user }),
-      setToken: (token) => set({ token }),
+      setToken: (token) => {
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        set({ token });
+      },
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
 
       login: async (identifier, password) => {
         set({ isLoading: true });
@@ -84,7 +91,15 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'earnhub-auth',
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ token: state.token, user: state.user }),
+      onRehydrateStorage: () => (state) => {
+        const token = state?.token;
+        if (token) {
+          api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        }
+        state?.setHasHydrated(true);
+      },
     }
   )
 );
