@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   initiateActivation,
+  initiateWalletDeposit,
   initiateTokenPurchase,
   paystackWebhook,
   mpesaCallback,
@@ -14,6 +15,7 @@ const {
 const { protect } = require('../middleware/auth');
 
 router.post('/initiate-activation', protect, initiateActivation);
+router.post('/deposits/initiate', protect, initiateWalletDeposit);
 router.post('/tokens/purchase', protect, initiateTokenPurchase);
 router.get('/verify/:reference', protect, verifyPayment);
 router.post('/paystack/webhook', paystackWebhook);

@@ -12,14 +12,14 @@ function WalletCallbackContent() {
   const searchParams = useSearchParams();
   const { refreshUser } = useAuthStore();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [message, setMessage] = useState('Confirming your token purchase...');
+  const [message, setMessage] = useState('Confirming your wallet payment...');
 
   useEffect(() => {
     const reference = searchParams.get('reference') || searchParams.get('trxref');
 
     if (!reference) {
       setStatus('error');
-      setMessage('Missing token purchase reference.');
+      setMessage('Missing wallet payment reference.');
       return;
     }
 
@@ -35,13 +35,19 @@ function WalletCallbackContent() {
 
         await refreshUser();
         localStorage.removeItem('cashflawhubs-pending-token-purchase');
+        localStorage.removeItem('cashflawhubs-pending-wallet-deposit');
         setStatus('success');
-        setMessage('Tokens credited successfully. Returning to your wallet...');
-        toast.success('Token purchase completed.');
+        if (response.data.type === 'deposit') {
+          setMessage('Deposit credited successfully. Returning to your wallet...');
+          toast.success('Wallet deposit completed.');
+        } else {
+          setMessage('Tokens credited successfully. Returning to your wallet...');
+          toast.success('Token purchase completed.');
+        }
         setTimeout(() => router.replace('/dashboard/wallet'), 1500);
       } catch (error: any) {
         setStatus('error');
-        setMessage(error.response?.data?.message || 'Failed to verify token purchase.');
+        setMessage(error.response?.data?.message || 'Failed to verify wallet payment.');
       }
     };
 
@@ -58,8 +64,8 @@ function WalletCallbackContent() {
         </div>
 
         <h1 className="text-xl font-black">
-          {status === 'loading' && 'Verifying Tokens'}
-          {status === 'success' && 'Tokens Added'}
+          {status === 'loading' && 'Verifying Payment'}
+          {status === 'success' && 'Wallet Updated'}
           {status === 'error' && 'Verification Failed'}
         </h1>
 

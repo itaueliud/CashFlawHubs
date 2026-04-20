@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 
 const TOKEN_PURCHASE_STORAGE_KEY = 'cashflawhubs-pending-token-purchase';
+const WALLET_DEPOSIT_STORAGE_KEY = 'cashflawhubs-pending-wallet-deposit';
 
 type PendingTokenPurchase = {
   reference: string;
@@ -25,11 +26,21 @@ type PendingTokenPurchase = {
   checkoutUrl?: string | null;
 };
 
+type PendingWalletDeposit = {
+  reference: string;
+  amount: number;
+  currency: string;
+  provider: string;
+  checkoutUrl?: string | null;
+};
+
 export default function WalletPage() {
   const [withdrawing, setWithdrawing] = useState(false);
+  const [depositing, setDepositing] = useState(false);
   const [buyingTokens, setBuyingTokens] = useState<number | null>(null);
   const [verifyingPurchase, setVerifyingPurchase] = useState(false);
   const [pendingPurchase, setPendingPurchase] = useState<PendingTokenPurchase | null>(null);
+  const [pendingDeposit, setPendingDeposit] = useState<PendingWalletDeposit | null>(null);
   const queryClient = useQueryClient();
   const { user, refreshUser } = useAuthStore();
 
@@ -45,10 +56,14 @@ export default function WalletPage() {
   });
 
   const { register, handleSubmit, reset } = useForm<{ amountUSD: number; phoneNumber: string }>();
+  const { register: registerDeposit, handleSubmit: handleDepositSubmit, reset: resetDeposit } = useForm<{ amountLocal: number; phoneNumber: string }>({
+    defaultValues: { phoneNumber: user?.phone || '' },
+  });
   const wallet = walletData || {};
   const transactions = transactionData || [];
   const tokenPackages = user?.tokenPackages || [];
   const pendingReference = pendingPurchase?.reference || null;
+  const pendingDepositReference = pendingDeposit?.reference || null;
 
   const persistPendingPurchase = (payload: PendingTokenPurchase | null) => {
     if (typeof window === 'undefined') return;
@@ -87,6 +102,43 @@ export default function WalletPage() {
     }
   };
 
+  const persistPendingDeposit = (payload: PendingWalletDeposit | null) => {
+    if (typeof window === 'undefined') return;
+    if (!payload) {
+      localStorage.removeItem(WALLET_DEPOSIT_STORAGE_KEY);
+      return;
+    }
+    localStorage.setItem(WALLET_DEPOSIT_STORAGE_KEY, JSON.stringify(payload));
+  };
+
+  const verifyPendingDeposit = async (reference: string, silent = false) => {
+    setVerifyingPurchase(true);
+    try {
+      const response = await api.get(`/payments/verify/${encodeURIComponent(reference)}`);
+      if (!response.data.verified) {
+        return false;
+      }
+
+      await refreshUser();
+      await queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      await queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      setPendingDeposit(null);
+      persistPendingDeposit(null);
+
+      if (!silent) {
+        toast.success(`Deposit credited successfully. Wallet balance: $${Number(response.data.walletBalanceUSD || 0).toFixed(2)}`);
+      }
+      return true;
+    } catch (error: any) {
+      if (!silent) {
+        toast.error(error.response?.data?.message || 'Unable to verify deposit yet');
+      }
+      return false;
+    } finally {
+      setVerifyingPurchase(false);
+    }
+  };
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const raw = localStorage.getItem(TOKEN_PURCHASE_STORAGE_KEY);
@@ -100,6 +152,18 @@ export default function WalletPage() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const raw = localStorage.getItem(WALLET_DEPOSIT_STORAGE_KEY);
+    if (!raw) return;
+
+    try {
+      setPendingDeposit(JSON.parse(raw));
+    } catch {
+      localStorage.removeItem(WALLET_DEPOSIT_STORAGE_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!pendingReference) return undefined;
 
     const interval = window.setInterval(() => {
@@ -109,10 +173,25 @@ export default function WalletPage() {
     return () => window.clearInterval(interval);
   }, [pendingReference]);
 
+  useEffect(() => {
+    if (!pendingDepositReference) return undefined;
+
+    const interval = window.setInterval(() => {
+      verifyPendingDeposit(pendingDepositReference, true);
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [pendingDepositReference]);
+
   const pendingPurchaseLabel = useMemo(() => {
     if (!pendingPurchase) return null;
     return `${pendingPurchase.tokens} tokens via ${pendingPurchase.provider}`;
   }, [pendingPurchase]);
+
+  const pendingDepositLabel = useMemo(() => {
+    if (!pendingDeposit) return null;
+    return `${pendingDeposit.amount} ${pendingDeposit.currency} via ${pendingDeposit.provider}`;
+  }, [pendingDeposit]);
 
   const onWithdraw = async (data: { amountUSD: number; phoneNumber: string }) => {
     setWithdrawing(true);
@@ -129,6 +208,35 @@ export default function WalletPage() {
       toast.error(error.response?.data?.message || 'Withdrawal failed');
     } finally {
       setWithdrawing(false);
+    }
+  };
+
+  const onDeposit = async (data: { amountLocal: number; phoneNumber: string }) => {
+    setDepositing(true);
+    try {
+      const response = await api.post('/payments/deposits/initiate', data);
+      const pending = {
+        reference: response.data.reference,
+        amount: Number(response.data.amount),
+        currency: response.data.currency,
+        provider: response.data.provider,
+        checkoutUrl: response.data.checkoutUrl,
+      };
+
+      setPendingDeposit(pending);
+      persistPendingDeposit(pending);
+
+      if (response.data.checkoutUrl) {
+        window.location.assign(response.data.checkoutUrl);
+        return;
+      }
+
+      toast.success(`Deposit started for ${pending.amount} ${pending.currency}. We'll keep checking for confirmation.`);
+      resetDeposit({ amountLocal: undefined as unknown as number, phoneNumber: data.phoneNumber });
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Deposit failed');
+    } finally {
+      setDepositing(false);
     }
   };
 
@@ -189,6 +297,45 @@ export default function WalletPage() {
           <div className="text-2xl font-black">${(wallet.totalEarned || 0).toFixed(2)}</div>
           <div className="mt-0.5 text-xs text-slate-500">All time</div>
         </div>
+      </div>
+
+      <div className="card">
+        <h3 className="mb-4 font-bold">Deposit Funds</h3>
+        {pendingDeposit && (
+          <div className="mb-4 flex items-center justify-between rounded-2xl border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm">
+            <div>
+              <div className="font-semibold text-green-300">Pending wallet deposit</div>
+              <div className="text-slate-400">{pendingDepositLabel}</div>
+            </div>
+            <button
+              onClick={() => verifyPendingDeposit(pendingDeposit.reference)}
+              disabled={verifyingPurchase}
+              className="inline-flex items-center gap-2 rounded-xl border border-green-400/40 px-3 py-2 text-green-300"
+            >
+              {verifyingPurchase ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+              Check status
+            </button>
+          </div>
+        )}
+
+        <form onSubmit={handleDepositSubmit(onDeposit)} className="max-w-sm space-y-4">
+          <div>
+            <label className="mb-1.5 block text-sm text-slate-300">Amount ({wallet.currency || user?.country || 'Local'})</label>
+            <input {...registerDeposit('amountLocal', { required: true })} type="number" step="0.01" placeholder="e.g. 500" className="input" />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm text-slate-300">Payment Number</label>
+            <input {...registerDeposit('phoneNumber', { required: true })} placeholder="+254712345678" className="input" />
+          </div>
+
+          <button type="submit" disabled={depositing} className="btn-primary flex items-center gap-2">
+            {depositing && <Loader2 size={16} className="animate-spin" />}
+            Deposit to Wallet
+          </button>
+
+          <p className="text-xs text-slate-500">Deposits use your country&apos;s configured collection rail and credit the wallet after payment confirmation.</p>
+        </form>
       </div>
 
       <div className="card">
