@@ -369,11 +369,12 @@ const fulfillTokenPurchase = async (reference, provider, providerTransactionId) 
   return tx;
 };
 
-const initiateMpesaSTK = async (user, amount) => {
+const initiateMpesaSTK = async (user, amount, phoneNumber) => {
   const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
   const password = Buffer.from(
     `${process.env.MPESA_SHORTCODE}${process.env.MPESA_PASSKEY}${timestamp}`
   ).toString('base64');
+  const normalizedPhone = normalizePhoneNumber(phoneNumber || user.phone);
 
   const baseUrl = process.env.NODE_ENV === 'production'
     ? 'https://api.safaricom.co.ke'
@@ -389,7 +390,7 @@ const initiateMpesaSTK = async (user, amount) => {
     }
   );
 
-  await axios.post(
+  return axios.post(
     `${baseUrl}/mpesa/stkpush/v1/processrequest`,
     {
       BusinessShortCode: process.env.MPESA_SHORTCODE,
@@ -397,9 +398,9 @@ const initiateMpesaSTK = async (user, amount) => {
       Timestamp: timestamp,
       TransactionType: 'CustomerPayBillOnline',
       Amount: amount,
-      PartyA: normalizePhoneNumber(user.phone),
+      PartyA: normalizedPhone,
       PartyB: process.env.MPESA_SHORTCODE,
-      PhoneNumber: normalizePhoneNumber(user.phone),
+      PhoneNumber: normalizedPhone,
       CallBackURL: process.env.MPESA_CALLBACK_URL,
       AccountReference: `CashFlawHubs-${user.userId}`,
       TransactionDesc: 'CashFlawHubs Account Activation',
@@ -411,12 +412,12 @@ const initiateMpesaSTK = async (user, amount) => {
     }
   );
 
-  return null;
 };
 
 // @POST /api/payments/initiate-activation
 exports.initiateActivation = async (req, res) => {
   try {
+    const { phoneNumber } = req.body;
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -428,9 +429,19 @@ exports.initiateActivation = async (req, res) => {
 
     const countryConfig = COUNTRIES[user.country];
     const reference = buildReference('ACT', user.userId);
+    const paymentPhone = String(phoneNumber || user.phone || '').trim();
+
+    if (!paymentPhone) {
+      return res.status(400).json({ success: false, message: 'Phone number is required for activation payment' });
+    }
+
+    const normalizedPaymentPhone = normalizePhoneNumber(paymentPhone);
+    if (normalizedPaymentPhone.length < 9) {
+      return res.status(400).json({ success: false, message: 'Enter a valid payment phone number' });
+    }
 
     if (user.country === 'KE' && useDarajaForKenya()) {
-      await initiateMpesaSTK(user, countryConfig.activationFee);
+      const stkResponse = await initiateMpesaSTK(user, countryConfig.activationFee, paymentPhone);
 
       await Transaction.create({
         userId: user._id,
@@ -446,6 +457,9 @@ exports.initiateActivation = async (req, res) => {
         metadata: {
           reference,
           channel: 'daraja_stk',
+          phoneNumber: paymentPhone,
+          phoneNumberNormalized: normalizedPaymentPhone,
+          checkoutRequestId: stkResponse?.data?.CheckoutRequestID || null,
         },
       });
 
@@ -474,6 +488,7 @@ exports.initiateActivation = async (req, res) => {
         userId: user._id.toString(),
         type: 'activation',
         country: user.country,
+        phoneNumber: paymentPhone,
         localAmount: countryConfig.activationFee,
         localCurrency: countryConfig.currency,
       },
@@ -494,6 +509,8 @@ exports.initiateActivation = async (req, res) => {
       status: 'pending',
       metadata: {
         reference,
+        phoneNumber: paymentPhone,
+        phoneNumberNormalized: normalizedPaymentPhone,
         localAmount: countryConfig.activationFee,
         localCurrency: countryConfig.currency,
       },
@@ -717,18 +734,43 @@ exports.mpesaCallback = async (req, res) => {
     const amount = items.find((item) => item.Name === 'Amount')?.Value;
     const phone = items.find((item) => item.Name === 'PhoneNumber')?.Value?.toString();
     const txId = items.find((item) => item.Name === 'MpesaReceiptNumber')?.Value;
+    const normalizedCallbackPhone = normalizePhoneNumber(phone || '');
 
-    const user = await User.findOne({ phone: `+${phone}` });
-    if (!user) {
+    const pendingTx = await Transaction.findOne({
+      status: 'pending',
+      $or: [
+        { 'metadata.phoneNumberNormalized': normalizedCallbackPhone },
+        { providerTransactionId: txId },
+      ],
+    }).sort({ createdAt: -1 });
+
+    if (!pendingTx) {
+      const user = await User.findOne({ phone: `+${phone}` });
+      if (!user) {
+        return res.status(200).json({ received: true });
+      }
+
+      const fallbackPendingTx = await Transaction.findOne({ userId: user._id, status: 'pending' }).sort({ createdAt: -1 });
+      if (fallbackPendingTx?.type === 'token_purchase') {
+        await fulfillTokenPurchase(fallbackPendingTx.providerTransactionId || txId, 'mpesa', txId);
+      } else {
+        await publishToQueue('payment.activation', {
+          userId: user._id.toString(),
+          amountLocal: amount,
+          currency: 'KES',
+          providerTxId: txId,
+          provider: 'mpesa',
+        });
+      }
+
       return res.status(200).json({ received: true });
     }
 
-    const pendingTx = await Transaction.findOne({ userId: user._id, status: 'pending' }).sort({ createdAt: -1 });
     if (pendingTx?.type === 'token_purchase') {
       await fulfillTokenPurchase(pendingTx.providerTransactionId || txId, 'mpesa', txId);
     } else {
       await publishToQueue('payment.activation', {
-        userId: user._id.toString(),
+        userId: pendingTx.userId.toString(),
         amountLocal: amount,
         currency: 'KES',
         providerTxId: txId,

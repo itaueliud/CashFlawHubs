@@ -1,10 +1,10 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import toast from 'react-hot-toast';
-import { CheckCircle, Loader2, Shield } from 'lucide-react';
+import { CheckCircle, Loader2, Phone, Shield } from 'lucide-react';
 
 const FEE_MAP: Record<string, string> = { KE:'500 KES', UG:'16,650 UGX', TZ:'11,500 TZS', ET:'2,250 ETB', GH:'GH₵18', NG:'₦6,500' };
 
@@ -12,13 +12,24 @@ export default function ActivatePage() {
   const { user, refreshUser } = useAuthStore();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [paymentPhone, setPaymentPhone] = useState(user?.phone || '');
+  useEffect(() => {
+    if (user?.phone) {
+      setPaymentPhone((current) => current || user.phone);
+    }
+  }, [user?.phone]);
   if (user?.activationStatus) { router.push('/dashboard'); return null; }
   const fee = FEE_MAP[user?.country || 'KE'] || '500 KES';
 
   const handleActivate = async () => {
+    if (!paymentPhone.trim()) {
+      toast.error('Enter the number you want to use for activation payment.');
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await api.post('/payments/initiate-activation');
+      const res = await api.post('/payments/initiate-activation', { phoneNumber: paymentPhone.trim() });
       if (res.data.paymentLink) { window.location.href = res.data.paymentLink; }
       else { toast.success('STK Push sent! Complete payment on your phone.'); setTimeout(() => { refreshUser(); router.push('/dashboard'); }, 6000); }
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed to initiate payment'); }
@@ -31,6 +42,18 @@ export default function ActivatePage() {
       <div className="card border-green-500/30 bg-green-500/5 text-center py-6">
         <div className="text-5xl font-black text-green-400 mb-1">{fee}</div>
         <div className="text-slate-400 text-sm">One-time activation fee</div>
+      </div>
+      <div className="card">
+        <label className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-300">
+          <Phone size={16} className="text-green-400" /> Payment Number
+        </label>
+        <input
+          value={paymentPhone}
+          onChange={(event) => setPaymentPhone(event.target.value)}
+          placeholder="+254712345678"
+          className="input"
+        />
+        <p className="mt-2 text-sm text-slate-400">Users can enter a different number here for the activation payment prompt.</p>
       </div>
       <div className="card">
         <h3 className="font-bold mb-3">What You Unlock</h3>
