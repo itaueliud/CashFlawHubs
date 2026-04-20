@@ -87,37 +87,6 @@ export default function JobsPage() {
         </div>
       </div>
 
-      {tokenPolicy && (
-        <div className="grid lg:grid-cols-2 gap-4">
-          <div className="card">
-            <h2 className="font-bold mb-3">Apply Token Tiers</h2>
-            <div className="space-y-2">
-              {tokenPolicy.applicationTiers.map((tier: any) => (
-                <div key={`${tier.min}-${tier.max}`} className="flex items-center justify-between rounded-xl bg-slate-900 px-4 py-3 text-sm">
-                  <span className="text-slate-300">
-                    {tier.max === Number.POSITIVE_INFINITY ? `${tier.min}+` : `${tier.min} - ${tier.max}`}
-                  </span>
-                  <span className="font-semibold text-yellow-300">{tier.tokens}T</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="card">
-            <h2 className="font-bold mb-3">Token Packages</h2>
-            <div className="space-y-2">
-              {tokenPolicy.tokenPackages.map((pkg: any) => (
-                <div key={pkg.tokens} className="flex items-center justify-between rounded-xl bg-slate-900 px-4 py-3 text-sm">
-                  <span className="text-slate-300">{pkg.tokens} tokens</span>
-                  <span className="font-semibold text-green-400">KSh {pkg.amountKES}</span>
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-slate-500 mt-3">Posting one job uses {tokenPolicy.postingCost} tokens.</p>
-          </div>
-        </div>
-      )}
-
       <div className="flex gap-2 border-b border-slate-700 pb-2">
         {(['browse', 'post'] as const).map((tabName) => (
           <button

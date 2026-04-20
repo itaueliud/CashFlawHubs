@@ -3,11 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { TrendingUp, ExternalLink } from 'lucide-react';
 
-const payoutBands = [
-  { range: '151 to 700', payout: 'KSh 500' },
-  { range: '701 to 1500+', payout: 'KSh 1,000' },
-];
-
 export default function CashTasksPage() {
   const { data } = useQuery({
     queryKey: ['category-providers', 'cash_tasks'],
@@ -40,17 +35,6 @@ export default function CashTasksPage() {
             )}
           </div>
         ))}
-      </div>
-      <div className="card">
-        <h2 className="font-bold mb-3">Cash Task Reward Bands</h2>
-        <div className="space-y-2">
-          {payoutBands.map((band) => (
-            <div key={band.range} className="flex items-center justify-between rounded-xl bg-slate-900 px-4 py-3 text-sm">
-              <span className="text-slate-300">{band.range}</span>
-              <span className="font-semibold text-green-400">{band.payout}</span>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );
