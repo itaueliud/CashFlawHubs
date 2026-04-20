@@ -41,7 +41,6 @@ const schema = z
     faceVerificationImage: optionalDataUrlSchema,
     phone: z.string().min(9, 'Enter a valid phone number'),
     country: z.string().min(2, 'Select your country'),
-    otp: z.string().length(6, 'Enter the 6-digit OTP'),
     password: z.string().min(6, 'Password must be at least 6 characters'),
     confirmPassword: z.string().min(6, 'Confirm your password'),
     referralCode: z.string().optional(),
@@ -66,8 +65,8 @@ const STEPS = [
   {
     number: 1,
     title: 'Personal Details',
-    description: 'Name, email and phone verification',
-    fields: ['firstName', 'lastName', 'email', 'country', 'phone', 'otp'] as const,
+    description: 'Name, email and phone details',
+    fields: ['firstName', 'lastName', 'email', 'country', 'phone'] as const,
   },
   {
     number: 2,
@@ -116,10 +115,7 @@ function RegisterPageContent() {
   const [currentStep, setCurrentStep] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [sendingOtp, setSendingOtp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpTarget, setOtpTarget] = useState('');
   const [idPreview, setIdPreview] = useState('');
   const [facePreview, setFacePreview] = useState('');
   const [cameraReady, setCameraReady] = useState(false);
@@ -168,17 +164,6 @@ function RegisterPageContent() {
       setValue('phone', nextPhone, { shouldValidate: true, shouldDirty: true });
     }
   }, [country, phone, selectedCountryConfig, setValue]);
-
-  useEffect(() => {
-    if (!otpSent) return;
-
-    const currentOtpTarget = `${country}:${phone}`;
-    if (otpTarget && otpTarget !== currentOtpTarget) {
-      setOtpSent(false);
-      setOtpTarget('');
-      setValue('otp', '', { shouldValidate: true, shouldDirty: true });
-    }
-  }, [country, phone, otpSent, otpTarget, setValue]);
 
   const stopCamera = () => {
     if (streamRef.current) {
@@ -284,29 +269,6 @@ function RegisterPageContent() {
     startCamera();
   };
 
-  const sendOTP = async () => {
-    const valid = await trigger(['phone', 'country']);
-    if (!valid) {
-      toast.error('Select your country and enter a valid phone number first');
-      return;
-    }
-
-    setSendingOtp(true);
-    try {
-      const res = await api.post('/auth/send-otp', { phone, country });
-      if (res.data.otp) {
-        setValue('otp', res.data.otp, { shouldValidate: true });
-      }
-      setOtpSent(true);
-      setOtpTarget(`${country}:${phone}`);
-      toast.success(res.data.otp ? 'OTP generated and filled in for you' : 'OTP sent to your phone');
-    } catch (err: any) {
-      toast.error(getApiErrorMessage(err, 'Failed to send OTP'));
-    } finally {
-      setSendingOtp(false);
-    }
-  };
-
   const goToNextStep = async () => {
     const valid = await trigger([...STEPS[currentStep].fields]);
     if (!valid) return;
@@ -315,13 +277,8 @@ function RegisterPageContent() {
   };
 
   const onSubmit = async (data: FormData) => {
-    const valid = await trigger(['otp', ...STEPS[3].fields]);
+    const valid = await trigger([...STEPS[3].fields]);
     if (!valid) return;
-
-    if (!otpSent) {
-      toast.error('Send a fresh OTP for the current phone number before creating the account');
-      return;
-    }
 
     setIsLoading(true);
     try {
@@ -560,29 +517,9 @@ function RegisterPageContent() {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
-                      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_160px]">
-                        <div>
-                          <label className="mb-1.5 block text-sm font-medium text-slate-300">Phone OTP</label>
-                          <input {...register('otp')} placeholder="6-digit OTP" className="input" maxLength={6} />
-                          {errors.otp && <p className="mt-1 text-xs text-red-400">{errors.otp.message}</p>}
-                          <p className="mt-1 text-xs text-slate-500">The code is auto-filled in development after you press Send OTP.</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={sendOTP}
-                          disabled={sendingOtp}
-                          className="btn-secondary mt-6 flex h-[50px] items-center justify-center gap-2"
-                        >
-                          {sendingOtp ? <Loader2 size={16} className="animate-spin" /> : 'Send OTP'}
-                        </button>
-                      </div>
-
-                      {otpSent && (
-                        <div className="mt-4 flex items-center gap-2 rounded-xl border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs text-green-300">
-                          <CheckCircle size={14} /> Phone verification code received
-                        </div>
-                      )}
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 text-sm text-slate-300">
+                      <p className="font-semibold text-white">Phone number</p>
+                      <p className="mt-1 text-slate-400">Phone OTP is skipped for now. Users can create accounts directly.</p>
                     </div>
                     </motion.div>
                   )}
@@ -837,7 +774,7 @@ function RegisterPageContent() {
                           </div>
                           <div className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3">
                             <span className="text-slate-400">Phone</span>
-                            <span className={otpSent ? 'text-green-300' : 'text-amber-300'}>{otpSent ? 'OTP ready' : 'Pending'}</span>
+                            <span className="text-green-300">Added</span>
                           </div>
                           <div className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3">
                             <span className="text-slate-400">ID upload</span>
@@ -890,7 +827,7 @@ function RegisterPageContent() {
                   ) : (
                     <button
                       type="submit"
-                      disabled={isLoading || !otpSent}
+                      disabled={isLoading}
                       className="btn-primary flex items-center justify-center gap-2"
                     >
                       {isLoading ? <Loader2 size={18} className="animate-spin" /> : 'Create Account'}

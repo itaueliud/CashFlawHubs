@@ -166,13 +166,12 @@ exports.register = async (req, res) => {
       country,
       password,
       referralCode,
-      otp,
       idNumber,
       idDocumentImage,
       faceVerificationImage,
     } = req.body;
 
-    if (!firstName || !lastName || !email || !phone || !country || !password || !otp) {
+    if (!firstName || !lastName || !email || !phone || !country || !password) {
       return res.status(400).json({ success: false, message: 'Missing required registration fields' });
     }
     if (!isValidEmail(email)) {
@@ -181,11 +180,6 @@ exports.register = async (req, res) => {
     if (!COUNTRIES[country]) {
       return res.status(400).json({ success: false, message: 'Unsupported country' });
     }
-    const storedOTP = await getCode('otp', phone);
-    if (!storedOTP || storedOTP !== otp) {
-      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
-    }
-
     let existingPhone;
     let existingEmail;
     let existingId = null;
@@ -237,10 +231,9 @@ exports.register = async (req, res) => {
         identityVerificationStatus,
         referredBy: referrer ? referrer.referralCode : null,
         emailVerified: true,
-        phoneVerified: true,
+        phoneVerified: false,
       });
 
-      await clearCode('otp', phone);
       const token = signToken(user.id);
       logger.warn(`MongoDB unavailable. Registered ${user.userId} using local development auth storage.`);
 
@@ -271,13 +264,10 @@ exports.register = async (req, res) => {
       identityVerificationStatus,
       referredBy: referrer ? referrer.referralCode : null,
       emailVerified: true,
-      phoneVerified: true,
+      phoneVerified: false,
     });
 
-    await Promise.all([
-      Wallet.create({ userId: user._id }),
-      clearCode('otp', phone),
-    ]);
+    await Wallet.create({ userId: user._id });
 
     const token = signToken(user._id);
     logger.info(`New user registered: ${user.userId} from ${country}`);
