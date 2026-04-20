@@ -1,11 +1,17 @@
 const logger = require('../utils/logger');
 
+const smsConfigured = () =>
+  Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER);
+
 // SMS via Twilio
 const sendSMS = async (phone, message) => {
   try {
     if (process.env.NODE_ENV === 'development') {
       logger.info(`[DEV SMS] To: ${phone} | Message: ${message}`);
       return;
+    }
+    if (!smsConfigured()) {
+      throw new Error('SMS provider is not configured');
     }
     const twilio = require('twilio');
     const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
@@ -65,4 +71,4 @@ const sendActivationNotification = async ({ userId, referredBy }) => {
   }
 };
 
-module.exports = { sendSMS, sendEmail, sendActivationNotification };
+module.exports = { sendSMS, sendEmail, sendActivationNotification, smsConfigured };

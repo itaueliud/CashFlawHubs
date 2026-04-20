@@ -4,7 +4,7 @@ const User = require('../models/User');
 const Wallet = require('../models/Wallet');
 const { getRedis } = require('../config/redis');
 const logger = require('../utils/logger');
-const { sendSMS, sendEmail } = require('../services/notificationService');
+const { sendSMS, sendEmail, smsConfigured } = require('../services/notificationService');
 const { COUNTRIES } = require('../config/countries');
 const { TOKEN_PACKAGES } = require('../config/monetization');
 const devAuthStore = require('../services/devAuthStore');
@@ -77,9 +77,16 @@ exports.sendOTP = async (req, res) => {
     const otp = generateOTP();
     await setCode('otp', phone, otp);
 
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === 'development' || !smsConfigured()) {
+      if (!smsConfigured()) {
+        logger.warn(`SMS provider not configured. Returning OTP directly for ${phone}.`);
+      }
       logger.info(`[DEV MODE] OTP generated for ${phone}: ${otp}`);
-      return res.json({ success: true, message: 'OTP generated successfully', otp });
+      return res.json({
+        success: true,
+        message: smsConfigured() ? 'OTP generated successfully' : 'SMS not configured. OTP generated directly.',
+        otp,
+      });
     }
 
     await sendSMS(phone, `Your CashFlawHubs verification code is: ${otp}. Valid for 5 minutes.`);
