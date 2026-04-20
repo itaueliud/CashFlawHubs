@@ -1,4 +1,4 @@
-# CashflowConnect — African Remote Earning Platform
+# CashFlawHubs - African Remote Earning Platform
 
 A full-stack platform where users across East & West Africa earn money through surveys, microtasks, remote jobs, offerwalls, freelance gigs, and referrals — with M-Pesa, MTN MoMo, Flutterwave payouts.
 
@@ -54,6 +54,10 @@ cp .env.example .env.local
 # Fill in your environment variables
 npm run dev
 ```
+
+## Architecture Docs
+
+- Hybrid payment research and rollout plan: [docs/HYBRID_PAYMENT_STACK_RESEARCH.md](docs/HYBRID_PAYMENT_STACK_RESEARCH.md)
 
 ## Earning Modules
 

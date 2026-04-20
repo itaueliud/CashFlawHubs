@@ -4,24 +4,31 @@ const Wallet = require('../models/Wallet');
 const Transaction = require('../models/Transaction');
 const { COUNTRIES } = require('../config/countries');
 const { getCurrencyRate } = require('../services/exchangeService');
+const paymentOrchestrator = require('../services/paymentOrchestrator');
+const { publishToQueue, QUEUES } = require('../services/queueWorker');
 const logger = require('../utils/logger');
 
-const Flutterwave = require('flutterwave-node-v3');
-const getFlutterwaveClient = () => {
-  if (!process.env.FLUTTERWAVE_PUBLIC_KEY || !process.env.FLUTTERWAVE_SECRET_KEY) {
-    throw new Error('Flutterwave credentials are not configured');
+const getWithdrawalCallbackUrl = (strategy) => {
+  const base = process.env.BACKEND_URL;
+  switch (strategy) {
+    case 'jenga_mobile_wallet':
+      return `${base}/api/payments/jenga/callback`;
+    case 'mtn_momo_transfer':
+      return `${base}/api/payments/mtn-momo/callback`;
+    case 'telebirr_transfer':
+      return `${base}/api/payments/telebirr/callback`;
+    case 'tanzania_wallet_b2c':
+      return `${base}/api/payments/tanzania-wallet/callback`;
+    case 'daraja_b2c':
+    default:
+      return `${base}/api/payments/mpesa/callback`;
   }
-
-  return new Flutterwave(
-    process.env.FLUTTERWAVE_PUBLIC_KEY,
-    process.env.FLUTTERWAVE_SECRET_KEY
-  );
 };
 
 // @POST /api/withdrawals/request
 exports.requestWithdrawal = async (req, res) => {
   try {
-    const { amountUSD, phoneNumber } = req.body;
+    const { amountUSD, phoneNumber, provider } = req.body;
     const user = await User.findById(req.user.id);
 
     if (!user.activationStatus) {
@@ -57,6 +64,7 @@ exports.requestWithdrawal = async (req, res) => {
         { session }
       );
 
+      const withdrawalStrategy = provider || countryConfig.paymentRouting?.withdrawals?.[0] || countryConfig.paymentProvider;
       const tx = await Transaction.create([{
         userId: user._id,
         type: 'withdrawal',
@@ -64,17 +72,30 @@ exports.requestWithdrawal = async (req, res) => {
         amountUSD,
         currency: countryConfig.currency,
         country: user.country,
-        provider: countryConfig.paymentProvider,
+        provider: countryConfig.paymentProvider === 'daraja' ? 'mpesa' : countryConfig.paymentProvider,
         direction: 'debit',
         status: 'pending',
-        metadata: { phoneNumber: phoneNumber || user.phone },
+        metadata: {
+          phoneNumber: phoneNumber || user.phone,
+          withdrawalStrategy,
+          requestedProvider: provider || null,
+        },
       }], { session });
 
       await session.commitTransaction();
 
+      await publishToQueue(QUEUES.WITHDRAWAL_PROCESS, {
+        transactionId: tx[0]._id.toString(),
+        userId: user._id.toString(),
+        amountUSD,
+        phoneNumber: phoneNumber || user.phone,
+        country: user.country,
+        requestedProvider: provider || null,
+      });
+
       res.json({
         success: true,
-        message: 'Withdrawal request submitted. It will be included in the next Friday payout batch.',
+        message: 'Withdrawal request submitted and routed to the configured payout provider.',
         transactionId: tx[0]._id,
         amountLocal: (amountUSD * rate).toFixed(2),
         currency: countryConfig.currency,
@@ -98,33 +119,45 @@ exports.processWithdrawal = async ({ transactionId, userId, amountUSD, phoneNumb
   const amountLocal = Math.floor(amountUSD * rate);
 
   try {
-    let transferRes;
-
-    if (country === 'KE') {
-      // M-Pesa B2C via Daraja
-      transferRes = await mpesaB2C(phoneNumber, amountLocal, transactionId);
-    } else {
-      // Flutterwave transfer for all others
-      const flw = getFlutterwaveClient();
-      const networkMap = {
-        UG: 'MTN', TZ: 'VODACOM', ET: 'TELEBIRR', GH: 'MTN', NG: 'MTN',
-      };
-      transferRes = await flw.Transfer.initiate({
-        account_bank: networkMap[country] || 'MTN',
-        account_number: phoneNumber.replace('+', ''),
-        amount: amountLocal,
-        currency: countryConfig.currency,
-        reference: `WD-${transactionId}`,
-        callback_url: `${process.env.BACKEND_URL}/api/withdrawals/flutterwave/callback`,
-        debit_currency: countryConfig.currency,
-      });
+    const user = await User.findById(userId);
+    const transaction = await Transaction.findById(transactionId);
+    if (!user || !transaction) {
+      throw new Error('Withdrawal user or transaction not found');
     }
+
+    const withdrawalReference = transaction.providerTransactionId || `WD-${transactionId}`;
+    const requestedProvider = transaction.metadata?.requestedProvider || transaction.metadata?.withdrawalStrategy || null;
+    const callbackUrl = getWithdrawalCallbackUrl(requestedProvider || countryConfig.paymentRouting?.withdrawals?.[0]);
+    const transferRes = await paymentOrchestrator.initiateWithdrawal({
+      country,
+      requestedProvider,
+      payload: {
+        reference: withdrawalReference,
+        amountLocal,
+        amountUSD,
+        currency: countryConfig.currency,
+        callbackUrl,
+        user: {
+          id: user._id.toString(),
+          name: user.name,
+          phone: phoneNumber || user.phone,
+          country: user.country,
+          walletName: user.country === 'KE' ? 'Mpesa' : undefined,
+        },
+      },
+    });
 
     // Mark as successful
     await Transaction.findByIdAndUpdate(transactionId, {
       status: 'successful',
-      providerTransactionId: transferRes?.data?.id || 'processed',
+      provider: transferRes?.provider || transaction.provider,
+      providerTransactionId: transferRes?.providerTransactionId || withdrawalReference,
       processedAt: new Date(),
+      metadata: {
+        ...(transaction.metadata || {}),
+        routedVia: transferRes?.strategy || requestedProvider || null,
+        payoutResponse: transferRes?.raw || null,
+      },
     });
 
     // Release pending balance
@@ -148,37 +181,6 @@ exports.processWithdrawal = async ({ transactionId, userId, amountUSD, phoneNumb
       { $inc: { balanceUSD: amountUSD, pendingBalance: -amountUSD } }
     );
   }
-};
-
-// M-Pesa B2C helper
-const mpesaB2C = async (phone, amount, ref) => {
-  const axios = require('axios');
-  const tokenRes = await axios.get(
-    'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials',
-    {
-      auth: {
-        username: process.env.MPESA_CONSUMER_KEY,
-        password: process.env.MPESA_CONSUMER_SECRET,
-      },
-    }
-  );
-
-  return axios.post(
-    'https://sandbox.safaricom.co.ke/mpesa/b2c/v1/paymentrequest',
-    {
-      InitiatorName: 'CashflowConnect',
-      SecurityCredential: process.env.MPESA_PASSKEY,
-      CommandID: 'BusinessPayment',
-      Amount: amount,
-      PartyA: process.env.MPESA_SHORTCODE,
-      PartyB: phone.replace('+', ''),
-      Remarks: 'CashflowConnect Withdrawal',
-      QueueTimeOutURL: `${process.env.BACKEND_URL}/api/payments/mpesa/timeout`,
-      ResultURL: `${process.env.BACKEND_URL}/api/withdrawals/mpesa/callback`,
-      Occasion: ref,
-    },
-    { headers: { Authorization: `Bearer ${tokenRes.data.access_token}` } }
-  );
 };
 
 // @GET /api/withdrawals/history

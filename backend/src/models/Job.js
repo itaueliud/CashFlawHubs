@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const jobSchema = new mongoose.Schema({
   externalId: { type: String, required: true, unique: true },
-  source: { type: String, enum: ['remotive', 'jobicy', 'adzuna'], required: true },
+  source: { type: String, enum: ['remotive', 'jobicy', 'adzuna', 'internal'], required: true },
   title: { type: String, required: true },
   company: { type: String, required: true },
   companyLogo: { type: String, default: null },
@@ -13,6 +13,11 @@ const jobSchema = new mongoose.Schema({
   description: { type: String, required: true },
   tags: [{ type: String }],
   applicationUrl: { type: String, required: true },
+  postedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  budgetAmount: { type: Number, default: null },
+  budgetCurrency: { type: String, default: null },
+  postingTokenCost: { type: Number, default: 0 },
+  applicationTokenCost: { type: Number, default: 0 },
   publishedAt: { type: Date, required: true },
   isActive: { type: Boolean, default: true },
   views: { type: Number, default: 0 },

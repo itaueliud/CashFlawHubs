@@ -6,7 +6,10 @@ const Wallet = require('../models/Wallet');
 const Referral = require('../models/Referral');
 const Transaction = require('../models/Transaction');
 const { COUNTRIES } = require('../config/countries');
+const { HYBRID_PAYMENT_STACK } = require('../config/paymentStack');
+const { TOKEN_PACKAGES, getTokenPackage } = require('../config/monetization');
 const { getCurrencyRate } = require('../services/exchangeService');
+const paymentOrchestrator = require('../services/paymentOrchestrator');
 const { publishToQueue } = require('../services/queueWorker');
 const logger = require('../utils/logger');
 
@@ -31,6 +34,11 @@ const PAYSTACK_TRANSFER_RECIPIENTS = {
     currency: 'GHS',
     bankCodeEnv: 'PAYSTACK_TRANSFER_BANK_CODE_GH',
   },
+};
+
+const FRONTEND_PAYMENT_PATHS = {
+  activation: '/activation/callback',
+  token_purchase: '/dashboard/wallet/callback',
 };
 
 const useDarajaForKenya = () => String(process.env.USE_DARAJA).toLowerCase() === 'true';
@@ -88,6 +96,10 @@ const initializePaystackPayment = async ({ amount, email, currency, reference, m
 
   return res.data.data;
 };
+
+const getFrontendReturnUrl = (type, reference) => (
+  `${process.env.FRONTEND_URL}${FRONTEND_PAYMENT_PATHS[type]}?reference=${encodeURIComponent(reference)}`
+);
 
 const verifyPaystackTransaction = async (reference) => {
   const res = await axios.get(
@@ -271,6 +283,92 @@ const markFridayPayoutRetryable = async (reference, reason) => {
   );
 };
 
+const getTokenPurchaseCallbackUrl = (providerKey, reference) => {
+  const base = process.env.BACKEND_URL;
+  switch (providerKey) {
+    case 'jenga':
+      return `${base}/api/payments/jenga/callback`;
+    case 'mtn_momo_request_to_pay':
+    case 'mtn_momo':
+      return `${base}/api/payments/mtn-momo/callback`;
+    case 'telebirr_app_approval':
+    case 'telebirr':
+      return `${base}/api/payments/telebirr/callback`;
+    case 'tanzania_wallet_prompt':
+    case 'tanzania_wallet':
+      return `${base}/api/payments/tanzania-wallet/callback`;
+    case 'paystack':
+    case 'paystack_card':
+    case 'paystack_bank_transfer':
+    case 'paystack_ussd':
+    case 'paystack_mpesa':
+    case 'paystack_mobile_money':
+    default:
+      return `${base}/api/payments/verify/${reference}`;
+  }
+};
+
+const markTransactionSuccessful = async (reference, provider, providerTransactionId, extraMetadata = {}) => {
+  const tx = await Transaction.findOne({
+    $or: [{ providerTransactionId: reference }, { 'metadata.reference': reference }],
+    status: 'pending',
+  });
+
+  if (!tx) {
+    return null;
+  }
+
+  tx.status = 'successful';
+  tx.provider = provider || tx.provider;
+  tx.providerTransactionId = providerTransactionId || tx.providerTransactionId || reference;
+  tx.processedAt = new Date();
+  tx.metadata = { ...(tx.metadata || {}), ...extraMetadata };
+  await tx.save();
+  return tx;
+};
+
+const buildVerificationResponse = async (tx) => {
+  const user = await User.findById(tx.userId);
+  return {
+    success: true,
+    verified: tx.status === 'successful',
+    status: tx.status,
+    activated: tx.type === 'activation' ? Boolean(user?.activationStatus) : false,
+    tokensCredited: tx.type === 'token_purchase' ? tx.status === 'successful' : false,
+    reference: tx.metadata?.reference || tx.providerTransactionId,
+    provider: tx.provider,
+    transactionId: tx._id,
+    tokenBalance: user?.tokenBalance,
+  };
+};
+
+const fulfillTokenPurchase = async (reference, provider, providerTransactionId) => {
+  const tx = await markTransactionSuccessful(reference, provider, providerTransactionId);
+  if (!tx) return null;
+  if (tx.type !== 'token_purchase') return tx;
+
+  const tokenCount = Number(tx.metadata?.tokens || 0);
+  if (!tokenCount) {
+    throw new Error(`Token purchase ${reference} missing token count`);
+  }
+
+  const user = await User.findById(tx.userId);
+  if (!user) {
+    throw new Error(`User ${tx.userId} not found for token purchase`);
+  }
+
+  user.creditTokens(tokenCount);
+  await user.save();
+
+  tx.metadata = {
+    ...(tx.metadata || {}),
+    fulfilledAt: new Date().toISOString(),
+    balanceAfter: user.tokenBalance,
+  };
+  await tx.save();
+  return tx;
+};
+
 const initiateMpesaSTK = async (user, amount) => {
   const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
   const password = Buffer.from(
@@ -303,8 +401,8 @@ const initiateMpesaSTK = async (user, amount) => {
       PartyB: process.env.MPESA_SHORTCODE,
       PhoneNumber: normalizePhoneNumber(user.phone),
       CallBackURL: process.env.MPESA_CALLBACK_URL,
-      AccountReference: `CashflowConnect-${user.userId}`,
-      TransactionDesc: 'CashflowConnect Account Activation',
+      AccountReference: `CashFlawHubs-${user.userId}`,
+      TransactionDesc: 'CashFlawHubs Account Activation',
     },
     {
       headers: {
@@ -357,6 +455,8 @@ exports.initiateActivation = async (req, res) => {
         amount: countryConfig.activationFee,
         currency: countryConfig.currency,
         reference,
+        paymentRouting: countryConfig.paymentRouting,
+        paymentStack: HYBRID_PAYMENT_STACK,
       });
     }
 
@@ -367,7 +467,7 @@ exports.initiateActivation = async (req, res) => {
 
     const paymentData = await initializePaystackPayment({
       amount: chargeAmount,
-      email: user.email || `${normalizePhoneNumber(user.phone)}@cashflowconnect.app`,
+      email: user.email || `${normalizePhoneNumber(user.phone)}@cashflawhubs.app`,
       currency: chargeCurrency,
       reference,
       metadata: {
@@ -405,9 +505,94 @@ exports.initiateActivation = async (req, res) => {
       amount: chargeAmount,
       currency: chargeCurrency,
       reference,
+      paymentRouting: countryConfig.paymentRouting,
+      paymentStack: HYBRID_PAYMENT_STACK,
     });
   } catch (error) {
     logger.error(`initiateActivation error: ${error.message}`);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @POST /api/payments/tokens/purchase
+exports.initiateTokenPurchase = async (req, res) => {
+  try {
+    const { tokens, provider } = req.body;
+    const tokenPackage = getTokenPackage(tokens);
+    if (!tokenPackage) {
+      return res.status(400).json({ success: false, message: 'Invalid token package selected' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const countryConfig = COUNTRIES[user.country];
+    const reference = buildReference('TOK', user.userId);
+    const depositStrategy = provider || countryConfig.paymentRouting?.deposits?.[0] || countryConfig.paymentProvider || 'paystack';
+    const providerCallbackUrl = getTokenPurchaseCallbackUrl(depositStrategy, reference);
+    const frontendReturnUrl = getFrontendReturnUrl('token_purchase', reference);
+
+    const transaction = await Transaction.create({
+      userId: user._id,
+      type: 'token_purchase',
+      amountLocal: tokenPackage.amountKES,
+      amountUSD: await localToUSD(tokenPackage.amountKES, 'KES'),
+      currency: 'KES',
+      country: user.country,
+      provider: countryConfig.paymentProvider === 'daraja' ? 'mpesa' : (countryConfig.paymentProvider || 'paystack'),
+      providerTransactionId: reference,
+      direction: 'debit',
+      status: 'pending',
+      metadata: {
+        reference,
+        intent: 'token_purchase',
+        tokens: tokenPackage.tokens,
+        returnUrl: frontendReturnUrl,
+      },
+    });
+
+    const payment = await paymentOrchestrator.initiateDeposit({
+      country: user.country,
+      requestedProvider: depositStrategy,
+      payload: {
+        reference,
+        amountLocal: tokenPackage.amountKES,
+        currency: 'KES',
+        callbackUrl: depositStrategy.startsWith('paystack') ? frontendReturnUrl : providerCallbackUrl,
+        customer: {
+          name: user.name,
+          email: user.email || `${normalizePhoneNumber(user.phone)}@cashflawhubs.app`,
+          phone: user.phone,
+        },
+        metadata: {
+          type: 'token_purchase',
+          userId: user._id.toString(),
+          tokens: tokenPackage.tokens,
+        },
+      },
+    });
+
+    transaction.provider = payment.provider || transaction.provider;
+    await transaction.save();
+
+    res.json({
+      success: true,
+      transactionId: transaction._id,
+      reference,
+      tokens: tokenPackage.tokens,
+      amount: tokenPackage.amountKES,
+      currency: 'KES',
+      provider: payment.provider,
+      strategy: payment.strategy,
+      checkoutUrl: payment.checkoutUrl || null,
+      returnUrl: frontendReturnUrl,
+      verificationMode: payment.checkoutUrl ? 'redirect' : 'poll',
+      payment,
+    });
+  } catch (error) {
+    logger.error(`initiateTokenPurchase error: ${error.message}`);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -436,6 +621,11 @@ exports.paystackWebhook = async (req, res) => {
             provider: 'paystack',
           });
         }
+      } else if (metadata.type === 'token_purchase' && metadata.userId) {
+        const verified = await verifyPaystackTransaction(data.reference);
+        if (isSuccessfulChargeStatus(verified.status)) {
+          await fulfillTokenPurchase(verified.reference || data.reference, 'paystack', verified.reference || data.reference);
+        }
       }
     }
 
@@ -458,6 +648,22 @@ exports.paystackWebhook = async (req, res) => {
 exports.verifyPayment = async (req, res) => {
   try {
     const { reference } = req.params;
+    const existingTransaction = await Transaction.findOne({
+      userId: req.user.id,
+      $or: [
+        { providerTransactionId: reference },
+        { 'metadata.reference': reference },
+      ],
+    }).sort({ createdAt: -1 });
+
+    if (!existingTransaction) {
+      return res.status(404).json({ success: false, message: 'Payment reference not found' });
+    }
+
+    if (existingTransaction.provider !== 'paystack') {
+      return res.json(await buildVerificationResponse(existingTransaction));
+    }
+
     const verified = await verifyPaystackTransaction(reference);
     const metadata = verified.metadata || {};
 
@@ -465,35 +671,31 @@ exports.verifyPayment = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Payment does not belong to this user' });
     }
 
-    if (metadata.type !== 'activation') {
-      return res.status(400).json({ success: false, message: 'Unsupported payment type' });
-    }
-
     if (!isSuccessfulChargeStatus(verified.status)) {
       return res.json({
         success: true,
         verified: false,
         status: verified.status,
+        reference,
       });
     }
 
-    await publishToQueue('payment.activation', {
-      userId: metadata.userId,
-      amountLocal: verified.amount / 100,
-      currency: verified.currency,
-      providerTxId: verified.reference || reference,
-      provider: 'paystack',
-    });
+    if (metadata.type === 'activation') {
+      await publishToQueue('payment.activation', {
+        userId: metadata.userId,
+        amountLocal: verified.amount / 100,
+        currency: verified.currency,
+        providerTxId: verified.reference || reference,
+        provider: 'paystack',
+      });
+    } else if (metadata.type === 'token_purchase') {
+      await fulfillTokenPurchase(verified.reference || reference, 'paystack', verified.reference || reference);
+    } else {
+      return res.status(400).json({ success: false, message: 'Unsupported payment type' });
+    }
 
-    const user = await User.findById(req.user.id);
-
-    res.json({
-      success: true,
-      verified: true,
-      status: verified.status,
-      activated: Boolean(user?.activationStatus),
-      reference,
-    });
+    const refreshedTransaction = await Transaction.findById(existingTransaction._id);
+    res.json(await buildVerificationResponse(refreshedTransaction || existingTransaction));
   } catch (error) {
     logger.error(`verifyPayment error: ${error.message}`);
     res.status(500).json({ success: false, message: error.message });
@@ -521,17 +723,78 @@ exports.mpesaCallback = async (req, res) => {
       return res.status(200).json({ received: true });
     }
 
-    await publishToQueue('payment.activation', {
-      userId: user._id.toString(),
-      amountLocal: amount,
-      currency: 'KES',
-      providerTxId: txId,
-      provider: 'mpesa',
-    });
+    const pendingTx = await Transaction.findOne({ userId: user._id, status: 'pending' }).sort({ createdAt: -1 });
+    if (pendingTx?.type === 'token_purchase') {
+      await fulfillTokenPurchase(pendingTx.providerTransactionId || txId, 'mpesa', txId);
+    } else {
+      await publishToQueue('payment.activation', {
+        userId: user._id.toString(),
+        amountLocal: amount,
+        currency: 'KES',
+        providerTxId: txId,
+        provider: 'mpesa',
+      });
+    }
 
     res.status(200).json({ received: true });
   } catch (error) {
     logger.error(`mpesaCallback error: ${error.message}`);
+    res.status(200).json({ received: true });
+  }
+};
+
+exports.jengaCallback = async (req, res) => {
+  try {
+    const reference = req.body?.reference || req.body?.transactionReference;
+    const status = String(req.body?.status || req.body?.message || '').toLowerCase();
+    if (reference && (status.includes('success') || status === 'true')) {
+      await fulfillTokenPurchase(reference, 'jenga', req.body?.transactionId || reference);
+    }
+    res.status(200).json({ received: true });
+  } catch (error) {
+    logger.error(`jengaCallback error: ${error.message}`);
+    res.status(200).json({ received: true });
+  }
+};
+
+exports.mtnMomoCallback = async (req, res) => {
+  try {
+    const reference = req.body?.externalId || req.body?.reference;
+    const status = String(req.body?.status || req.body?.reason || '').toLowerCase();
+    if (reference && (status.includes('success') || status.includes('completed'))) {
+      await fulfillTokenPurchase(reference, 'mtn_momo', req.body?.financialTransactionId || reference);
+    }
+    res.status(200).json({ received: true });
+  } catch (error) {
+    logger.error(`mtnMomoCallback error: ${error.message}`);
+    res.status(200).json({ received: true });
+  }
+};
+
+exports.telebirrCallback = async (req, res) => {
+  try {
+    const reference = req.body?.outTradeNo || req.body?.reference;
+    const status = String(req.body?.tradeStatus || req.body?.status || '').toLowerCase();
+    if (reference && (status.includes('success') || status.includes('completed'))) {
+      await fulfillTokenPurchase(reference, 'telebirr', req.body?.transactionNo || reference);
+    }
+    res.status(200).json({ received: true });
+  } catch (error) {
+    logger.error(`telebirrCallback error: ${error.message}`);
+    res.status(200).json({ received: true });
+  }
+};
+
+exports.tanzaniaWalletCallback = async (req, res) => {
+  try {
+    const reference = req.body?.reference || req.body?.transactionReference;
+    const status = String(req.body?.status || '').toLowerCase();
+    if (reference && (status.includes('success') || status.includes('completed'))) {
+      await fulfillTokenPurchase(reference, 'tanzania_wallet', req.body?.transactionId || reference);
+    }
+    res.status(200).json({ received: true });
+  } catch (error) {
+    logger.error(`tanzaniaWalletCallback error: ${error.message}`);
     res.status(200).json({ received: true });
   }
 };
@@ -723,7 +986,7 @@ exports.processFridayBulkPayout = async () => {
           amount: Math.round(amountLocal * 100),
           recipient: recipient.recipient_code,
           reference: payoutReference,
-          reason: 'CashflowConnect Friday payout',
+      reason: 'CashFlawHubs Friday payout',
         },
       });
     } catch (error) {

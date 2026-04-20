@@ -34,7 +34,7 @@ const sendEmail = async (to, subject, html) => {
       port: process.env.SMTP_PORT,
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     });
-    await transporter.sendMail({ from: `CashflowConnect <${process.env.SMTP_USER}>`, to, subject, html });
+    await transporter.sendMail({ from: `CashFlawHubs <${process.env.SMTP_USER}>`, to, subject, html });
     logger.info(`Email sent to ${to}`);
   } catch (error) {
     logger.error(`Email send failed to ${to}: ${error.message}`);
@@ -49,14 +49,14 @@ const sendActivationNotification = async ({ userId, referredBy }) => {
     if (!user) return;
 
     await sendSMS(user.phone,
-      `🎉 Welcome to CashflowConnect! Your account is now active. Start earning from surveys, tasks, and remote jobs. Earn 200 KES per referral: ${process.env.FRONTEND_URL}/signup?ref=${user.referralCode}`
+      `🎉 Welcome to CashFlawHubs! Your account is now active. Start earning from surveys, tasks, and remote jobs. Earn 200 KES per referral: ${process.env.FRONTEND_URL}/signup?ref=${user.referralCode}`
     );
 
     if (referredBy) {
       const referrer = await User.findOne({ referralCode: referredBy });
       if (referrer) {
         await sendSMS(referrer.phone,
-          `💰 Great news! Your referral has activated their CashflowConnect account. You've earned a reward! Check your wallet.`
+      `💰 Great news! Your referral has activated their CashFlawHubs account. You've earned a reward! Check your wallet.`
         );
       }
     }

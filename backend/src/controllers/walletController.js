@@ -56,7 +56,7 @@ exports.getWallet = async (req, res) => {
         nextPayoutDate: friday
           ? 'Today. Friday payouts are running now.'
           : `Next Friday - ${nextFridayDate()}`,
-        payoutNote: 'Pending rewards and queued withdrawal requests are paid on Friday via Paystack bulk payout where configured.',
+        payoutNote: 'Referral rewards still settle in the Friday batch. Direct wallet withdrawals now route through the country payout provider with fallback where configured.',
       },
     });
   } catch (error) {

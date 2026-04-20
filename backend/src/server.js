@@ -32,6 +32,10 @@ const notificationRoutes = require('./routes/notifications');
 
 const app = express();
 
+const rateLimitJsonHandler = (message) => (req, res) => {
+  res.status(429).json({ success: false, message });
+};
+
 // Connect to databases
 connectDB();
 connectRedis();
@@ -45,15 +49,18 @@ app.use(hpp());
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100,
-  message: 'Too many requests from this IP, please try again later.'
+  message: 'Too many requests from this IP, please try again later.',
+  handler: rateLimitJsonHandler('Too many requests from this IP, please try again later.')
 });
 app.use('/api/', limiter);
 
 // Stricter limit for auth endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: 'Too many authentication attempts, please try again later.'
+  max: process.env.NODE_ENV === 'development' ? 100 : 10,
+  message: 'Too many authentication attempts, please try again later.',
+  handler: rateLimitJsonHandler('Too many authentication attempts, please try again later.'),
+  skip: (req) => process.env.NODE_ENV === 'development' && req.path === '/send-otp',
 });
 app.use('/api/auth/', authLimiter);
 
@@ -115,7 +122,7 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  logger.info(`CashflowConnect server running on port ${PORT} [${process.env.NODE_ENV}]`);
+  logger.info(`CashFlawHubs server running on port ${PORT} [${process.env.NODE_ENV}]`);
   startJobScheduler();
   startQueueWorker();
 });

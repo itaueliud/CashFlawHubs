@@ -1,7 +1,9 @@
 const axios = require('axios');
 const Job = require('../models/Job');
+const Transaction = require('../models/Transaction');
 const { getRedis } = require('../config/redis');
 const logger = require('../utils/logger');
+const { JOB_APPLICATION_TOKEN_TIERS, TOKEN_PACKAGES, JOB_POSTING_TOKEN_COST, getApplicationTokenCost } = require('../config/monetization');
 
 // @GET /api/jobs
 exports.getJobs = async (req, res) => {
@@ -21,10 +23,104 @@ exports.getJobs = async (req, res) => {
     res.json({
       success: true,
       jobs,
+      tokenPolicy: {
+        applicationTiers: JOB_APPLICATION_TOKEN_TIERS,
+        tokenPackages: TOKEN_PACKAGES,
+        postingCost: JOB_POSTING_TOKEN_COST,
+      },
       pagination: { total, page: Number(page), pages: Math.ceil(total / limit) },
     });
   } catch (error) {
     logger.error(`getJobs error: ${error.message}`);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @POST /api/jobs
+exports.createJobPosting = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user.activationStatus) {
+      return res.status(403).json({ success: false, message: 'Activation required to post jobs' });
+    }
+
+    if ((user.tokenBalance || 0) < JOB_POSTING_TOKEN_COST) {
+      return res.status(400).json({
+        success: false,
+        message: `Posting one job requires ${JOB_POSTING_TOKEN_COST} tokens`,
+        tokenBalance: user.tokenBalance || 0,
+      });
+    }
+
+    const {
+      title,
+      company,
+      category,
+      jobType,
+      location,
+      salary,
+      description,
+      applicationUrl,
+      tags = [],
+      budgetAmount,
+      budgetCurrency = 'KES',
+    } = req.body;
+
+    if (!title || !company || !category || !description || !applicationUrl) {
+      return res.status(400).json({ success: false, message: 'Missing required job posting fields' });
+    }
+
+    const normalizedBudget = Number(budgetAmount) || 0;
+    const applicationTokenCost = getApplicationTokenCost(normalizedBudget);
+    user.consumeTokens(JOB_POSTING_TOKEN_COST);
+    await user.save();
+
+    const job = await Job.create({
+      externalId: `internal-${Date.now()}-${user.userId}`,
+      source: 'internal',
+      title,
+      company,
+      category,
+      jobType: jobType || 'contract',
+      location: location || 'Remote',
+      salary: salary || null,
+      description,
+      tags,
+      applicationUrl,
+      postedBy: user._id,
+      budgetAmount: normalizedBudget || null,
+      budgetCurrency,
+      postingTokenCost: JOB_POSTING_TOKEN_COST,
+      applicationTokenCost,
+      publishedAt: new Date(),
+      isActive: true,
+    });
+
+    await Transaction.create({
+      userId: user._id,
+      type: 'job_posting',
+      amountLocal: JOB_POSTING_TOKEN_COST,
+      amountUSD: 0,
+      currency: 'TOKEN',
+      country: user.country,
+      provider: 'internal',
+      direction: 'debit',
+      status: 'successful',
+      processedAt: new Date(),
+      metadata: {
+        jobId: job._id.toString(),
+        tokensSpent: JOB_POSTING_TOKEN_COST,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      job,
+      tokenBalance: user.tokenBalance,
+      tokensSpent: JOB_POSTING_TOKEN_COST,
+    });
+  } catch (error) {
+    logger.error(`createJobPosting error: ${error.message}`);
     res.status(500).json({ success: false, message: error.message });
   }
 };

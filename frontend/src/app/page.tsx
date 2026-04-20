@@ -2,38 +2,37 @@ import Link from 'next/link';
 import { ArrowRight, CheckCircle, DollarSign, Globe, Shield, Star, TrendingUp, Users, Zap } from 'lucide-react';
 
 const EARN_METHODS = [
-  { icon: '📋', title: 'Paid Surveys', desc: 'Share your opinion and earn up to $3 per survey', color: 'from-blue-500 to-blue-600' },
-  { icon: '⚡', title: 'Microtasks', desc: 'Quick tasks: labeling, testing, tagging', color: 'from-yellow-500 to-yellow-600' },
-  { icon: '💼', title: 'Remote Jobs', desc: 'Find legitimate remote jobs across Africa', color: 'from-purple-500 to-purple-600' },
-  { icon: '🎯', title: 'Offerwalls', desc: 'Install apps and complete offers for rewards', color: 'from-pink-500 to-pink-600' },
-  { icon: '🛠️', title: 'Freelance Gigs', desc: 'Sell your skills to clients globally', color: 'from-orange-500 to-orange-600' },
-  { icon: '👥', title: 'Referrals', desc: 'Earn 200 KES for every friend you invite', color: 'from-green-500 to-green-600' },
+  { icon: 'ðŸ“‹', title: 'Paid Surveys', desc: 'Share your opinion and earn up to $3 per survey', color: 'from-blue-500 to-blue-600' },
+  { icon: 'âš¡', title: 'Microtasks', desc: 'Quick tasks: labeling, testing, tagging', color: 'from-yellow-500 to-yellow-600' },
+  { icon: 'ðŸ’¼', title: 'Remote Jobs', desc: 'Find legitimate remote jobs across Africa', color: 'from-purple-500 to-purple-600' },
+  { icon: 'ðŸŽ¯', title: 'Offerwalls', desc: 'Install apps and complete offers for rewards', color: 'from-pink-500 to-pink-600' },
+  { icon: 'ðŸ› ï¸', title: 'Freelance Gigs', desc: 'Sell your skills to clients globally', color: 'from-orange-500 to-orange-600' },
+  { icon: 'ðŸ‘¥', title: 'Referrals', desc: 'Earn 200 KES for every friend you invite', color: 'from-green-500 to-green-600' },
 ];
 
 const COUNTRIES = [
-  { flag: '🇰🇪', name: 'Kenya', payment: 'M-Pesa' },
-  { flag: '🇺🇬', name: 'Uganda', payment: 'MTN MoMo' },
-  { flag: '🇹🇿', name: 'Tanzania', payment: 'Vodacom' },
-  { flag: '🇪🇹', name: 'Ethiopia', payment: 'Telebirr' },
-  { flag: '🇬🇭', name: 'Ghana', payment: 'Flutterwave' },
-  { flag: '🇳🇬', name: 'Nigeria', payment: 'Flutterwave' },
+  { flag: 'ðŸ‡°ðŸ‡ª', name: 'Kenya', payment: 'M-Pesa' },
+  { flag: 'ðŸ‡ºðŸ‡¬', name: 'Uganda', payment: 'MTN MoMo' },
+  { flag: 'ðŸ‡¹ðŸ‡¿', name: 'Tanzania', payment: 'Vodacom' },
+  { flag: 'ðŸ‡ªðŸ‡¹', name: 'Ethiopia', payment: 'Telebirr' },
+  { flag: 'ðŸ‡¬ðŸ‡­', name: 'Ghana', payment: 'Flutterwave' },
+  { flag: 'ðŸ‡³ðŸ‡¬', name: 'Nigeria', payment: 'Flutterwave' },
 ];
 
 const TESTIMONIALS = [
   { name: 'Mercy W.', location: 'Nairobi, Kenya', text: 'I earned KSh 4,500 in my first week just from surveys and tasks. The M-Pesa withdrawal was instant!', stars: 5 },
-  { name: 'David O.', location: 'Kampala, Uganda', text: 'Found a remote writing job through CashflowConnect. Changed my life completely.', stars: 5 },
+  { name: 'David O.', location: 'Kampala, Uganda', text: 'Found a remote writing job through CashFlawHubs. Changed my life completely.', stars: 5 },
   { name: 'Amina S.', location: 'Dar es Salaam, TZ', text: 'The referral system is amazing. I\'ve earned over $50 just by inviting friends.', stars: 5 },
 ];
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      {/* Navbar */}
       <nav className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-lg border-b border-slate-800">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center font-bold text-sm">C</div>
-            <span className="font-bold text-lg">CashflowConnect</span>
+            <span className="font-bold text-lg">CashFlawHubs</span>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/login" className="btn-outline text-sm py-2 px-4">Login</Link>
@@ -42,7 +41,6 @@ export default function HomePage() {
         </div>
       </nav>
 
-      {/* Hero */}
       <section className="relative overflow-hidden pt-20 pb-32 px-4">
         <div className="absolute inset-0 bg-gradient-to-br from-green-900/20 via-transparent to-blue-900/10 pointer-events-none" />
         <div className="max-w-4xl mx-auto text-center relative z-10">
@@ -54,7 +52,7 @@ export default function HomePage() {
             <span className="text-green-400">From Africa</span>
           </h1>
           <p className="text-xl text-slate-400 mb-10 max-w-2xl mx-auto">
-            Surveys · Tasks · Remote Jobs · Offerwalls · Freelance<br />
+            Surveys Â· Tasks Â· Remote Jobs Â· Offerwalls Â· Freelance<br />
             Withdraw via M-Pesa, MTN MoMo, and more.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -65,9 +63,8 @@ export default function HomePage() {
               How It Works
             </Link>
           </div>
-          <p className="text-slate-500 text-sm mt-4">No credit card required · Withdraw from KSh 200</p>
+          <p className="text-slate-500 text-sm mt-4">No credit card required Â· Withdraw from KSh 200</p>
 
-          {/* Stats bar */}
           <div className="grid grid-cols-3 gap-4 mt-16 max-w-2xl mx-auto">
             {[
               { label: 'Active Earners', value: '12,400+' },
@@ -83,7 +80,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* How It Works */}
       <section id="how-it-works" className="py-20 px-4 bg-slate-900/50">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-3xl font-bold text-center mb-4">How It Works</h2>
@@ -105,7 +101,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Ways to Earn */}
       <section className="py-20 px-4">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-3xl font-bold text-center mb-4">Ways to Earn</h2>
@@ -124,7 +119,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Countries */}
       <section className="py-20 px-4 bg-slate-900/50">
         <div className="max-w-4xl mx-auto text-center">
           <Globe className="text-green-400 mx-auto mb-4" size={40} />
@@ -144,7 +138,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Testimonials */}
       <section className="py-20 px-4">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-3xl font-bold text-center mb-12">What Earners Say</h2>
@@ -167,24 +160,22 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* CTA */}
       <section className="py-24 px-4 bg-gradient-to-br from-green-900/30 to-slate-900">
         <div className="max-w-2xl mx-auto text-center">
           <TrendingUp className="text-green-400 mx-auto mb-4" size={48} />
           <h2 className="text-4xl font-black mb-4">Ready to Start Earning?</h2>
-          <p className="text-slate-400 mb-8">Join 12,000+ Africans already earning on CashflowConnect</p>
+          <p className="text-slate-400 mb-8">Join 12,000+ Africans already earning on CashFlawHubs</p>
           <Link href="/register" className="btn-primary text-lg py-4 px-10 inline-flex items-center gap-2">
             Create Free Account <ArrowRight size={20} />
           </Link>
           <p className="text-slate-500 text-xs mt-4 flex items-center justify-center gap-2">
-            <Shield size={12} /> Secure · Verified · Real Payments
+            <Shield size={12} /> Secure Â· Verified Â· Real Payments
           </p>
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="border-t border-slate-800 py-8 px-4 text-center text-slate-500 text-sm">
-        <p>© 2025 CashflowConnect. Built for Africa.</p>
+        <p>Â© 2025 CashFlawHubs. Built for Africa.</p>
       </footer>
     </div>
   );

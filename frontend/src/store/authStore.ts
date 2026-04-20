@@ -5,7 +5,11 @@ import api from '@/lib/api';
 interface User {
   id: string;
   userId: string;
+  role?: 'user' | 'admin';
+  firstName?: string;
+  lastName?: string;
   name: string;
+  email?: string;
   phone: string;
   country: string;
   referralCode: string;
@@ -16,9 +20,20 @@ interface User {
   badges: string[];
   balanceUSD: number;
   phoneVerified?: boolean;
+  emailVerified?: boolean;
+  identityVerificationStatus?: string;
   surveysCompleted?: number;
   tasksCompleted?: number;
   totalReferrals?: number;
+  tokenBalance?: number;
+  totalTokensPurchased?: number;
+  totalTokensSpent?: number;
+  paymentProvider?: string;
+  paymentRouting?: {
+    deposits: string[];
+    withdrawals: string[];
+  };
+  tokenPackages?: { tokens: number; amountKES: number }[];
 }
 
 interface AuthState {
@@ -27,7 +42,7 @@ interface AuthState {
   isLoading: boolean;
   setUser: (user: User) => void;
   setToken: (token: string) => void;
-  login: (phone: string, password: string) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -42,10 +57,10 @@ export const useAuthStore = create<AuthState>()(
       setUser: (user) => set({ user }),
       setToken: (token) => set({ token }),
 
-      login: async (phone, password) => {
+      login: async (identifier, password) => {
         set({ isLoading: true });
         try {
-          const res = await api.post('/auth/login', { phone, password });
+          const res = await api.post('/auth/login', { identifier, password });
           const { token, user } = res.data;
           set({ token, user, isLoading: false });
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;

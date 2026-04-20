@@ -27,9 +27,9 @@ const seedDB = async () => {
 
   // Create admin user
   const admin = await User.create({
-    name: 'CashflowConnect Admin',
+    name: 'CashFlawHubs Admin',
     phone: '+254700000000',
-    email: 'admin@cashflowconnect.app',
+    email: 'admin@cashflawhubs.app',
     passwordHash: 'Admin@1234',
     country: 'KE',
     role: 'admin',
@@ -74,7 +74,7 @@ const seedDB = async () => {
   await Challenge.insertMany([
     { title: 'Survey Starter', description: 'Complete 2 surveys today and earn a bonus', type: 'survey', targetCount: 2, rewardUSD: 0.50, xpReward: 50, isDaily: true, isActive: true, expiresAt: tomorrow },
     { title: 'Task Master', description: 'Complete 3 microtasks today', type: 'task', targetCount: 3, rewardUSD: 0.30, xpReward: 40, isDaily: true, isActive: true, expiresAt: tomorrow },
-    { title: 'Referral Champion', description: 'Refer 1 friend to CashflowConnect today', type: 'referral', targetCount: 1, rewardUSD: 0.20, xpReward: 100, isDaily: true, isActive: true, expiresAt: tomorrow },
+    { title: 'Referral Champion', description: 'Refer 1 friend to CashFlawHubs today', type: 'referral', targetCount: 1, rewardUSD: 0.20, xpReward: 100, isDaily: true, isActive: true, expiresAt: tomorrow },
     { title: 'Daily Login Bonus', description: 'Log in and stay active today', type: 'login', targetCount: 1, rewardUSD: 0.05, xpReward: 10, isDaily: true, isActive: true, expiresAt: tomorrow },
   ]);
   console.log('✅ Daily challenges seeded');

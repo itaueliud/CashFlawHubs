@@ -1,4 +1,4 @@
-# CashflowConnect — Developer Setup Guide
+# CashFlawHubs - Developer Setup Guide
 
 ## Prerequisites
 

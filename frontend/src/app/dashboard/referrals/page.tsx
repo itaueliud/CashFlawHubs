@@ -10,8 +10,8 @@ export default function ReferralsPage() {
 
   const link = data?.referralLink || '';
   const copy = () => { navigator.clipboard.writeText(link); toast.success('Copied!'); };
-  const whatsapp = () => window.open(`https://wa.me/?text=${encodeURIComponent(`Join CashflowConnect and earn from surveys, tasks and remote jobs! ${link}`)}`);
-  const telegram = () => window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Join CashflowConnect and earn online!')}`);
+  const whatsapp = () => window.open(`https://wa.me/?text=${encodeURIComponent(`Join CashFlawHubs and earn from surveys, tasks and remote jobs! ${link}`)}`);
+  const telegram = () => window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Join CashFlawHubs and earn online!')}`);
 
   return (
     <div className="space-y-6">

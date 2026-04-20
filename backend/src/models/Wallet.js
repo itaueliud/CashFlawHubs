@@ -43,6 +43,4 @@ walletSchema.methods.debit = async function (amount) {
   return this.save();
 };
 
-walletSchema.index({ userId: 1 });
-
 module.exports = mongoose.model('Wallet', walletSchema);

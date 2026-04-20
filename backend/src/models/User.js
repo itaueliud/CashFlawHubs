@@ -2,12 +2,18 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 
+const normalizeIdentityNumber = (value = '') => String(value).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
 const userSchema = new mongoose.Schema({
   userId: {
     type: String,
     unique: true,
-    default: () => `USR-${uuidv4().slice(0, 8).toUpperCase()}`,
+    default: function () {
+      return this.idNumber ? `B${normalizeIdentityNumber(this.idNumber)}` : `USR-${uuidv4().slice(0, 8).toUpperCase()}`;
+    },
   },
+  firstName: { type: String, trim: true },
+  lastName: { type: String, trim: true },
   name: { type: String, required: true, trim: true },
   email: {
     type: String,
@@ -23,6 +29,22 @@ const userSchema = new mongoose.Schema({
     trim: true,
   },
   passwordHash: { type: String, required: true, select: false },
+  idNumber: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true,
+  },
+  idDocumentImage: { type: String, default: null },
+  faceVerificationImage: { type: String, default: null },
+  identityVerificationStatus: {
+    type: String,
+    enum: ['pending', 'submitted', 'verified', 'rejected'],
+    default: 'pending',
+  },
+  tokenBalance: { type: Number, default: 10, min: 0 },
+  totalTokensPurchased: { type: Number, default: 0, min: 0 },
+  totalTokensSpent: { type: Number, default: 0, min: 0 },
   country: {
     type: String,
     required: true,
@@ -74,6 +96,19 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
+userSchema.pre('validate', function (next) {
+  if ((!this.name || !this.name.trim()) && (this.firstName || this.lastName)) {
+    this.name = `${this.firstName || ''} ${this.lastName || ''}`.trim();
+  }
+
+  if (this.idNumber) {
+    this.idNumber = normalizeIdentityNumber(this.idNumber);
+    this.userId = `B${this.idNumber}`;
+  }
+
+  next();
+});
+
 // Compare password
 userSchema.methods.comparePassword = async function (password) {
   return bcrypt.compare(password, this.passwordHash);
@@ -105,8 +140,19 @@ userSchema.methods.checkLevelUp = function () {
   }
 };
 
-userSchema.index({ phone: 1 });
-userSchema.index({ referralCode: 1 });
+userSchema.methods.creditTokens = function (amount) {
+  this.tokenBalance += amount;
+  this.totalTokensPurchased += amount;
+};
+
+userSchema.methods.consumeTokens = function (amount) {
+  if (this.tokenBalance < amount) {
+    throw new Error('Insufficient tokens');
+  }
+  this.tokenBalance -= amount;
+  this.totalTokensSpent += amount;
+};
+
 userSchema.index({ country: 1 });
 userSchema.index({ createdAt: -1 });
 

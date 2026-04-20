@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const User = require('../models/User');
+const devAuthStore = require('../services/devAuthStore');
 
 exports.protect = async (req, res, next) => {
   try {
@@ -10,7 +12,9 @@ exports.protect = async (req, res, next) => {
     if (!token) return res.status(401).json({ success: false, message: 'Not authorized' });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id);
+    const user = mongoose.connection.readyState === 1
+      ? await User.findById(decoded.id)
+      : devAuthStore.findById(decoded.id);
     if (!user || !user.isActive || user.isBanned) {
       return res.status(401).json({ success: false, message: 'User not found or suspended' });
     }

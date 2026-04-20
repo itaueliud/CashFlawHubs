@@ -2,6 +2,7 @@ const { Gig, GigOrder } = require('../models/Freelance');
 const Wallet = require('../models/Wallet');
 const Transaction = require('../models/Transaction');
 const logger = require('../utils/logger');
+const { JOB_POSTING_TOKEN_COST, TOKEN_PACKAGES } = require('../config/monetization');
 
 const PLATFORM_FEE_PERCENT = 0.10; // 10% platform cut
 
@@ -29,7 +30,15 @@ exports.getGigs = async (req, res) => {
       Gig.countDocuments(query),
     ]);
 
-    res.json({ success: true, gigs, pagination: { total, page: Number(page), pages: Math.ceil(total / limit) } });
+    res.json({
+      success: true,
+      gigs,
+      tokenPolicy: {
+        postingCost: JOB_POSTING_TOKEN_COST,
+        tokenPackages: TOKEN_PACKAGES,
+      },
+      pagination: { total, page: Number(page), pages: Math.ceil(total / limit) },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -43,8 +52,24 @@ exports.createGig = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Activation required to post gigs' });
     }
 
+    if ((user.tokenBalance || 0) < JOB_POSTING_TOKEN_COST) {
+      return res.status(400).json({
+        success: false,
+        message: `Posting a gig requires ${JOB_POSTING_TOKEN_COST} tokens`,
+        tokenBalance: user.tokenBalance || 0,
+      });
+    }
+
+    user.consumeTokens(JOB_POSTING_TOKEN_COST);
+    await user.save();
+
     const gig = await Gig.create({ ...req.body, sellerId: user.id });
-    res.status(201).json({ success: true, gig });
+    res.status(201).json({
+      success: true,
+      gig,
+      tokenBalance: user.tokenBalance,
+      tokensSpent: JOB_POSTING_TOKEN_COST,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

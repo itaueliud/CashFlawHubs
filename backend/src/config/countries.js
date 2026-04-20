@@ -1,3 +1,5 @@
+const { getPaymentPriorityForCountry } = require('./paymentStack');
+
 const COUNTRIES = {
   KE: {
     name: 'Kenya',
@@ -7,8 +9,9 @@ const COUNTRIES = {
     platformShare: 300,
     referralReward: 200,
     minWithdrawal: 200,
-    paymentProvider: 'mpesa',
-    flag: '🇰🇪',
+    paymentProvider: 'daraja',
+    paymentRouting: getPaymentPriorityForCountry('KE'),
+    flag: 'KE',
   },
   UG: {
     name: 'Uganda',
@@ -18,8 +21,9 @@ const COUNTRIES = {
     platformShare: 9990,
     referralReward: 6660,
     minWithdrawal: 6660,
-    paymentProvider: 'mtn',
-    flag: '🇺🇬',
+    paymentProvider: 'paystack',
+    paymentRouting: getPaymentPriorityForCountry('UG'),
+    flag: 'UG',
   },
   TZ: {
     name: 'Tanzania',
@@ -29,8 +33,9 @@ const COUNTRIES = {
     platformShare: 6900,
     referralReward: 4600,
     minWithdrawal: 4600,
-    paymentProvider: 'vodacom',
-    flag: '🇹🇿',
+    paymentProvider: 'jenga',
+    paymentRouting: getPaymentPriorityForCountry('TZ'),
+    flag: 'TZ',
   },
   ET: {
     name: 'Ethiopia',
@@ -41,29 +46,32 @@ const COUNTRIES = {
     referralReward: 900,
     minWithdrawal: 900,
     paymentProvider: 'telebirr',
-    flag: '🇪🇹',
+    paymentRouting: getPaymentPriorityForCountry('ET'),
+    flag: 'ET',
   },
   GH: {
     name: 'Ghana',
     currency: 'GHS',
-    symbol: 'GH₵',
+    symbol: 'GHS',
     activationFee: 18,
     platformShare: 10.8,
     referralReward: 7.2,
     minWithdrawal: 7.2,
-    paymentProvider: 'flutterwave',
-    flag: '🇬🇭',
+    paymentProvider: 'paystack',
+    paymentRouting: getPaymentPriorityForCountry('GH'),
+    flag: 'GH',
   },
   NG: {
     name: 'Nigeria',
     currency: 'NGN',
-    symbol: '₦',
+    symbol: 'NGN',
     activationFee: 6500,
     platformShare: 3900,
     referralReward: 2600,
     minWithdrawal: 2600,
-    paymentProvider: 'flutterwave',
-    flag: '🇳🇬',
+    paymentProvider: 'paystack',
+    paymentRouting: getPaymentPriorityForCountry('NG'),
+    flag: 'NG',
   },
 };
 

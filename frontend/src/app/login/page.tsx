@@ -12,12 +12,12 @@ export default function LoginPage() {
   const { login } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { register, handleSubmit } = useForm<{ phone: string; password: string }>();
+  const { register, handleSubmit } = useForm<{ identifier: string; password: string }>();
 
-  const onSubmit = async (data: { phone: string; password: string }) => {
+  const onSubmit = async (data: { identifier: string; password: string }) => {
     setIsLoading(true);
     try {
-      await login(data.phone, data.password);
+      await login(data.identifier, data.password);
       toast.success('Welcome back!');
       router.push('/dashboard');
     } catch (err: any) {
@@ -33,13 +33,13 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center font-black text-xl mx-auto mb-4">C</div>
           <h1 className="text-2xl font-black">Welcome Back</h1>
-          <p className="text-slate-400 text-sm mt-1">Login to your CashflowConnect account</p>
+            <p className="text-slate-400 text-sm mt-1">Login to your CashFlawHubs account</p>
         </div>
         <div className="card">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-slate-300 mb-1.5 block">Phone Number</label>
-              <input {...register('phone')} placeholder="+254712345678" className="input" />
+              <label className="text-sm font-medium text-slate-300 mb-1.5 block">Email or Phone Number</label>
+              <input {...register('identifier')} placeholder="name@example.com or +254712345678" className="input" />
             </div>
             <div>
               <label className="text-sm font-medium text-slate-300 mb-1.5 block">Password</label>
