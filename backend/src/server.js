@@ -31,6 +31,7 @@ const adminRoutes = require('./routes/admin');
 const notificationRoutes = require('./routes/notifications');
 
 const app = express();
+app.set('trust proxy', process.env.TRUST_PROXY ? Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY : 1);
 
 const rateLimitJsonHandler = (message) => (req, res) => {
   res.status(429).json({ success: false, message });
