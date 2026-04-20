@@ -6,8 +6,11 @@ import { ExternalLink, Lock } from 'lucide-react';
 
 export default function OfferwallsPage() {
   const { user } = useAuthStore();
-  const { data: ayetData } = useQuery({ queryKey: ['ayet-wall'], queryFn: () => api.get('/offerwalls/ayetstudios').then(r => r.data), enabled: !!user?.activationStatus });
-  const { data: adgateData } = useQuery({ queryKey: ['adgate-wall'], queryFn: () => api.get('/offerwalls/adgate').then(r => r.data), enabled: !!user?.activationStatus });
+  const { data } = useQuery({
+    queryKey: ['category-providers', 'offerwalls'],
+    queryFn: () => api.get('/catalog/categories/offerwalls/providers').then((r) => r.data),
+    enabled: !!user,
+  });
 
   if (!user?.activationStatus) {
     return (
@@ -19,31 +22,32 @@ export default function OfferwallsPage() {
     );
   }
 
-  const providers = [
-    { name: 'Ayет Studios', logo: '🎮', desc: 'Install games, complete offers, earn big rewards. Best paying offerwall.', url: ayetData?.wallUrl, badge: 'Best Paying' },
-    { name: 'AdGate Rewards', logo: '🎯', desc: 'App installs, signups, and promotional tasks.', url: adgateData?.wallUrl, badge: 'Popular' },
-  ];
+  const providers = data?.providers || [];
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-black">Offerwalls</h1>
-        <p className="text-slate-400 text-sm mt-1">Install apps, complete offers, earn instant rewards</p>
+        <p className="text-slate-400 text-sm mt-1">Separate offerwall APIs and iframe-ready sources</p>
       </div>
       <div className="grid md:grid-cols-2 gap-4">
-        {providers.map((p) => (
-          <div key={p.name} className="card">
+        {providers.map((provider: any) => (
+          <div key={provider.key} className="card">
             <div className="flex items-start justify-between mb-3">
-              <div className="text-3xl">{p.logo}</div>
-              <span className="badge-green">{p.badge}</span>
+              <div className="text-lg font-semibold text-white">{provider.name}</div>
+              <span className={provider.live ? 'badge-green' : 'badge-blue'}>{provider.badge}</span>
             </div>
-            <h3 className="font-bold text-lg mb-1">{p.name}</h3>
-            <p className="text-slate-400 text-sm mb-4">{p.desc}</p>
-            {p.url ? (
-              <a href={p.url} target="_blank" rel="noopener noreferrer" className="btn-primary text-sm flex items-center gap-2 w-fit">
+            <p className="text-slate-400 text-sm mb-3">{provider.description}</p>
+            <div className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-4">
+              {provider.integrationType} / {provider.access.replace(/_/g, ' ')}
+            </div>
+            {provider.url ? (
+              <a href={provider.url} target="_blank" rel="noopener noreferrer" className="btn-primary text-sm flex items-center gap-2 w-fit">
                 Open Wall <ExternalLink size={14} />
               </a>
-            ) : <div className="text-slate-500 text-sm animate-pulse">Loading...</div>}
+            ) : (
+              <div className="text-slate-500 text-sm">This offerwall is listed and ready for future API credentials.</div>
+            )}
           </div>
         ))}
       </div>

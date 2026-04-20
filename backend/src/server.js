@@ -29,6 +29,7 @@ const freelanceRoutes = require('./routes/freelance');
 const challengeRoutes = require('./routes/challenges');
 const adminRoutes = require('./routes/admin');
 const notificationRoutes = require('./routes/notifications');
+const catalogRoutes = require('./routes/catalog');
 
 const app = express();
 app.set('trust proxy', process.env.TRUST_PROXY ? Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY : 1);
@@ -141,6 +142,7 @@ app.use('/api/freelance', freelanceRoutes);
 app.use('/api/challenges', challengeRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/catalog', catalogRoutes);
 
 // 404 handler
 app.use((req, res) => {
