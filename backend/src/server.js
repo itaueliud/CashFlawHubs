@@ -30,6 +30,7 @@ const challengeRoutes = require('./routes/challenges');
 const adminRoutes = require('./routes/admin');
 const notificationRoutes = require('./routes/notifications');
 const catalogRoutes = require('./routes/catalog');
+const adsNetworkRoutes = require('./routes/adsNetwork');
 
 const app = express();
 app.set('trust proxy', process.env.TRUST_PROXY ? Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY : 1);
@@ -143,6 +144,7 @@ app.use('/api/challenges', challengeRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/catalog', catalogRoutes);
+app.use('/api/ads-network', adsNetworkRoutes);
 
 // 404 handler
 app.use((req, res) => {
