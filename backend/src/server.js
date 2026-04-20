@@ -36,6 +36,37 @@ const rateLimitJsonHandler = (message) => (req, res) => {
   res.status(429).json({ success: false, message });
 };
 
+const parseAllowedOrigins = () => {
+  const configuredOrigins = [
+    process.env.FRONTEND_URL,
+    process.env.FRONTEND_APP_URL,
+    process.env.APP_URL,
+    process.env.CORS_ORIGIN,
+    process.env.ALLOWED_ORIGINS,
+  ]
+    .filter(Boolean)
+    .flatMap((value) => String(value).split(','))
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return new Set([
+    'http://localhost:3000',
+    'http://localhost:3001',
+    ...configuredOrigins,
+  ]);
+};
+
+const allowedOrigins = parseAllowedOrigins();
+const allowedOriginPatterns = [
+  /^https:\/\/.*\.vercel\.app$/,
+];
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (allowedOrigins.has(origin)) return true;
+  return allowedOriginPatterns.some((pattern) => pattern.test(origin));
+};
+
 // Connect to databases
 connectDB();
 connectRedis();
@@ -66,10 +97,14 @@ app.use('/api/auth/', authLimiter);
 
 // CORS
 app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-    'http://localhost:3001'
-  ],
+  origin: (origin, callback) => {
+    if (isAllowedOrigin(origin)) {
+      return callback(null, true);
+    }
+
+    logger.warn(`Blocked CORS origin: ${origin}`);
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']

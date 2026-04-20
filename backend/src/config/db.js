@@ -17,11 +17,7 @@ const connectDB = async () => {
     logger.info(`MongoDB connected: ${conn.connection.host}`);
   } catch (error) {
     logger.error(`MongoDB connection error: ${error.message}`);
-    if (process.env.NODE_ENV === 'development') {
-      logger.warn('Continuing without MongoDB in development mode. Falling back to local auth storage where supported.');
-      return;
-    }
-    process.exit(1);
+    logger.warn('Continuing without MongoDB. Falling back to local auth storage where supported.');
   }
 };
 
