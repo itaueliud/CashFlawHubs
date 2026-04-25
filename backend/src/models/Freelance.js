@@ -14,6 +14,7 @@ const gigSchema = new mongoose.Schema({
   tags: [{ type: String }],
   images: [{ type: String }],
   isActive: { type: Boolean, default: true },
+  applicationTokenCost: { type: Number, default: 10, min: 0 },
   rating: { type: Number, default: 0 },
   totalReviews: { type: Number, default: 0 },
   totalOrders: { type: Number, default: 0 },

@@ -1,6 +1,8 @@
 const { Gig, GigOrder } = require('../models/Freelance');
+const GigApplication = require('../models/GigApplication');
 const Wallet = require('../models/Wallet');
 const Transaction = require('../models/Transaction');
+const { spendTokens } = require('../services/tokenService');
 const logger = require('../utils/logger');
 const { JOB_POSTING_TOKEN_COST, TOKEN_PACKAGES } = require('../config/monetization');
 
@@ -72,6 +74,48 @@ exports.createGig = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @POST /api/freelance/gigs/:id/apply
+exports.applyToGig = async (req, res) => {
+  try {
+    const gig = await Gig.findById(req.params.id);
+    if (!gig || !gig.isActive) {
+      return res.status(404).json({ success: false, message: 'Gig not found' });
+    }
+
+    const existingApplication = await GigApplication.findOne({ gigId: gig._id, userId: req.user.id });
+    if (existingApplication) {
+      return res.status(409).json({ success: false, message: 'You already applied to this gig' });
+    }
+
+    const tokenCost = Math.max(Number(gig.applicationTokenCost || 10), 0);
+    if (tokenCost > 0) {
+      await spendTokens({
+        userId: req.user.id,
+        tokenAmount: tokenCost,
+        action: 'freelance_application',
+        metadata: { gigId: gig._id.toString(), gigTitle: gig.title },
+      });
+    }
+
+    const application = await GigApplication.create({
+      gigId: gig._id,
+      userId: req.user.id,
+      tokenCost,
+      coverLetter: req.body.coverLetter || null,
+      status: 'submitted',
+    });
+
+    res.status(201).json({
+      success: true,
+      message: tokenCost > 0 ? `Applied successfully using ${tokenCost} tokens` : 'Applied successfully',
+      application,
+    });
+  } catch (error) {
+    logger.error(`applyToGig error: ${error.message}`);
+    res.status(error.status || 500).json({ success: false, message: error.message });
   }
 };
 

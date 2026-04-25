@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 const walletSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
   balanceUSD: { type: Number, default: 0, min: 0 }, // All stored in USD
+  tokenBalance: { type: Number, default: 0, min: 0 },
+  totalTokensPurchased: { type: Number, default: 0, min: 0 },
 
   // Breakdown by source
   surveyEarnings: { type: Number, default: 0 },

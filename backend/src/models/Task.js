@@ -9,6 +9,8 @@ const taskSchema = new mongoose.Schema({
   rewardUSD: { type: Number, required: true },
   estimatedMinutes: { type: Number, default: 5 },
   isActive: { type: Boolean, default: true },
+  isPremium: { type: Boolean, default: false },
+  tokenCost: { type: Number, default: 0, min: 0 },
   externalUrl: { type: String, default: null },
 }, { timestamps: true });
 

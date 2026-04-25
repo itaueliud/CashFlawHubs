@@ -4,6 +4,7 @@ const Wallet = require('../models/Wallet');
 const Transaction = require('../models/Transaction');
 const { getRedis } = require('../config/redis');
 const logger = require('../utils/logger');
+const { updateChallengeProgress } = require('./challengeController');
 
 // @GET /api/surveys/cpx
 // Returns CPX Research offerwall URL for the user
@@ -103,6 +104,7 @@ exports.cpxCallback = async (req, res) => {
 
     // XP reward
     await User.findByIdAndUpdate(user._id, { $inc: { xpPoints: 20, surveysCompleted: 1 } });
+    await updateChallengeProgress(user._id, 'survey');
 
     logger.info(`CPX survey reward: $${amountUSD} for user ${user_id}`);
     res.send('1'); // CPX expects '1' on success
@@ -146,6 +148,7 @@ exports.bitlabsCallback = async (req, res) => {
     });
 
     await User.findByIdAndUpdate(user._id, { $inc: { xpPoints: 20, surveysCompleted: 1 } });
+    await updateChallengeProgress(user._id, 'survey');
 
     logger.info(`BitLabs reward: $${amountUSD} for user ${uid}`);
     res.json({ success: true });
