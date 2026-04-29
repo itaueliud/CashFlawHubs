@@ -7,11 +7,11 @@ import { Toaster } from 'react-hot-toast';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'CashFlawHubs - Earn Money Online in Africa',
+  title: 'CashFlowConnect - Earn Money Online in Africa',
   description: 'Complete surveys, microtasks, and find remote jobs. Withdraw via M-Pesa, MTN MoMo, and more.',
   keywords: 'earn money online Kenya, paid surveys Africa, remote jobs Kenya, microtasks',
   openGraph: {
-    title: 'CashFlawHubs - Earn Money Online in Africa',
+    title: 'CashFlowConnect - Earn Money Online in Africa',
     description: 'Surveys, tasks, remote jobs. Withdraw via M-Pesa.',
     type: 'website',
   },

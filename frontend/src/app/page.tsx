@@ -21,7 +21,7 @@ const COUNTRIES = [
 
 const TESTIMONIALS = [
   { name: 'Mercy W.', location: 'Nairobi, Kenya', text: 'I earned KSh 4,500 in my first week just from surveys and tasks. The M-Pesa withdrawal was instant!', stars: 5 },
-  { name: 'David O.', location: 'Kampala, Uganda', text: 'Found a remote writing job through CashFlawHubs. Changed my life completely.', stars: 5 },
+  { name: 'David O.', location: 'Kampala, Uganda', text: 'Found a remote writing job through CashFlowConnect. Changed my life completely.', stars: 5 },
   { name: 'Amina S.', location: 'Dar es Salaam, TZ', text: 'The referral system is amazing. I\'ve earned over $50 just by inviting friends.', stars: 5 },
 ];
 
@@ -32,7 +32,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center font-bold text-sm">C</div>
-            <span className="font-bold text-lg">CashFlawHubs</span>
+            <span className="font-bold text-lg">CashFlowConnect</span>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/login" className="btn-outline text-sm py-2 px-4">Login</Link>
@@ -164,7 +164,7 @@ export default function HomePage() {
         <div className="max-w-2xl mx-auto text-center">
           <TrendingUp className="text-green-400 mx-auto mb-4" size={48} />
           <h2 className="text-4xl font-black mb-4">Ready to Start Earning?</h2>
-          <p className="text-slate-400 mb-8">Join 12,000+ Africans already earning on CashFlawHubs</p>
+          <p className="text-slate-400 mb-8">Join 12,000+ Africans already earning on CashFlowConnect</p>
           <Link href="/register" className="btn-primary text-lg py-4 px-10 inline-flex items-center gap-2">
             Create Free Account <ArrowRight size={20} />
           </Link>
@@ -175,7 +175,7 @@ export default function HomePage() {
       </section>
 
       <footer className="border-t border-slate-800 py-8 px-4 text-center text-slate-500 text-sm">
-        <p>Â© 2025 CashFlawHubs. Built for Africa.</p>
+        <p>Â© 2025 CashFlowConnect. Built for Africa.</p>
       </footer>
     </div>
   );

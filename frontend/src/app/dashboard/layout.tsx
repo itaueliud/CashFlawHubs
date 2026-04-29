@@ -64,7 +64,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="p-5 border-b border-slate-700">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center font-bold text-sm">C</div>
-          <span className="font-bold">CashFlawHubs</span>
+          <span className="font-bold">CashFlowConnect</span>
         </div>
       </div>
 
