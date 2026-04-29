@@ -77,7 +77,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="font-medium text-sm truncate">{user.name}</div>
             <div className="text-xs text-slate-400">
               {user.activationStatus
-                ? <span className="text-green-400">Active Â· Lvl {user.level}</span>
+                ? <span className="text-green-400">Active · Lvl {user.level}</span>
                 : <span className="text-yellow-400">Not Activated</span>}
             </div>
             <div className="text-xs text-yellow-300 mt-1">{user.tokenBalance || 0} Tokens</div>
@@ -168,4 +168,5 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
+
 

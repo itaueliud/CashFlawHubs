@@ -2,21 +2,35 @@
 import { ArrowRight, CheckCircle, DollarSign, Globe, Shield, Star, TrendingUp, Users, Zap } from 'lucide-react';
 
 const EARN_METHODS = [
-  { icon: 'Ã°Å¸â€œâ€¹', title: 'Paid Surveys', desc: 'Share your opinion and earn up to $3 per survey', color: 'from-blue-500 to-blue-600' },
-  { icon: 'Ã¢Å¡Â¡', title: 'Microtasks', desc: 'Quick tasks: labeling, testing, tagging', color: 'from-yellow-500 to-yellow-600' },
-  { icon: 'Ã°Å¸â€™Â¼', title: 'Remote Jobs', desc: 'Find legitimate remote jobs across Africa', color: 'from-purple-500 to-purple-600' },
-  { icon: 'Ã°Å¸Å½Â¯', title: 'Offerwalls', desc: 'Install apps and complete offers for rewards', color: 'from-pink-500 to-pink-600' },
-  { icon: 'Ã°Å¸â€ºÂ Ã¯Â¸Â', title: 'Freelance Gigs', desc: 'Sell your skills to clients globally', color: 'from-orange-500 to-orange-600' },
-  { icon: 'Ã°Å¸â€˜Â¥', title: 'Referrals', desc: 'Earn 200 KES for every friend you invite', color: 'from-green-500 to-green-600' },
+  { icon: '📋', title: 'Paid Surveys', desc: 'Share your opinion and earn up to $3 per survey', color: 'from-blue-500 to-blue-600' },
+  { icon: '⚡', title: 'Microtasks', desc: 'Quick tasks: labeling, testing, tagging', color: 'from-yellow-500 to-yellow-600' },
+  { icon: '💼', title: 'Remote Jobs', desc: 'Find legitimate remote jobs across Africa', color: 'from-purple-500 to-purple-600' },
+  { icon: '🎯', title: 'Offerwalls', desc: 'Install apps and complete offers for rewards', color: 'from-pink-500 to-pink-600' },
+  { icon: '🛠️', title: 'Freelance Gigs', desc: 'Sell your skills to clients globally', color: 'from-orange-500 to-orange-600' },
+  { icon: '🤝', title: 'Referrals', desc: 'Earn 200 KES for every friend you invite', color: 'from-green-500 to-green-600' },
 ];
 
 const COUNTRIES = [
-  { flag: 'Ã°Å¸â€¡Â°Ã°Å¸â€¡Âª', name: 'Kenya', payment: 'M-Pesa' },
-  { flag: 'Ã°Å¸â€¡ÂºÃ°Å¸â€¡Â¬', name: 'Uganda', payment: 'MTN MoMo' },
-  { flag: 'Ã°Å¸â€¡Â¹Ã°Å¸â€¡Â¿', name: 'Tanzania', payment: 'Vodacom' },
-  { flag: 'Ã°Å¸â€¡ÂªÃ°Å¸â€¡Â¹', name: 'Ethiopia', payment: 'Telebirr' },
-  { flag: 'Ã°Å¸â€¡Â¬Ã°Å¸â€¡Â­', name: 'Ghana', payment: 'Flutterwave' },
-  { flag: 'Ã°Å¸â€¡Â³Ã°Å¸â€¡Â¬', name: 'Nigeria', payment: 'Flutterwave' },
+  { flag: '🇰🇪', name: 'Kenya', payment: 'M-Pesa' },
+  { flag: '🇺🇬', name: 'Uganda', payment: 'MTN MoMo' },
+  { flag: '🇹🇿', name: 'Tanzania', payment: 'Vodacom' },
+  { flag: '🇪🇹', name: 'Ethiopia', payment: 'Telebirr' },
+  { flag: '🇬🇭', name: 'Ghana', payment: 'Flutterwave' },
+  { flag: '🇳🇬', name: 'Nigeria', payment: 'Flutterwave' },
+  { flag: '🇷🇼', name: 'Rwanda', payment: 'Jenga' },
+  { flag: '🇨🇩', name: 'DR Congo', payment: 'Jenga' },
+  { flag: '🇸🇸', name: 'South Sudan', payment: 'Jenga' },
+  { flag: '🇿🇲', name: 'Zambia', payment: 'Tingg' },
+  { flag: '🇧🇼', name: 'Botswana', payment: 'Tingg' },
+  { flag: '🇧🇯', name: 'Benin', payment: 'Tingg' },
+  { flag: '🇿🇦', name: 'South Africa', payment: 'Onafriq' },
+  { flag: '🇸🇳', name: 'Senegal', payment: 'Onafriq' },
+  { flag: '🇨🇲', name: 'Cameroon', payment: 'Onafriq' },
+  { flag: '🇲🇱', name: 'Mali', payment: 'Onafriq' },
+  { flag: '🇨🇮', name: 'Ivory Coast', payment: 'Paystack' },
+  { flag: '🇪🇬', name: 'Egypt', payment: 'Paystack' },
+  { flag: '🇳🇪', name: 'Niger', payment: 'Onafriq' },
+  { flag: '🇲🇼', name: 'Malawi', payment: 'Tingg' },
 ];
 
 const TESTIMONIALS = [
@@ -45,14 +59,14 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-br from-green-900/20 via-transparent to-blue-900/10 pointer-events-none" />
         <div className="max-w-4xl mx-auto text-center relative z-10">
           <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/30 rounded-full px-4 py-1.5 text-sm text-green-400 mb-6">
-            <Zap size={14} /> Available in 6 African Countries
+            <Zap size={14} /> Available in 20 African Countries
           </div>
           <h1 className="text-5xl md:text-7xl font-black mb-6 leading-tight">
             Earn Money Online<br />
             <span className="text-green-400">From Africa</span>
           </h1>
           <p className="text-xl text-slate-400 mb-10 max-w-2xl mx-auto">
-            Surveys Ã‚Â· Tasks Ã‚Â· Remote Jobs Ã‚Â· Offerwalls Ã‚Â· Freelance<br />
+            Surveys · Tasks · Remote Jobs · Offerwalls · Freelance<br />
             Withdraw via M-Pesa, MTN MoMo, and more.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -63,7 +77,7 @@ export default function HomePage() {
               How It Works
             </Link>
           </div>
-          <p className="text-slate-500 text-sm mt-4">No credit card required Ã‚Â· Withdraw from KSh 200</p>
+          <p className="text-slate-500 text-sm mt-4">No credit card required · Withdraw from KSh 200</p>
 
           <div className="grid grid-cols-3 gap-4 mt-16 max-w-2xl mx-auto">
             {[
@@ -169,15 +183,14 @@ export default function HomePage() {
             Create Free Account <ArrowRight size={20} />
           </Link>
           <p className="text-slate-500 text-xs mt-4 flex items-center justify-center gap-2">
-            <Shield size={12} /> Secure Ã‚Â· Verified Ã‚Â· Real Payments
+            <Shield size={12} /> Secure · Verified · Real Payments
           </p>
         </div>
       </section>
 
       <footer className="border-t border-slate-800 py-8 px-4 text-center text-slate-500 text-sm">
-        <p>Ã‚Â© 2025 CashFlowHubs. Built for Africa.</p>
+        <p>© 2025 CashFlowHubs. Built for Africa.</p>
       </footer>
     </div>
   );
 }
-
