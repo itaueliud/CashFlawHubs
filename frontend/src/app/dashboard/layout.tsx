@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -64,7 +64,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="p-5 border-b border-slate-700">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center font-bold text-sm">C</div>
-          <span className="font-bold">CashFlowConnect</span>
+          <span className="font-bold">CashFlowHubs</span>
         </div>
       </div>
 
@@ -77,7 +77,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="font-medium text-sm truncate">{user.name}</div>
             <div className="text-xs text-slate-400">
               {user.activationStatus
-                ? <span className="text-green-400">Active · Lvl {user.level}</span>
+                ? <span className="text-green-400">Active Â· Lvl {user.level}</span>
                 : <span className="text-yellow-400">Not Activated</span>}
             </div>
             <div className="text-xs text-yellow-300 mt-1">{user.tokenBalance || 0} Tokens</div>
@@ -168,3 +168,4 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
+

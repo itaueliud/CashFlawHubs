@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
@@ -256,7 +256,7 @@ export default function ProfilePage() {
                 {...register('bio')}
                 rows={5}
                 className="input resize-none"
-                placeholder="Tell people what you do, what you like, or how you use CashFlawHubs..."
+                placeholder="Tell people what you do, what you like, or how you use CashFlowHubs..."
               />
             </div>
 
@@ -307,3 +307,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+
