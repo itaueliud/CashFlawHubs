@@ -66,7 +66,7 @@ export default function ActivatePage() {
       <div className="card bg-blue-500/10 border-blue-500/30">
         <div className="flex items-start gap-3">
           <Shield size={20} className="text-blue-400 flex-shrink-0 mt-0.5"/>
-          <p className="text-sm text-slate-300">The activation fee funds platform operations and deters fake accounts. You can recover it by referring just 3 friends.</p>
+          <p className="text-sm text-slate-300">The one-time activation fee covers your secure account verification and unlocks access to our full marketplace of paid tasks. While you can earn promotional bonuses by inviting friends, the primary way to grow your balance is by completing surveys, ads, and digital missions.</p>
         </div>
       </div>
       <button onClick={handleActivate} disabled={loading} className="btn-primary w-full py-4 text-lg flex items-center justify-center gap-2">
