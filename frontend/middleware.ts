@@ -10,22 +10,36 @@ const TARGET_ROUTE_BY_ROLE: Record<string, string> = {
 const SKIP_PREFIXES = ['/api', '/_next', '/favicon.ico'];
 
 const shouldSkip = (pathname: string) => SKIP_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+const resolvePortalFromHost = (host: string) => {
+  const normalizedHost = String(host || '').toLowerCase();
+  if (normalizedHost.includes('ledger')) return 'ledger';
+  if (normalizedHost.includes('superadmin')) return 'superadmin';
+  if (normalizedHost.includes('admin')) return 'admin';
+  return '';
+};
+
 const resolveRoleTarget = (request: NextRequest) => {
   const envRole = String(process.env.ROLE_PORTAL_TARGET || '').toLowerCase().trim();
   if (envRole in TARGET_ROUTE_BY_ROLE) return envRole;
 
-  const host = String(request.headers.get('host') || '').toLowerCase();
-  if (host.includes('ledger')) return 'ledger';
-  if (host.includes('superadmin')) return 'superadmin';
-  if (host.includes('admin')) return 'admin';
-  return '';
+  return resolvePortalFromHost(String(request.headers.get('host') || ''));
 };
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const host = String(request.headers.get('host') || '');
 
   if (shouldSkip(pathname)) {
     return NextResponse.next();
+  }
+
+  // Explicitly force root to login for portal hosts, regardless of env configuration.
+  const hostPortal = resolvePortalFromHost(host);
+  if (hostPortal && pathname === '/') {
+    const nextUrl = request.nextUrl.clone();
+    nextUrl.pathname = '/login';
+    nextUrl.searchParams.set('portal', hostPortal);
+    return NextResponse.redirect(nextUrl);
   }
 
   const roleTarget = resolveRoleTarget(request);
