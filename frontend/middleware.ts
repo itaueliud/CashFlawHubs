@@ -24,6 +24,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Managed staff portals should always start at login on root.
+  if ((roleTarget === 'admin' || roleTarget === 'superadmin') && pathname === '/') {
+    const nextUrl = request.nextUrl.clone();
+    nextUrl.pathname = '/login';
+    return NextResponse.redirect(nextUrl);
+  }
+
   // Keep auth routes accessible.
   if (pathname.startsWith('/login') || pathname.startsWith('/register')) {
     return NextResponse.next();
@@ -42,4 +49,3 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: ['/((?!.*\\..*).*)'],
 };
-
