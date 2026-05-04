@@ -1,5 +1,7 @@
 ﻿import Link from 'next/link';
 import { ArrowRight, CheckCircle, DollarSign, Globe, Shield, Star, TrendingUp, Users, Zap } from 'lucide-react';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 const EARN_METHODS = [
   { icon: '📋', title: 'Paid Surveys', desc: 'Share your opinion and earn up to $3 per survey', color: 'from-blue-500 to-blue-600' },
@@ -40,6 +42,19 @@ const TESTIMONIALS = [
 ];
 
 export default function HomePage() {
+  const host = String(headers().get('host') || '').toLowerCase();
+  const portal = host.includes('ledger')
+    ? 'ledger'
+    : host.includes('superadmin')
+      ? 'superadmin'
+      : host.includes('admin')
+        ? 'admin'
+        : '';
+
+  if (portal) {
+    redirect(`/login?portal=${portal}`);
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <nav className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-lg border-b border-slate-800">
