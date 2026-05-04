@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -286,7 +286,7 @@ function RegisterPageContent() {
       const res = await api.post('/auth/register', payload);
       setToken(res.data.token);
       setUser(res.data.user);
-      toast.success('Account created! Welcome to CashFlowConnect');
+      toast.success('Account created! Welcome to CashFlowHubs');
       router.push('/dashboard');
     } catch (err: any) {
       toast.error(getApiErrorMessage(err, 'Registration failed'));
@@ -336,7 +336,7 @@ function RegisterPageContent() {
           </motion.div>
           <h1 className="mx-auto max-w-3xl text-4xl font-black tracking-tight text-white md:text-5xl">
             Create your
-            <span className="bg-gradient-to-r from-green-300 via-emerald-400 to-cyan-300 bg-clip-text text-transparent"> CashFlowConnect account</span>
+            <span className="bg-gradient-to-r from-green-300 via-emerald-400 to-cyan-300 bg-clip-text text-transparent"> CashFlowHubs account</span>
           </h1>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-400 md:text-base">
             A simple 4-step signup flow.
@@ -850,3 +850,4 @@ export default function RegisterPage() {
     </Suspense>
   );
 }
+

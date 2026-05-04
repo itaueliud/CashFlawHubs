@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
@@ -25,7 +25,7 @@ const QUICK_ACTIONS = [
   { href: '/dashboard/ads-network', icon: Radio, label: 'Ads / Ad Network', color: 'bg-cyan-500/20 text-cyan-400', desc: 'Ad-driven offers' },
   { href: '/dashboard/offerwalls', icon: Gift, label: 'Offerwalls', color: 'bg-pink-500/20 text-pink-400', desc: 'Install & earn' },
   { href: '/dashboard/cash-tasks', icon: TrendingUp, label: 'Cash Tasks', color: 'bg-orange-500/20 text-orange-400', desc: 'Higher-value tasks' },
-  { href: '/dashboard/referrals', icon: Star, label: 'Referral Earnings', color: 'bg-green-500/20 text-green-400', desc: '200 KES each' },
+  { href: '/dashboard/referrals', icon: Star, label: 'Referral Earnings', color: 'bg-green-500/20 text-green-400', desc: '200 KES per activated referral' },
   { href: '/dashboard#daily-challenges', icon: Trophy, label: 'Daily Challenges', color: 'bg-amber-500/20 text-amber-400', desc: 'Daily streak rewards' },
 ];
 
@@ -192,7 +192,7 @@ export default function DashboardPage() {
               <div key={tx._id} className="flex items-center justify-between py-2 border-b border-slate-700 last:border-0">
                 <div className="flex items-center gap-3">
                   <div className={`${tx.direction === 'credit' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'} w-8 h-8 rounded-full flex items-center justify-center text-sm`}>
-                    {tx.direction === 'credit' ? '↓' : '↑'}
+                    {tx.direction === 'credit' ? 'â†“' : 'â†‘'}
                   </div>
                   <div>
                     <div className="text-sm font-medium capitalize">{tx.type.replace('_', ' ')}</div>
@@ -210,3 +210,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

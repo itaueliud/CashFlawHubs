@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -33,7 +33,7 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center font-black text-xl mx-auto mb-4">C</div>
           <h1 className="text-2xl font-black">Welcome Back</h1>
-            <p className="text-slate-400 text-sm mt-1">Login to your CashFlowConnect account</p>
+            <p className="text-slate-400 text-sm mt-1">Login to your CashFlowHubs account</p>
         </div>
         <div className="card">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -65,3 +65,4 @@ export default function LoginPage() {
     </div>
   );
 }
+
