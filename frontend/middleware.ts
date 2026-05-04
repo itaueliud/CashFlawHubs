@@ -10,6 +10,16 @@ const TARGET_ROUTE_BY_ROLE: Record<string, string> = {
 const SKIP_PREFIXES = ['/api', '/_next', '/favicon.ico'];
 
 const shouldSkip = (pathname: string) => SKIP_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+const resolveRoleTarget = (request: NextRequest) => {
+  const envRole = String(process.env.ROLE_PORTAL_TARGET || '').toLowerCase().trim();
+  if (envRole in TARGET_ROUTE_BY_ROLE) return envRole;
+
+  const host = String(request.headers.get('host') || '').toLowerCase();
+  if (host.includes('ledger')) return 'ledger';
+  if (host.includes('superadmin')) return 'superadmin';
+  if (host.includes('admin')) return 'admin';
+  return '';
+};
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -18,7 +28,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const roleTarget = String(process.env.ROLE_PORTAL_TARGET || '').toLowerCase().trim();
+  const roleTarget = resolveRoleTarget(request);
   const targetRoute = TARGET_ROUTE_BY_ROLE[roleTarget];
   if (!targetRoute) {
     return NextResponse.next();
