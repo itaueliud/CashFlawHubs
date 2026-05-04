@@ -1,7 +1,7 @@
 'use client';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { BriefcaseBusiness, ExternalLink } from 'lucide-react';
+import { Briefcase, ExternalLink } from 'lucide-react';
 
 export default function CashTasksPage() {
   const { data } = useQuery({
@@ -20,7 +20,7 @@ export default function CashTasksPage() {
       <div className="grid md:grid-cols-2 gap-4">
         {providers.map((provider: any) => (
           <div key={provider.key} className="card">
-            <BriefcaseBusiness className="text-orange-400 mb-3" size={28} />
+            <Briefcase className="text-orange-400 mb-3" size={28} />
             <h3 className="font-bold text-lg mb-1">{provider.name}</h3>
             <p className="text-slate-400 text-sm mb-3">{provider.description}</p>
             <div className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-4">

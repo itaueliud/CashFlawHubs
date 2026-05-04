@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import api from '@/lib/api';
-import { Search, Building2, Clock, Plus, Loader2, ArrowRight, BriefcaseBusiness, Filter, SearchCheck, ShieldCheck, Sparkles, TrendingUp } from 'lucide-react';
+import { Search, Building2, Clock, Plus, Loader2, ArrowRight, Briefcase, Filter, SearchCheck, ShieldCheck, Sparkles, TrendingUp } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import toast from 'react-hot-toast';
 
@@ -105,7 +105,7 @@ export default function JobsPage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
             {[
               { label: 'Fast apply', value: 'Internal application flow', icon: SearchCheck },
-              { label: 'Remote-first', value: 'Location is always remote', icon: BriefcaseBusiness },
+              { label: 'Remote-first', value: 'Location is always remote', icon: Briefcase },
               { label: 'Trusted flow', value: 'Apply inside the platform', icon: ShieldCheck },
               { label: 'Marketplace feel', value: 'Clean cards and focused CTAs', icon: TrendingUp },
             ].map((item) => (
