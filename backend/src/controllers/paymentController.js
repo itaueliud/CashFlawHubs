@@ -12,6 +12,7 @@ const { getCurrencyRate } = require('../services/exchangeService');
 const paymentOrchestrator = require('../services/paymentOrchestrator');
 const { publishToQueue } = require('../services/queueWorker');
 const logger = require('../utils/logger');
+const { isActivationTestWindowEnabled, isUserActivated } = require('../utils/activationWindow');
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 const PAYSTACK_COLLECTION_CURRENCY = {
@@ -342,7 +343,7 @@ const buildVerificationResponse = async (tx) => {
     verified: tx.status === 'successful',
     status: tx.status,
     type: tx.type,
-    activated: tx.type === 'activation' ? Boolean(user?.activationStatus) : false,
+    activated: tx.type === 'activation' ? isUserActivated(user) : false,
     tokensCredited: tx.type === 'token_purchase' ? tx.status === 'successful' : false,
     depositCredited: tx.type === 'deposit' ? tx.status === 'successful' : false,
     reference: tx.metadata?.reference || tx.providerTransactionId,
@@ -474,11 +475,26 @@ exports.initiateActivation = async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    if (user.activationStatus) {
+    const countryConfig = COUNTRIES[user.country];
+
+    if (isUserActivated(user)) {
       return res.status(400).json({ success: false, message: 'Account already activated' });
     }
 
-    const countryConfig = COUNTRIES[user.country];
+    if (isActivationTestWindowEnabled()) {
+      return res.json({
+        success: true,
+        paymentLink: null,
+        amount: 0,
+        currency: countryConfig.currency,
+        reference: null,
+        paymentRouting: countryConfig.paymentRouting,
+        paymentStack: HYBRID_PAYMENT_STACK,
+        activationBypass: true,
+        message: 'Activation payment is temporarily bypassed for testing.',
+      });
+    }
+
     const reference = buildReference('ACT', user.userId);
     const paymentPhone = String(phoneNumber || user.phone || '').trim();
 

@@ -85,12 +85,12 @@ export default function JobsPage() {
         <div className="grid gap-8 p-6 lg:grid-cols-[1.4fr_0.8fr] lg:p-8">
           <div className="space-y-5">
             <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-emerald-300">
-              <Sparkles size={12} /> Upwork-style remote board
+              <Sparkles size={12} /> CashFlowHubs remote board
             </div>
             <div>
               <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">Remote Jobs</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-                Discover remote roles in a clean, search-first board with a polished, Upwork-inspired feel.
+                Discover remote roles in a clean, search-first board designed for the CashFlowHubs community.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -151,7 +151,7 @@ export default function JobsPage() {
         <div className="mx-auto max-w-4xl space-y-4 rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 shadow-xl shadow-emerald-950/10 md:p-6">
           <div className="mb-2">
             <h2 className="text-2xl font-black text-white">Post a remote role</h2>
-            <p className="mt-1 text-sm text-slate-400">Use a clean Upwork-like layout for internal job listings.</p>
+            <p className="mt-1 text-sm text-slate-400">Use a clean CashFlowHubs layout for internal job listings.</p>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
             <div>
@@ -271,7 +271,7 @@ export default function JobsPage() {
                       <Link href={`/dashboard/jobs/${job._id}`} className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400">
                         Apply on site <ArrowRight size={14} />
                       </Link>
-                      <div className="text-xs uppercase tracking-[0.2em] text-slate-500">Upwork-inspired remote board</div>
+                      <div className="text-xs uppercase tracking-[0.2em] text-slate-500">CashFlowHubs remote board</div>
                     </div>
                   </div>
                 </div>

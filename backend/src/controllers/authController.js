@@ -8,6 +8,7 @@ const { sendSMS, sendEmail, smsConfigured } = require('../services/notificationS
 const { COUNTRIES } = require('../config/countries');
 const { TOKEN_PACKAGES } = require('../config/monetization');
 const devAuthStore = require('../services/devAuthStore');
+const { isUserActivated } = require('../utils/activationWindow');
 
 const CODE_TTL_SECONDS = 300;
 const fallbackStore = new Map();
@@ -286,7 +287,8 @@ exports.register = async (req, res) => {
         phone: user.phone,
         country: user.country,
         referralCode: user.referralCode,
-        activationStatus: user.activationStatus,
+        activationStatus: isUserActivated(user),
+        activationStatusRaw: user.activationStatus,
         emailVerified: user.emailVerified,
         identityVerificationStatus: user.identityVerificationStatus,
         tokenBalance: user.tokenBalance,
@@ -407,7 +409,8 @@ exports.login = async (req, res) => {
         phone: user.phone,
         country: user.country,
         referralCode: user.referralCode,
-        activationStatus: user.activationStatus,
+        activationStatus: isUserActivated(user),
+        activationStatusRaw: user.activationStatus,
         identityVerificationStatus: user.identityVerificationStatus,
         tokenBalance: user.tokenBalance,
         totalTokensPurchased: user.totalTokensPurchased,
@@ -437,12 +440,28 @@ exports.getMe = async (req, res) => {
       if (!user) {
         return res.status(404).json({ success: false, message: 'User not found' });
       }
-      return res.json({ success: true, user, wallet: { balanceUSD: user.balanceUSD || 0 } });
+      return res.json({
+        success: true,
+        user: {
+          ...user,
+          activationStatus: isUserActivated(user),
+          activationStatusRaw: user.activationStatus,
+        },
+        wallet: { balanceUSD: user.balanceUSD || 0 },
+      });
     }
 
     const user = await User.findById(req.user.id);
     const wallet = await Wallet.findOne({ userId: user._id });
-    res.json({ success: true, user, wallet });
+    res.json({
+      success: true,
+      user: {
+        ...user.toObject(),
+        activationStatus: isUserActivated(user),
+        activationStatusRaw: user.activationStatus,
+      },
+      wallet,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

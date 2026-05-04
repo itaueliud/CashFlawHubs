@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const devAuthStore = require('../services/devAuthStore');
+const { isUserActivated } = require('../utils/activationWindow');
 
 exports.protect = async (req, res, next) => {
   try {
@@ -48,7 +49,7 @@ exports.staffOnly = (req, res, next) => {
 };
 
 exports.requireActivation = (req, res, next) => {
-  if (!req.user.activationStatus) {
+  if (!isUserActivated(req.user)) {
     return res.status(403).json({ success: false, message: 'Account activation required' });
   }
   next();

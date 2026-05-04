@@ -2,7 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Copy, Users, DollarSign, Trophy } from 'lucide-react';
+import { Copy, Users, DollarSign, Trophy, MessageCircle, Send } from 'lucide-react';
 
 export default function ReferralsPage() {
   const { data } = useQuery({ queryKey: ['referral-dashboard'], queryFn: () => api.get('/referrals/dashboard').then(r => r.data) });
@@ -34,8 +34,8 @@ export default function ReferralsPage() {
         <div className="bg-slate-900 rounded-xl px-4 py-3 font-mono text-sm text-slate-300 mb-3 break-all">{link || 'Loading...'}</div>
         <div className="flex flex-wrap gap-2">
           <button onClick={copy} className="btn-secondary text-sm flex items-center gap-2"><Copy size={14} /> Copy Link</button>
-          <button onClick={whatsapp} className="bg-green-600 hover:bg-green-500 text-white text-sm px-4 py-2 rounded-xl transition-all">ðŸ“± WhatsApp</button>
-          <button onClick={telegram} className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-xl transition-all">âœˆï¸ Telegram</button>
+          <button onClick={whatsapp} className="bg-green-600 hover:bg-green-500 text-white text-sm px-4 py-2 rounded-xl transition-all inline-flex items-center gap-2"><MessageCircle size={14} /> WhatsApp</button>
+          <button onClick={telegram} className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-xl transition-all inline-flex items-center gap-2"><Send size={14} /> Telegram</button>
         </div>
       </div>
       <div className="card bg-slate-900">
