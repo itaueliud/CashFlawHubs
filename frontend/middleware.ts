@@ -24,10 +24,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Managed staff portals should always start at login on root.
-  if ((roleTarget === 'admin' || roleTarget === 'superadmin') && pathname === '/') {
+  // Portal deployments should always start at login on root.
+  if (pathname === '/') {
     const nextUrl = request.nextUrl.clone();
     nextUrl.pathname = '/login';
+    nextUrl.searchParams.set('portal', roleTarget);
     return NextResponse.redirect(nextUrl);
   }
 

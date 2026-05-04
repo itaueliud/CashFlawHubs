@@ -1,5 +1,5 @@
 ﻿'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -12,7 +12,20 @@ export default function LoginPage() {
   const { login } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [portal, setPortal] = useState('');
   const { register, handleSubmit } = useForm<{ identifier: string; password: string }>();
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setPortal(String(params.get('portal') || '').toLowerCase());
+  }, []);
+  const portalLabel =
+    portal === 'ledger'
+      ? 'Ledger Dashboard'
+      : portal === 'superadmin'
+        ? 'Superadmin Dashboard'
+        : portal === 'admin'
+          ? 'Admin Dashboard'
+          : '';
 
   const onSubmit = async (data: { identifier: string; password: string }) => {
     setIsLoading(true);
@@ -33,7 +46,12 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center font-black text-xl mx-auto mb-4">C</div>
           <h1 className="text-2xl font-black">Welcome Back</h1>
-            <p className="text-slate-400 text-sm mt-1">Login to your CashFlowHubs account</p>
+          <p className="text-slate-400 text-sm mt-1">Login to your CashFlowHubs account</p>
+          {portalLabel && (
+            <div className="mt-3 inline-flex items-center rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-green-300">
+              {portalLabel}
+            </div>
+          )}
         </div>
         <div className="card">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
