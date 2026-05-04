@@ -3,7 +3,9 @@ import axios from 'axios';
 const getApiBaseUrl = () => {
   const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
   if (configuredApiUrl) {
-    return `${configuredApiUrl.replace(/\/+$/, '')}/api`;
+    const normalized = configuredApiUrl.replace(/\/+$/, '');
+    // Allow either NEXT_PUBLIC_API_URL=https://host or https://host/api
+    return normalized.endsWith('/api') ? normalized : `${normalized}/api`;
   }
 
   if (typeof window !== 'undefined') {
