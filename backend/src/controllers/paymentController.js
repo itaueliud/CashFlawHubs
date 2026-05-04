@@ -43,6 +43,12 @@ const FRONTEND_PAYMENT_PATHS = {
 };
 
 const useDarajaForKenya = () => String(process.env.USE_DARAJA).toLowerCase() === 'true';
+const getDarajaEnv = () => String(process.env.DARAJA_ENV || process.env.MPESA_ENV || process.env.NODE_ENV || 'sandbox').toLowerCase();
+const isDarajaLive = () => ['live', 'production'].includes(getDarajaEnv());
+const getMpesaCallbackUrl = () =>
+  process.env.DARAJA_CALLBACK_URL ||
+  process.env.MPESA_CALLBACK_URL ||
+  `${process.env.BACKEND_URL}/api/payments/mpesa/callback`;
 
 const getPaystackHeaders = () => {
   if (!process.env.PAYSTACK_SECRET_KEY) {
@@ -414,11 +420,11 @@ const fulfillPendingCollection = async (reference, provider, providerTransaction
 const initiateMpesaSTK = async (user, amount, phoneNumber) => {
   const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
   const password = Buffer.from(
-    `${process.env.MPESA_SHORTCODE}${process.env.MPESA_PASSKEY}${timestamp}`
+    `${process.env.DARAJA_SHORTCODE || process.env.MPESA_SHORTCODE}${process.env.DARAJA_PASSKEY || process.env.MPESA_PASSKEY}${timestamp}`
   ).toString('base64');
   const normalizedPhone = normalizePhoneNumber(phoneNumber || user.phone);
 
-  const baseUrl = process.env.NODE_ENV === 'production'
+  const baseUrl = isDarajaLive()
     ? 'https://api.safaricom.co.ke'
     : 'https://sandbox.safaricom.co.ke';
 
@@ -426,8 +432,8 @@ const initiateMpesaSTK = async (user, amount, phoneNumber) => {
     `${baseUrl}/oauth/v1/generate?grant_type=client_credentials`,
     {
       auth: {
-        username: process.env.MPESA_CONSUMER_KEY,
-        password: process.env.MPESA_CONSUMER_SECRET,
+        username: process.env.DARAJA_CONSUMER_KEY || process.env.MPESA_CONSUMER_KEY,
+        password: process.env.DARAJA_CONSUMER_SECRET || process.env.MPESA_CONSUMER_SECRET,
       },
     }
   );
@@ -435,15 +441,18 @@ const initiateMpesaSTK = async (user, amount, phoneNumber) => {
   return axios.post(
     `${baseUrl}/mpesa/stkpush/v1/processrequest`,
     {
-      BusinessShortCode: process.env.MPESA_SHORTCODE,
+      BusinessShortCode: process.env.DARAJA_SHORTCODE || process.env.MPESA_SHORTCODE,
       Password: password,
       Timestamp: timestamp,
-      TransactionType: 'CustomerPayBillOnline',
+      TransactionType: process.env.DARAJA_TRANSACTION_TYPE || 'CustomerPayBillOnline',
       Amount: amount,
       PartyA: normalizedPhone,
-      PartyB: process.env.MPESA_SHORTCODE,
+      PartyB:
+        (process.env.DARAJA_TRANSACTION_TYPE || 'CustomerPayBillOnline') === 'CustomerBuyGoodsOnline'
+          ? (process.env.DARAJA_TILL || process.env.MPESA_TILL || process.env.DARAJA_SHORTCODE || process.env.MPESA_SHORTCODE)
+          : (process.env.DARAJA_SHORTCODE || process.env.MPESA_SHORTCODE),
       PhoneNumber: normalizedPhone,
-      CallBackURL: process.env.MPESA_CALLBACK_URL,
+      CallBackURL: getMpesaCallbackUrl(),
       AccountReference: `CashFlawHubs-${user.userId}`,
       TransactionDesc: 'CashFlawHubs Account Activation',
     },
@@ -872,11 +881,32 @@ exports.verifyPayment = async (req, res) => {
 // @POST /api/payments/mpesa/callback
 exports.mpesaCallback = async (req, res) => {
   try {
-    const { Body } = req.body;
-    const { ResultCode, CallbackMetadata } = Body.stkCallback;
+    const stkCallback = req.body?.Body?.stkCallback;
+    if (!stkCallback) {
+      logger.warn('M-Pesa callback received without stkCallback payload');
+      return res.status(200).json({ received: true });
+    }
 
-    if (ResultCode !== 0) {
-      logger.warn(`M-Pesa payment failed: ResultCode ${ResultCode}`);
+    const { ResultCode, CallbackMetadata, CheckoutRequestID, MerchantRequestID, ResultDesc } = stkCallback;
+    const callbackCode = Number(ResultCode);
+    const checkoutRequestId = CheckoutRequestID || null;
+
+    if (callbackCode !== 0) {
+      if (checkoutRequestId) {
+        await Transaction.findOneAndUpdate(
+          { status: 'pending', 'metadata.checkoutRequestId': checkoutRequestId },
+          {
+            $set: {
+              status: 'failed',
+              failureReason: ResultDesc || `M-Pesa ResultCode ${callbackCode}`,
+              processedAt: new Date(),
+              'metadata.checkoutRequestId': checkoutRequestId,
+              'metadata.merchantRequestId': MerchantRequestID || null,
+            },
+          }
+        );
+      }
+      logger.warn(`M-Pesa payment failed: ResultCode ${callbackCode}, CheckoutRequestID=${checkoutRequestId || 'n/a'}`);
       return res.status(200).json({ received: true });
     }
 
@@ -889,6 +919,7 @@ exports.mpesaCallback = async (req, res) => {
     const pendingTx = await Transaction.findOne({
       status: 'pending',
       $or: [
+        { 'metadata.checkoutRequestId': checkoutRequestId },
         { 'metadata.phoneNumberNormalized': normalizedCallbackPhone },
         { providerTransactionId: txId },
       ],
@@ -917,6 +948,13 @@ exports.mpesaCallback = async (req, res) => {
 
       return res.status(200).json({ received: true });
     }
+
+    pendingTx.metadata = {
+      ...(pendingTx.metadata || {}),
+      checkoutRequestId: checkoutRequestId || pendingTx.metadata?.checkoutRequestId || null,
+      merchantRequestId: MerchantRequestID || pendingTx.metadata?.merchantRequestId || null,
+    };
+    await pendingTx.save();
 
     if (pendingTx?.type === 'token_purchase') {
       await fulfillTokenPurchase(pendingTx.providerTransactionId || txId, 'mpesa', txId);

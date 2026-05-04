@@ -12,7 +12,7 @@ export default function TasksPage() {
   const { data, refetch } = useQuery({
     queryKey: ['tasks-feed'],
     queryFn: () => api.get('/tasks').then((r) => r.data),
-    enabled: !!user,
+    enabled: !!user && !!user.activationStatus,
   });
 
   const tasks = data?.tasks || [];

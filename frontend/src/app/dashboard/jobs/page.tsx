@@ -37,7 +37,14 @@ export default function JobsPage() {
   });
   const { data: catData } = useQuery({
     queryKey: ['job-cats'],
-    queryFn: () => api.get('/jobs/categories').then((r) => r.data.categories),
+    queryFn: async () => {
+      try {
+        const response = await api.get('/jobs/categories');
+        return response.data.categories || [];
+      } catch {
+        return [];
+      }
+    },
   });
 
   const jobs = data?.jobs || [];
