@@ -190,6 +190,7 @@ exports.getJob = async (req, res) => {
 exports.syncJobs = async () => {
   logger.info('Syncing remote jobs...');
   let synced = 0;
+  const remoteLimit = Math.min(Number(process.env.JOBS_SYNC_LIMIT || 100), 200);
 
   try {
     // Remotive
@@ -198,7 +199,7 @@ exports.syncJobs = async () => {
     });
     const remotiveJobs = remotiveRes.data?.jobs || [];
 
-    for (const job of remotiveJobs.slice(0, 100)) {
+    for (const job of remotiveJobs.slice(0, remoteLimit)) {
       await Job.findOneAndUpdate(
         { externalId: `remotive-${job.id}` },
         {
@@ -228,7 +229,7 @@ exports.syncJobs = async () => {
     });
     const jobicyJobs = jobicyRes.data?.jobs || [];
 
-    for (const job of jobicyJobs.slice(0, 100)) {
+    for (const job of jobicyJobs.slice(0, remoteLimit)) {
       await Job.findOneAndUpdate(
         { externalId: `jobicy-${job.id}` },
         {
@@ -250,6 +251,61 @@ exports.syncJobs = async () => {
         { upsert: true, new: true }
       );
       synced++;
+    }
+
+    // Jooble (optional, enabled when JOOBLE_API_KEY is configured)
+    if (process.env.JOOBLE_API_KEY) {
+      try {
+        const joobleCountry = String(process.env.JOOBLE_COUNTRY || 'ke').toLowerCase();
+        const joobleKeywords = process.env.JOOBLE_KEYWORDS || 'remote';
+        const joobleLocation = process.env.JOOBLE_LOCATION || '';
+        const joobleApiUrl = process.env.JOOBLE_API_URL || 'https://jooble.org/api';
+
+        const joobleRes = await axios.post(
+          `${joobleApiUrl.replace(/\/+$/, '')}/${process.env.JOOBLE_API_KEY}`,
+          {
+            keywords: joobleKeywords,
+            location: joobleLocation,
+            page: 1,
+          },
+          {
+            timeout: 12000,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
+
+        const joobleJobs = joobleRes.data?.jobs || [];
+        for (const job of joobleJobs.slice(0, remoteLimit)) {
+          const applicationUrl = job.link || job.url;
+          if (!applicationUrl) continue;
+          const externalId = job.id || job.link || `${job.title || 'job'}-${job.company || 'company'}`;
+          await Job.findOneAndUpdate(
+            { externalId: `jooble-${externalId}` },
+            {
+              externalId: `jooble-${externalId}`,
+              source: 'jooble',
+              title: job.title || 'Remote role',
+              company: job.company || 'Unknown company',
+              companyLogo: null,
+              category: job.category || 'Other',
+              jobType: job.type || 'full-time',
+              location: job.location || 'Remote',
+              salary: job.salary || null,
+              description: (job.snippet || job.description || '').slice(0, 2000),
+              tags: ['jooble', joobleCountry],
+              applicationUrl,
+              publishedAt: job.updated ? new Date(job.updated) : new Date(),
+              isActive: true,
+            },
+            { upsert: true, new: true }
+          );
+          synced++;
+        }
+      } catch (joobleError) {
+        logger.warn(`Jooble sync skipped: ${joobleError.message}`);
+      }
+    } else {
+      logger.info('Jooble sync skipped: JOOBLE_API_KEY not configured');
     }
 
     // Deactivate old jobs (>30 days)

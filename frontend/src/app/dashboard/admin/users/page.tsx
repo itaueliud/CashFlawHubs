@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Shield, UserCheck, Ban } from 'lucide-react';
+import { Shield, UserCheck, Ban, Unlock, KeyRound } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
 export default function AdminUsersPage() {
@@ -12,6 +12,7 @@ export default function AdminUsersPage() {
   const queryClient = useQueryClient();
   const [assigning, setAssigning] = useState<string | null>(null);
   const [assigneeMap, setAssigneeMap] = useState<Record<string, string>>({});
+  const [resetPasswordMap, setResetPasswordMap] = useState<Record<string, string>>({});
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-users'],
@@ -47,6 +48,31 @@ export default function AdminUsersPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to ban user');
+    }
+  };
+
+  const unbanUser = async (userId: string) => {
+    try {
+      await api.put(`/admin/users/${userId}/unban`);
+      toast.success('User unblocked');
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to unblock user');
+    }
+  };
+
+  const resetUserPassword = async (userId: string) => {
+    const newPassword = resetPasswordMap[userId];
+    if (!newPassword || newPassword.length < 8) {
+      toast.error('Enter a temporary password (8+ chars)');
+      return;
+    }
+    try {
+      await api.put(`/admin/users/${userId}/reset-password`, { newPassword });
+      toast.success('Password updated');
+      setResetPasswordMap((current) => ({ ...current, [userId]: '' }));
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update password');
     }
   };
 
@@ -106,10 +132,31 @@ export default function AdminUsersPage() {
                   </div>
                 )}
                 <button
-                  onClick={() => banUser(item._id)}
-                  className="inline-flex items-center gap-2 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 transition hover:border-red-300/50 hover:bg-red-500/15"
+                  onClick={() => (item.isBanned ? unbanUser(item._id) : banUser(item._id))}
+                  className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                    item.isBanned
+                      ? 'border border-emerald-400/30 bg-emerald-500/10 text-emerald-200 hover:border-emerald-300/50 hover:bg-emerald-500/15'
+                      : 'border border-red-400/30 bg-red-500/10 text-red-200 hover:border-red-300/50 hover:bg-red-500/15'
+                  }`}
                 >
-                  <Ban size={14} /> Ban user
+                  {item.isBanned ? <Unlock size={14} /> : <Ban size={14} />}
+                  {item.isBanned ? 'Unblock user' : 'Block user'}
+                </button>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <input
+                  className="input max-w-[260px]"
+                  type="password"
+                  placeholder="Temporary password"
+                  value={resetPasswordMap[item._id] || ''}
+                  onChange={(e) => setResetPasswordMap((current) => ({ ...current, [item._id]: e.target.value }))}
+                />
+                <button
+                  onClick={() => resetUserPassword(item._id)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-yellow-400/30 bg-yellow-500/10 px-4 py-2.5 text-sm font-semibold text-yellow-200 transition hover:border-yellow-300/50 hover:bg-yellow-500/15"
+                >
+                  <KeyRound size={14} /> Set password
                 </button>
               </div>
             </div>

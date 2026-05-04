@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { ShieldCheck, Plus } from 'lucide-react';
+import { ShieldCheck, Plus, Ban, Unlock, KeyRound } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
 const EMPTY_FORM = {
@@ -20,6 +20,7 @@ export default function AdminsPage() {
   const { user } = useAuthStore();
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [passwordMap, setPasswordMap] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -44,6 +45,33 @@ export default function AdminsPage() {
     }
   };
 
+  const toggleAdminBlock = async (adminId: string, isBanned: boolean) => {
+    try {
+      await api.put(`/admin/admins/${adminId}/${isBanned ? 'unban' : 'ban'}`, {
+        reason: 'Managed from superadmin dashboard',
+      });
+      toast.success(isBanned ? 'Admin unblocked' : 'Admin blocked');
+      queryClient.invalidateQueries({ queryKey: ['admin-admins'] });
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update admin status');
+    }
+  };
+
+  const resetAdminPassword = async (adminId: string) => {
+    const newPassword = passwordMap[adminId];
+    if (!newPassword || newPassword.length < 8) {
+      toast.error('Enter a temporary password (8+ chars)');
+      return;
+    }
+    try {
+      await api.put(`/admin/admins/${adminId}/reset-password`, { newPassword });
+      toast.success('Admin password updated');
+      setPasswordMap((current) => ({ ...current, [adminId]: '' }));
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update admin password');
+    }
+  };
+
   if (user?.role !== 'superadmin') {
     return <div className="card text-sm text-slate-400">Only the superadmin can create and manage admins.</div>;
   }
@@ -55,7 +83,7 @@ export default function AdminsPage() {
           <ShieldCheck size={12} /> Superadmin controls
         </div>
         <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">Admins</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Create admin accounts and assign operational control under the superadmin ledger.</p>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Create admin accounts, block or unblock access, and rotate admin passwords securely.</p>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
@@ -105,9 +133,38 @@ export default function AdminsPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-sm font-semibold text-white">{admin.name}</div>
-                      <div className="text-xs text-slate-500">{admin.email} · {admin.phone}</div>
+                      <div className="text-xs text-slate-500">{admin.email} | {admin.phone}</div>
                     </div>
-                    <span className={admin.role === 'superadmin' ? 'badge-green' : 'badge-blue'}>{admin.role}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={admin.role === 'superadmin' ? 'badge-green' : 'badge-blue'}>{admin.role}</span>
+                      <span className={admin.isBanned ? 'badge-red' : 'badge-blue'}>{admin.isBanned ? 'blocked' : 'active'}</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => toggleAdminBlock(admin._id, admin.isBanned)}
+                      className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                        admin.isBanned
+                          ? 'border border-emerald-400/30 bg-emerald-500/10 text-emerald-200 hover:border-emerald-300/50 hover:bg-emerald-500/15'
+                          : 'border border-red-400/30 bg-red-500/10 text-red-200 hover:border-red-300/50 hover:bg-red-500/15'
+                      }`}
+                    >
+                      {admin.isBanned ? <Unlock size={14} /> : <Ban size={14} />}
+                      {admin.isBanned ? 'Unblock' : 'Block'}
+                    </button>
+                    <input
+                      className="input max-w-[220px]"
+                      type="password"
+                      placeholder="Temporary password"
+                      value={passwordMap[admin._id] || ''}
+                      onChange={(e) => setPasswordMap((current) => ({ ...current, [admin._id]: e.target.value }))}
+                    />
+                    <button
+                      onClick={() => resetAdminPassword(admin._id)}
+                      className="inline-flex items-center gap-2 rounded-xl border border-yellow-400/30 bg-yellow-500/10 px-4 py-2 text-sm font-semibold text-yellow-200 transition hover:border-yellow-300/50 hover:bg-yellow-500/15"
+                    >
+                      <KeyRound size={14} /> Set password
+                    </button>
                   </div>
                 </div>
               ))}

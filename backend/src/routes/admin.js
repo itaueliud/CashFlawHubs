@@ -17,6 +17,15 @@ const getLedgerSplitPercent = () => {
 };
 
 const getAdminSharePercent = () => 100 - getLedgerSplitPercent();
+const normalizeSearch = (value = '') => String(value).trim();
+const canManageTarget = (actor, target) => {
+  if (!actor || !target) return false;
+  if (actor.role === 'superadmin') return true;
+  if (actor.role !== 'admin') return false;
+  if (target.role !== 'user') return false;
+  if (!target.managedBy) return true;
+  return target.managedBy.toString() === actor.id.toString();
+};
 
 const getLedgerBaseQuery = (range = '30d') => {
   const now = new Date();
@@ -156,11 +165,36 @@ router.get('/stats', protect, adminOnly, async (req, res) => {
 });
 
 router.get('/users', protect, staffOnly, async (req, res) => {
-  const { page = 1, limit = 50 } = req.query;
-  const query = req.user.role === 'admin'
-    ? { role: 'user', managedBy: req.user.id }
-    : {};
-  const users = await User.find(query).sort({ createdAt: -1 }).skip((page-1)*limit).limit(Number(limit));
+  const { page = 1, limit = 50, search = '', role = '', banned = '' } = req.query;
+  const safeLimit = Math.min(Number(limit) || 50, 200);
+  const query = {};
+
+  if (req.user.role === 'admin') {
+    query.role = 'user';
+    query.$or = [{ managedBy: req.user.id }, { managedBy: null }];
+  } else if (role && ['user', 'admin', 'superadmin'].includes(String(role))) {
+    query.role = role;
+  }
+
+  if (String(banned) === 'true') query.isBanned = true;
+  if (String(banned) === 'false') query.isBanned = false;
+
+  const term = normalizeSearch(search);
+  if (term) {
+    query.$and = [
+      ...(query.$and || []),
+      {
+        $or: [
+          { name: { $regex: term, $options: 'i' } },
+          { email: { $regex: term, $options: 'i' } },
+          { phone: { $regex: term, $options: 'i' } },
+          { userId: { $regex: term, $options: 'i' } },
+        ],
+      },
+    ];
+  }
+
+  const users = await User.find(query).sort({ createdAt: -1 }).skip((page-1)*safeLimit).limit(safeLimit);
   res.json({ success: true, users });
 });
 
@@ -169,11 +203,31 @@ router.put('/users/:id/ban', protect, staffOnly, async (req, res) => {
   if (!targetUser) {
     return res.status(404).json({ success: false, message: 'User not found' });
   }
-  if (req.user.role === 'admin' && targetUser.managedBy?.toString() !== req.user.id.toString() && targetUser.role === 'user') {
+  if (!canManageTarget(req.user, targetUser)) {
+    return res.status(403).json({ success: false, message: 'Not allowed to manage this account' });
+  }
+  if (req.user.role === 'admin' && targetUser.role === 'user') {
     targetUser.managedBy = req.user.id;
     targetUser.managedAt = new Date();
+    await targetUser.save();
   }
   const user = await User.findByIdAndUpdate(req.params.id, { isBanned: true, banReason: req.body.reason }, { new: true });
+  res.json({ success: true, user });
+});
+
+router.put('/users/:id/unban', protect, staffOnly, async (req, res) => {
+  const targetUser = await User.findById(req.params.id);
+  if (!targetUser) {
+    return res.status(404).json({ success: false, message: 'User not found' });
+  }
+  if (!canManageTarget(req.user, targetUser)) {
+    return res.status(403).json({ success: false, message: 'Not allowed to manage this account' });
+  }
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    { isBanned: false, banReason: null, failedLoginAttempts: 0, lockUntil: null },
+    { new: true }
+  );
   res.json({ success: true, user });
 });
 
@@ -194,7 +248,9 @@ router.put('/users/:id/assign', protect, adminOnly, async (req, res) => {
 });
 
 router.get('/admins', protect, superadminOnly, async (req, res) => {
-  const admins = await User.find({ role: { $in: ['admin', 'superadmin'] } }).sort({ createdAt: -1 });
+  const admins = await User.find({ role: { $in: ['admin', 'superadmin'] } })
+    .sort({ createdAt: -1 })
+    .select('name email phone role country isBanned isActive lastActiveDate userId createdAt');
   res.json({ success: true, admins });
 });
 
@@ -228,6 +284,70 @@ router.post('/admins', protect, superadminOnly, async (req, res) => {
   });
 
   res.status(201).json({ success: true, admin });
+});
+
+router.put('/admins/:id/ban', protect, superadminOnly, async (req, res) => {
+  const target = await User.findById(req.params.id);
+  if (!target || !['admin', 'superadmin'].includes(target.role)) {
+    return res.status(404).json({ success: false, message: 'Admin account not found' });
+  }
+  if (target._id.toString() === req.user.id.toString()) {
+    return res.status(400).json({ success: false, message: 'You cannot block your own account' });
+  }
+  const admin = await User.findByIdAndUpdate(
+    target._id,
+    { isBanned: true, banReason: req.body.reason || 'Blocked by superadmin' },
+    { new: true }
+  ).select('name email phone role country isBanned isActive userId');
+  res.json({ success: true, admin });
+});
+
+router.put('/admins/:id/unban', protect, superadminOnly, async (req, res) => {
+  const target = await User.findById(req.params.id);
+  if (!target || !['admin', 'superadmin'].includes(target.role)) {
+    return res.status(404).json({ success: false, message: 'Admin account not found' });
+  }
+  const admin = await User.findByIdAndUpdate(
+    target._id,
+    { isBanned: false, banReason: null, failedLoginAttempts: 0, lockUntil: null },
+    { new: true }
+  ).select('name email phone role country isBanned isActive userId');
+  res.json({ success: true, admin });
+});
+
+router.put('/users/:id/reset-password', protect, staffOnly, async (req, res) => {
+  const { newPassword } = req.body;
+  if (!newPassword || String(newPassword).length < 8) {
+    return res.status(400).json({ success: false, message: 'New password must be at least 8 characters' });
+  }
+  const target = await User.findById(req.params.id).select('+passwordHash');
+  if (!target) {
+    return res.status(404).json({ success: false, message: 'User not found' });
+  }
+  if (!canManageTarget(req.user, target)) {
+    return res.status(403).json({ success: false, message: 'Not allowed to manage this account' });
+  }
+  target.passwordHash = String(newPassword);
+  target.failedLoginAttempts = 0;
+  target.lockUntil = null;
+  await target.save();
+  res.json({ success: true, message: 'Password updated successfully' });
+});
+
+router.put('/admins/:id/reset-password', protect, superadminOnly, async (req, res) => {
+  const { newPassword } = req.body;
+  if (!newPassword || String(newPassword).length < 8) {
+    return res.status(400).json({ success: false, message: 'New password must be at least 8 characters' });
+  }
+  const target = await User.findById(req.params.id).select('+passwordHash');
+  if (!target || !['admin', 'superadmin'].includes(target.role)) {
+    return res.status(404).json({ success: false, message: 'Admin account not found' });
+  }
+  target.passwordHash = String(newPassword);
+  target.failedLoginAttempts = 0;
+  target.lockUntil = null;
+  await target.save();
+  res.json({ success: true, message: 'Admin password updated successfully' });
 });
 
 router.get('/ledger', protect, adminOnly, async (req, res) => {
