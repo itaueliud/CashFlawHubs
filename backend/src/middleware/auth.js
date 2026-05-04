@@ -41,8 +41,22 @@ exports.superadminOnly = (req, res, next) => {
   next();
 };
 
+exports.ledgerOnly = (req, res, next) => {
+  if (req.user.role !== 'ledger') {
+    return res.status(403).json({ success: false, message: 'Ledger access required' });
+  }
+  next();
+};
+
+exports.ledgerOrSuperadminOnly = (req, res, next) => {
+  if (!['ledger', 'superadmin'].includes(req.user.role)) {
+    return res.status(403).json({ success: false, message: 'Ledger or superadmin access required' });
+  }
+  next();
+};
+
 exports.staffOnly = (req, res, next) => {
-  if (!['admin', 'superadmin'].includes(req.user.role)) {
+  if (!['admin', 'superadmin', 'ledger'].includes(req.user.role)) {
     return res.status(403).json({ success: false, message: 'Staff access required' });
   }
   next();

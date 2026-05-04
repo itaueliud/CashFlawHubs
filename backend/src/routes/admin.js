@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect, adminOnly, superadminOnly, staffOnly } = require('../middleware/auth');
+const { protect, adminOnly, superadminOnly, staffOnly, ledgerOrSuperadminOnly } = require('../middleware/auth');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const { COUNTRIES } = require('../config/countries');
@@ -247,21 +247,21 @@ router.put('/users/:id/assign', protect, adminOnly, async (req, res) => {
   res.json({ success: true, user });
 });
 
-router.get('/admins', protect, superadminOnly, async (req, res) => {
-  const admins = await User.find({ role: { $in: ['admin', 'superadmin'] } })
+router.get('/admins', protect, ledgerOrSuperadminOnly, async (req, res) => {
+  const admins = await User.find({ role: { $in: ['admin', 'superadmin', 'ledger'] } })
     .sort({ createdAt: -1 })
     .select('name email phone role country isBanned isActive lastActiveDate userId createdAt');
   res.json({ success: true, admins });
 });
 
-router.post('/admins', protect, superadminOnly, async (req, res) => {
+router.post('/admins', protect, ledgerOrSuperadminOnly, async (req, res) => {
   const { name, email, phone, country, password, role = 'admin' } = req.body;
 
   if (!name || !email || !phone || !country || !password) {
     return res.status(400).json({ success: false, message: 'Missing required admin fields' });
   }
 
-  if (!['admin', 'superadmin'].includes(role)) {
+  if (!['admin', 'superadmin', 'ledger'].includes(role)) {
     return res.status(400).json({ success: false, message: 'Invalid role' });
   }
 
@@ -286,7 +286,7 @@ router.post('/admins', protect, superadminOnly, async (req, res) => {
   res.status(201).json({ success: true, admin });
 });
 
-router.put('/admins/:id/ban', protect, superadminOnly, async (req, res) => {
+router.put('/admins/:id/ban', protect, ledgerOrSuperadminOnly, async (req, res) => {
   const target = await User.findById(req.params.id);
   if (!target || !['admin', 'superadmin'].includes(target.role)) {
     return res.status(404).json({ success: false, message: 'Admin account not found' });
@@ -302,7 +302,7 @@ router.put('/admins/:id/ban', protect, superadminOnly, async (req, res) => {
   res.json({ success: true, admin });
 });
 
-router.put('/admins/:id/unban', protect, superadminOnly, async (req, res) => {
+router.put('/admins/:id/unban', protect, ledgerOrSuperadminOnly, async (req, res) => {
   const target = await User.findById(req.params.id);
   if (!target || !['admin', 'superadmin'].includes(target.role)) {
     return res.status(404).json({ success: false, message: 'Admin account not found' });
@@ -334,7 +334,7 @@ router.put('/users/:id/reset-password', protect, staffOnly, async (req, res) => 
   res.json({ success: true, message: 'Password updated successfully' });
 });
 
-router.put('/admins/:id/reset-password', protect, superadminOnly, async (req, res) => {
+router.put('/admins/:id/reset-password', protect, ledgerOrSuperadminOnly, async (req, res) => {
   const { newPassword } = req.body;
   if (!newPassword || String(newPassword).length < 8) {
     return res.status(400).json({ success: false, message: 'New password must be at least 8 characters' });
@@ -362,7 +362,7 @@ router.post('/ledger/payouts/preview', protect, adminOnly, async (req, res) => {
   res.json({ success: true, preview: ledger });
 });
 
-router.post('/ledger/payouts/execute', protect, superadminOnly, async (req, res) => {
+router.post('/ledger/payouts/execute', protect, ledgerOrSuperadminOnly, async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -567,7 +567,7 @@ router.get('/users/:id/ledger', protect, staffOnly, async (req, res) => {
   });
 });
 
-router.post('/execute-payout', protect, superadminOnly, async (req, res) => {
+router.post('/execute-payout', protect, ledgerOrSuperadminOnly, async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 

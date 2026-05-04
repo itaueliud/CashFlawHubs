@@ -46,6 +46,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (hasHydrated && !user) router.push('/login');
   }, [hasHydrated, router, user]);
 
+  useEffect(() => {
+    if (!hasHydrated || !user) return;
+
+    if (user.role === 'ledger') {
+      const disallowedForLedger = [
+        '/dashboard/admin-console',
+        '/dashboard/superadmin',
+      ];
+      if (disallowedForLedger.some((path) => pathname.startsWith(path))) {
+        router.push('/dashboard/ledger');
+      }
+    }
+  }, [hasHydrated, user, pathname, router]);
+
   if (!hasHydrated) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-950 text-slate-400">
@@ -56,7 +70,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (!user) return null;
 
-  const nav = user.role === 'admin'
+  const nav = user.role === 'ledger'
+    ? [...BASE_NAV, { href: '/dashboard/ledger', icon: TrendingUp, label: 'Ledger' }]
+    : user.role === 'admin'
     ? [...BASE_NAV, { href: '/dashboard/admin-console', icon: Shield, label: 'Admin Console' }, { href: '/dashboard/admin/provider-health', icon: ShieldCheck, label: 'Provider Health' }]
     : user.role === 'superadmin'
       ? [...BASE_NAV, { href: '/dashboard/superadmin', icon: Shield, label: 'Superadmin' }, { href: '/dashboard/ledger', icon: TrendingUp, label: 'Ledger' }, { href: '/dashboard/admin/admins', icon: ShieldCheck, label: 'Admins' }, { href: '/dashboard/admin/users', icon: User, label: 'Users' }, { href: '/dashboard/admin/provider-health', icon: ShieldCheck, label: 'Provider Health' }]
