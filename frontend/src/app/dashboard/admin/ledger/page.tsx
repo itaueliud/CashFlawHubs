@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Landmark, TrendingUp, Users, AlertCircle, ShieldCheck, Ban, Unlock } from 'lucide-react';
+import { Landmark, TrendingUp, Users, AlertCircle, Ban, Unlock } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/store/authStore';
@@ -11,7 +11,7 @@ export default function AdminLedgerPage() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const [showConfirm, setShowConfirm] = useState(false);
-  const [tab, setTab] = useState<'summary' | 'staff' | 'users'>('summary');
+  const [tab, setTab] = useState<'summary' | 'staff'>('summary');
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-ledger'],
@@ -21,12 +21,7 @@ export default function AdminLedgerPage() {
   const { data: adminsData } = useQuery({
     queryKey: ['ledger-admins'],
     queryFn: () => api.get('/admin/admins').then((r) => r.data),
-    enabled: user?.role === 'superadmin',
-  });
-
-  const { data: usersData } = useQuery({
-    queryKey: ['ledger-users'],
-    queryFn: () => api.get('/admin/users?limit=100').then((r) => r.data),
+    enabled: user?.role === 'ledger',
   });
 
   const executeMutation = useMutation({
@@ -40,18 +35,6 @@ export default function AdminLedgerPage() {
       toast.error(error?.response?.data?.message || 'Failed to execute payout');
     },
   });
-
-  const blockUser = async (id: string, isBanned: boolean) => {
-    try {
-      await api.put(`/admin/users/${id}/${isBanned ? 'unban' : 'ban'}`, {
-        reason: 'Managed from ledger panel',
-      });
-      toast.success(isBanned ? 'User unblocked' : 'User blocked');
-      queryClient.invalidateQueries({ queryKey: ['ledger-users'] });
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to update user');
-    }
-  };
 
   const blockAdmin = async (id: string, isBanned: boolean) => {
     try {
@@ -67,6 +50,10 @@ export default function AdminLedgerPage() {
 
   if (isLoading) {
     return <div className="card text-sm text-slate-400">Loading ledger...</div>;
+  }
+
+  if (user?.role !== 'ledger') {
+    return <div className="card text-sm text-slate-400">Ledger dashboard is only available to ledger accounts.</div>;
   }
 
   if (!data?.success) {
@@ -85,7 +72,7 @@ export default function AdminLedgerPage() {
             </div>
             <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">Ledger & Operations</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-              Revenue split, payout execution, and full governance over admin and user accounts.
+              Revenue split, payout execution, and governance over admin and superadmin accounts.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
@@ -105,7 +92,6 @@ export default function AdminLedgerPage() {
         {([
           ['summary', 'Summary'],
           ['staff', 'Admins/Superadmins'],
-          ['users', 'Users'],
         ] as const).map(([id, label]) => (
           <button
             key={id}
@@ -140,7 +126,7 @@ export default function AdminLedgerPage() {
             </div>
           </div>
 
-          {ledger.totalUSD > 0 && user?.role === 'superadmin' && (
+          {ledger.totalUSD > 0 && user?.role === 'ledger' && (
             <div className="card">
               <button
                 onClick={() => setShowConfirm(true)}
@@ -172,26 +158,6 @@ export default function AdminLedgerPage() {
                   {admin.isBanned ? <Unlock size={12} /> : <Ban size={12} />} {admin.isBanned ? 'Unblock' : 'Block'}
                 </button>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tab === 'users' && (
-        <div className="card space-y-3">
-          <h2 className="text-xl font-bold text-white">User management</h2>
-          {(usersData?.users || []).map((item: any) => (
-            <div key={item._id} className="rounded-2xl border border-slate-700 bg-slate-950/70 p-4 flex items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold text-white">{item.name}</div>
-                <div className="text-xs text-slate-500">{item.email} | {item.phone} | {item.country}</div>
-              </div>
-              <button
-                onClick={() => blockUser(item._id, item.isBanned)}
-                className={`inline-flex items-center gap-1 rounded-lg px-3 py-1 text-xs font-semibold ${item.isBanned ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'}`}
-              >
-                {item.isBanned ? <Unlock size={12} /> : <Ban size={12} />} {item.isBanned ? 'Unblock' : 'Block'}
-              </button>
             </div>
           ))}
         </div>

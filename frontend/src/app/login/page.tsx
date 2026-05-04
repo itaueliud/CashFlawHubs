@@ -16,7 +16,16 @@ export default function LoginPage() {
   const { register, handleSubmit } = useForm<{ identifier: string; password: string }>();
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setPortal(String(params.get('portal') || '').toLowerCase());
+    const queryPortal = String(params.get('portal') || '').toLowerCase();
+    if (queryPortal) {
+      setPortal(queryPortal);
+      return;
+    }
+    const host = String(window.location.host || '').toLowerCase();
+    if (host.includes('ledger')) setPortal('ledger');
+    else if (host.includes('superadmin')) setPortal('superadmin');
+    else if (host.includes('admin')) setPortal('admin');
+    else setPortal('');
   }, []);
   const portalLabel =
     portal === 'ledger'
@@ -26,13 +35,19 @@ export default function LoginPage() {
         : portal === 'admin'
           ? 'Admin Dashboard'
           : '';
+  const hideSignup = portal === 'admin' || portal === 'superadmin';
 
   const onSubmit = async (data: { identifier: string; password: string }) => {
     setIsLoading(true);
     try {
       await login(data.identifier, data.password);
       toast.success('Welcome back!');
-      router.push('/dashboard');
+      const targetByPortal: Record<string, string> = {
+        ledger: '/dashboard/ledger',
+        superadmin: '/dashboard/superadmin',
+        admin: '/dashboard/admin-console',
+      };
+      router.push(targetByPortal[portal] || '/dashboard');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Login failed');
     } finally {
@@ -74,10 +89,12 @@ export default function LoginPage() {
               {isLoading ? <Loader2 size={18} className="animate-spin" /> : 'Login'}
             </button>
           </form>
-          <p className="text-center text-slate-400 text-sm mt-5">
-            No account?{' '}
-            <Link href="/register" className="text-green-400 hover:text-green-300 font-medium">Sign up free</Link>
-          </p>
+          {!hideSignup && (
+            <p className="text-center text-slate-400 text-sm mt-5">
+              No account?{' '}
+              <Link href="/register" className="text-green-400 hover:text-green-300 font-medium">Sign up free</Link>
+            </p>
+          )}
         </div>
       </div>
     </div>

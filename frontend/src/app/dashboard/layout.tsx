@@ -49,14 +49,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!hasHydrated || !user) return;
 
-    if (user.role === 'ledger') {
-      const disallowedForLedger = [
-        '/dashboard/admin-console',
-        '/dashboard/superadmin',
-      ];
-      if (disallowedForLedger.some((path) => pathname.startsWith(path))) {
-        router.push('/dashboard/ledger');
+    if (user.role === 'user') {
+      if (pathname.startsWith('/dashboard/admin') || pathname.startsWith('/dashboard/admin-console') || pathname.startsWith('/dashboard/ledger') || pathname.startsWith('/dashboard/superadmin')) {
+        router.push('/dashboard');
       }
+      return;
+    }
+
+    if (user.role === 'ledger' && pathname.startsWith('/dashboard/admin/users')) {
+      router.push('/dashboard/ledger');
+      return;
+    }
+
+    if (user.role === 'superadmin' && (pathname.startsWith('/dashboard/admin/users') || pathname.startsWith('/dashboard/admin/ledger'))) {
+      router.push('/dashboard/superadmin');
+      return;
+    }
+
+    if (user.role === 'admin' && (pathname === '/dashboard' || pathname.startsWith('/dashboard/jobs') || pathname.startsWith('/dashboard/surveys') || pathname.startsWith('/dashboard/tasks') || pathname.startsWith('/dashboard/ads-network') || pathname.startsWith('/dashboard/offerwalls') || pathname.startsWith('/dashboard/cash-tasks') || pathname.startsWith('/dashboard/referrals') || pathname.startsWith('/dashboard/wallet') || pathname.startsWith('/dashboard/profile') || pathname.startsWith('/dashboard/activate') || pathname.startsWith('/dashboard/freelance') || pathname.startsWith('/dashboard/admin/ledger') || pathname.startsWith('/dashboard/admin/admins') || pathname.startsWith('/dashboard/ledger') || pathname.startsWith('/dashboard/superadmin'))) {
+      router.push('/dashboard/admin-console');
+      return;
+    }
+
+    if (user.role === 'superadmin' && (pathname === '/dashboard' || pathname.startsWith('/dashboard/jobs') || pathname.startsWith('/dashboard/surveys') || pathname.startsWith('/dashboard/tasks') || pathname.startsWith('/dashboard/ads-network') || pathname.startsWith('/dashboard/offerwalls') || pathname.startsWith('/dashboard/cash-tasks') || pathname.startsWith('/dashboard/referrals') || pathname.startsWith('/dashboard/wallet') || pathname.startsWith('/dashboard/profile') || pathname.startsWith('/dashboard/activate') || pathname.startsWith('/dashboard/freelance'))) {
+      router.push('/dashboard/superadmin');
+      return;
+    }
+
+    if (user.role === 'ledger' && (pathname === '/dashboard' || pathname.startsWith('/dashboard/jobs') || pathname.startsWith('/dashboard/surveys') || pathname.startsWith('/dashboard/tasks') || pathname.startsWith('/dashboard/ads-network') || pathname.startsWith('/dashboard/offerwalls') || pathname.startsWith('/dashboard/cash-tasks') || pathname.startsWith('/dashboard/referrals') || pathname.startsWith('/dashboard/wallet') || pathname.startsWith('/dashboard/profile') || pathname.startsWith('/dashboard/activate') || pathname.startsWith('/dashboard/freelance'))) {
+      router.push('/dashboard/ledger');
     }
   }, [hasHydrated, user, pathname, router]);
 
@@ -71,12 +92,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null;
 
   const nav = user.role === 'ledger'
-    ? [...BASE_NAV, { href: '/dashboard/ledger', icon: TrendingUp, label: 'Ledger' }]
+    ? [{ href: '/dashboard/ledger', icon: TrendingUp, label: 'Ledger' }, { href: '/dashboard/admin/admins', icon: ShieldCheck, label: 'Admins' }]
     : user.role === 'admin'
-    ? [...BASE_NAV, { href: '/dashboard/admin-console', icon: Shield, label: 'Admin Console' }, { href: '/dashboard/admin/provider-health', icon: ShieldCheck, label: 'Provider Health' }]
+    ? [{ href: '/dashboard/admin-console', icon: Shield, label: 'Admin Console' }, { href: '/dashboard/admin/users', icon: User, label: 'Users' }]
     : user.role === 'superadmin'
-      ? [...BASE_NAV, { href: '/dashboard/superadmin', icon: Shield, label: 'Superadmin' }, { href: '/dashboard/ledger', icon: TrendingUp, label: 'Ledger' }, { href: '/dashboard/admin/admins', icon: ShieldCheck, label: 'Admins' }, { href: '/dashboard/admin/users', icon: User, label: 'Users' }, { href: '/dashboard/admin/provider-health', icon: ShieldCheck, label: 'Provider Health' }]
-    : BASE_NAV;
+      ? [{ href: '/dashboard/superadmin', icon: Shield, label: 'Superadmin' }, { href: '/dashboard/admin/admins', icon: ShieldCheck, label: 'Admins' }]
+      : BASE_NAV;
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">

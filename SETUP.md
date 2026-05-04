@@ -63,7 +63,9 @@ npm run seed
 ```
 
 This creates:
+- **Superadmin:** `+254700000001` / `Superadmin@1234`
 - **Admin:** `+254700000000` / `Admin@1234`
+- **Ledger:** `+254700000002` / `Ledger@1234`
 - **Test User:** `+254711111111` / `Test@1234` (pre-activated, $12.40 balance)
 
 ---

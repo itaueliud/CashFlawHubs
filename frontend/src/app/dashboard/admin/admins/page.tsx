@@ -26,7 +26,7 @@ export default function AdminsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin-admins'],
     queryFn: () => api.get('/admin/admins').then((response) => response.data),
-    enabled: user?.role === 'superadmin',
+    enabled: user?.role === 'superadmin' || user?.role === 'ledger',
   });
 
   const onChange = (key: string, value: string) => setForm((current) => ({ ...current, [key]: value }));
@@ -48,7 +48,7 @@ export default function AdminsPage() {
   const toggleAdminBlock = async (adminId: string, isBanned: boolean) => {
     try {
       await api.put(`/admin/admins/${adminId}/${isBanned ? 'unban' : 'ban'}`, {
-        reason: 'Managed from superadmin dashboard',
+        reason: 'Managed from staff dashboard',
       });
       toast.success(isBanned ? 'Admin unblocked' : 'Admin blocked');
       queryClient.invalidateQueries({ queryKey: ['admin-admins'] });
@@ -72,18 +72,22 @@ export default function AdminsPage() {
     }
   };
 
-  if (user?.role !== 'superadmin') {
-    return <div className="card text-sm text-slate-400">Only the superadmin can create and manage admins.</div>;
+  if (!['superadmin', 'ledger'].includes(user?.role || '')) {
+    return <div className="card text-sm text-slate-400">Only superadmin or ledger can manage admin accounts.</div>;
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="rounded-[2rem] border border-blue-500/20 bg-gradient-to-br from-blue-950 via-slate-950 to-slate-900 p-6 shadow-2xl shadow-blue-950/20">
         <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-blue-300">
-          <ShieldCheck size={12} /> Superadmin controls
+          <ShieldCheck size={12} /> Staff controls
         </div>
-        <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">Admins</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Create admin accounts, block or unblock access, and rotate admin passwords securely.</p>
+        <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">Admin Management</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+          {user?.role === 'ledger'
+            ? 'Create and manage admin and superadmin accounts.'
+            : 'Create and manage admin accounts.'}
+        </p>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
@@ -113,7 +117,7 @@ export default function AdminsPage() {
               <label className="mb-1 block text-sm text-slate-300">Role</label>
               <select className="input" value={form.role} onChange={(e) => onChange('role', e.target.value)}>
                 <option value="admin">admin</option>
-                <option value="superadmin">superadmin</option>
+                {user?.role === 'ledger' && <option value="superadmin">superadmin</option>}
               </select>
             </div>
           </div>

@@ -19,7 +19,9 @@ echo.
 echo [✓] Database seeded successfully!
 echo.
 echo Test accounts created:
+echo   - Superadmin: +254700000001 / Superadmin@1234
 echo   - Admin: +254700000000 / Admin@1234
+echo   - Ledger: +254700000002 / Ledger@1234
 echo   - User:  +254711111111 / Test@1234
 echo.
 echo ============================================

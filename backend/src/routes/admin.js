@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect, adminOnly, superadminOnly, staffOnly, ledgerOrSuperadminOnly } = require('../middleware/auth');
+const { protect, adminOnly, staffOnly, ledgerOrSuperadminOnly } = require('../middleware/auth');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const { COUNTRIES } = require('../config/countries');
@@ -165,6 +165,9 @@ router.get('/stats', protect, adminOnly, async (req, res) => {
 });
 
 router.get('/users', protect, staffOnly, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
   const { page = 1, limit = 50, search = '', role = '', banned = '' } = req.query;
   const safeLimit = Math.min(Number(limit) || 50, 200);
   const query = {};
@@ -199,6 +202,9 @@ router.get('/users', protect, staffOnly, async (req, res) => {
 });
 
 router.put('/users/:id/ban', protect, staffOnly, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
   const targetUser = await User.findById(req.params.id);
   if (!targetUser) {
     return res.status(404).json({ success: false, message: 'User not found' });
@@ -216,6 +222,9 @@ router.put('/users/:id/ban', protect, staffOnly, async (req, res) => {
 });
 
 router.put('/users/:id/unban', protect, staffOnly, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
   const targetUser = await User.findById(req.params.id);
   if (!targetUser) {
     return res.status(404).json({ success: false, message: 'User not found' });
@@ -232,6 +241,9 @@ router.put('/users/:id/unban', protect, staffOnly, async (req, res) => {
 });
 
 router.put('/users/:id/assign', protect, adminOnly, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
   const { adminId } = req.body;
   const targetAdmin = await User.findById(adminId);
   if (!targetAdmin || !['admin', 'superadmin'].includes(targetAdmin.role)) {
@@ -248,7 +260,10 @@ router.put('/users/:id/assign', protect, adminOnly, async (req, res) => {
 });
 
 router.get('/admins', protect, ledgerOrSuperadminOnly, async (req, res) => {
-  const admins = await User.find({ role: { $in: ['admin', 'superadmin', 'ledger'] } })
+  const visibleRoles = req.user.role === 'ledger'
+    ? ['admin', 'superadmin']
+    : ['admin'];
+  const admins = await User.find({ role: { $in: visibleRoles } })
     .sort({ createdAt: -1 })
     .select('name email phone role country isBanned isActive lastActiveDate userId createdAt');
   res.json({ success: true, admins });
@@ -261,7 +276,8 @@ router.post('/admins', protect, ledgerOrSuperadminOnly, async (req, res) => {
     return res.status(400).json({ success: false, message: 'Missing required admin fields' });
   }
 
-  if (!['admin', 'superadmin', 'ledger'].includes(role)) {
+  const allowedRoles = req.user.role === 'ledger' ? ['admin', 'superadmin'] : ['admin'];
+  if (!allowedRoles.includes(role)) {
     return res.status(400).json({ success: false, message: 'Invalid role' });
   }
 
@@ -291,6 +307,9 @@ router.put('/admins/:id/ban', protect, ledgerOrSuperadminOnly, async (req, res) 
   if (!target || !['admin', 'superadmin'].includes(target.role)) {
     return res.status(404).json({ success: false, message: 'Admin account not found' });
   }
+  if (req.user.role === 'superadmin' && target.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Superadmin can only manage admin accounts' });
+  }
   if (target._id.toString() === req.user.id.toString()) {
     return res.status(400).json({ success: false, message: 'You cannot block your own account' });
   }
@@ -307,6 +326,9 @@ router.put('/admins/:id/unban', protect, ledgerOrSuperadminOnly, async (req, res
   if (!target || !['admin', 'superadmin'].includes(target.role)) {
     return res.status(404).json({ success: false, message: 'Admin account not found' });
   }
+  if (req.user.role === 'superadmin' && target.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Superadmin can only manage admin accounts' });
+  }
   const admin = await User.findByIdAndUpdate(
     target._id,
     { isBanned: false, banReason: null, failedLoginAttempts: 0, lockUntil: null },
@@ -316,6 +338,9 @@ router.put('/admins/:id/unban', protect, ledgerOrSuperadminOnly, async (req, res
 });
 
 router.put('/users/:id/reset-password', protect, staffOnly, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
   const { newPassword } = req.body;
   if (!newPassword || String(newPassword).length < 8) {
     return res.status(400).json({ success: false, message: 'New password must be at least 8 characters' });
@@ -343,6 +368,9 @@ router.put('/admins/:id/reset-password', protect, ledgerOrSuperadminOnly, async 
   if (!target || !['admin', 'superadmin'].includes(target.role)) {
     return res.status(404).json({ success: false, message: 'Admin account not found' });
   }
+  if (req.user.role === 'superadmin' && target.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Superadmin can only manage admin accounts' });
+  }
   target.passwordHash = String(newPassword);
   target.failedLoginAttempts = 0;
   target.lockUntil = null;
@@ -350,13 +378,13 @@ router.put('/admins/:id/reset-password', protect, ledgerOrSuperadminOnly, async 
   res.json({ success: true, message: 'Admin password updated successfully' });
 });
 
-router.get('/ledger', protect, adminOnly, async (req, res) => {
+router.get('/ledger', protect, ledgerOrSuperadminOnly, async (req, res) => {
   const { range = '30d' } = req.query;
   const ledger = await aggregateLedger(range);
   res.json({ success: true, ledger, policy: { superadminSharePercent: ledger.superadminSharePercent, adminSharePercent: ledger.adminSharePercent } });
 });
 
-router.post('/ledger/payouts/preview', protect, adminOnly, async (req, res) => {
+router.post('/ledger/payouts/preview', protect, ledgerOrSuperadminOnly, async (req, res) => {
   const { range = '30d' } = req.body;
   const ledger = await aggregateLedger(range);
   res.json({ success: true, preview: ledger });

@@ -25,6 +25,10 @@ Or admin account:
 **Phone:** `+254700000000`  
 **Password:** `Admin@1234`
 
+Or ledger account:  
+**Phone:** `+254700000002`  
+**Password:** `Ledger@1234`
+
 ---
 
 ## 📝 Registration (New Users)
