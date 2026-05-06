@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
@@ -21,44 +21,42 @@ export default function LedgerTransactionsPage() {
     enabled: user?.role === 'ledger',
   });
 
-  if (user?.role !== 'ledger') return <div className="card text-sm text-slate-400">Ledger access required.</div>;
-  if (isLoading) return <div className="card text-sm text-slate-400">Loading transactions...</div>;
-
   const transactions = data?.ledger?.transactions || [];
 
   const providers: string[] = Array.from(new Set(transactions.map((tx: any) => String(tx.provider || 'unknown'))));
   const types: string[] = Array.from(new Set(transactions.map((tx: any) => String(tx.type || 'unknown'))));
   const statuses: string[] = Array.from(new Set(transactions.map((tx: any) => String(tx.status || 'unknown'))));
 
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return transactions.filter((tx: any) => {
-      const target = [
-        tx._id,
-        tx.reference,
-        tx.userId?.name,
-        tx.userId?.email,
-        tx.userId?.phone,
-        tx.userId?.userId,
-        tx.provider,
-        tx.type,
-        tx.status,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
+  const term = search.trim().toLowerCase();
+  const filtered = transactions.filter((tx: any) => {
+    const target = [
+      tx._id,
+      tx.reference,
+      tx.userId?.name,
+      tx.userId?.email,
+      tx.userId?.phone,
+      tx.userId?.userId,
+      tx.provider,
+      tx.type,
+      tx.status,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
 
-      if (term && !target.includes(term)) return false;
-      if (typeFilter !== 'all' && String(tx.type) !== typeFilter) return false;
-      if (providerFilter !== 'all' && String(tx.provider) !== providerFilter) return false;
-      if (statusFilter !== 'all' && String(tx.status) !== statusFilter) return false;
-      return true;
-    });
-  }, [transactions, search, typeFilter, providerFilter, statusFilter]);
+    if (term && !target.includes(term)) return false;
+    if (typeFilter !== 'all' && String(tx.type) !== typeFilter) return false;
+    if (providerFilter !== 'all' && String(tx.provider) !== providerFilter) return false;
+    if (statusFilter !== 'all' && String(tx.status) !== statusFilter) return false;
+    return true;
+  });
 
   const highValue = filtered.filter((tx: any) => Number(tx.amountUSD || 0) >= 100).length;
   const failed = filtered.filter((tx: any) => tx.status === 'failed').length;
   const pending = filtered.filter((tx: any) => tx.status === 'pending').length;
+
+  if (user?.role !== 'ledger') return <div className="card text-sm text-slate-400">Ledger access required.</div>;
+  if (isLoading) return <div className="card text-sm text-slate-400">Loading transactions...</div>;
 
   return (
     <div className="space-y-5">

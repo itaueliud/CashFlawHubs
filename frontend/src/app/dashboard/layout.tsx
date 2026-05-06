@@ -27,6 +27,10 @@ import {
   UsersRound,
   Landmark,
   Gauge,
+  MessagesSquare,
+  SlidersHorizontal,
+  ShieldAlert,
+  ClipboardCheck,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -107,18 +111,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: '/dashboard/ledger/reports', icon: FileBarChart2, label: 'Reports' },
         { href: '/dashboard/ledger/export', icon: Download, label: 'Export' },
         { href: '/dashboard/ledger/transactions', icon: Receipt, label: 'Transactions' },
+        { href: '/dashboard/ledger/reconciliation', icon: ClipboardCheck, label: 'Reconciliation' },
+        { href: '/dashboard/admin/audit', icon: ShieldAlert, label: 'Audit' },
+        { href: '/dashboard/admin/config', icon: SlidersHorizontal, label: 'Config' },
         { href: '/dashboard/ledger/profile', icon: KeyRound, label: 'Profile' },
       ]
     : user.role === 'admin'
     ? [
         { href: '/dashboard/admin-console', icon: Gauge, label: 'Overview' },
         { href: '/dashboard/admin/users', icon: UsersRound, label: 'Users' },
+        { href: '/dashboard/admin/moderation', icon: ShieldCheck, label: 'Moderation' },
+        { href: '/dashboard/admin/support', icon: MessagesSquare, label: 'Support' },
+        { href: '/dashboard/admin/audit', icon: ShieldAlert, label: 'Audit' },
         { href: '/dashboard/admin/provider-health', icon: Activity, label: 'Provider Health' },
       ]
     : user.role === 'superadmin'
       ? [
           { href: '/dashboard/superadmin', icon: Shield, label: 'Overview' },
           { href: '/dashboard/admin/admins', icon: ShieldCheck, label: 'Admins' },
+          { href: '/dashboard/admin/moderation', icon: ShieldCheck, label: 'Moderation' },
+          { href: '/dashboard/admin/support', icon: MessagesSquare, label: 'Support' },
+          { href: '/dashboard/admin/audit', icon: ShieldAlert, label: 'Audit' },
+          { href: '/dashboard/admin/config', icon: SlidersHorizontal, label: 'Config' },
           { href: '/dashboard/admin/provider-health', icon: Activity, label: 'Provider Health' },
         ]
       : BASE_NAV;
