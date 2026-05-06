@@ -21,7 +21,7 @@ export default function AdminLedgerPage() {
   const { data: adminsData } = useQuery({
     queryKey: ['ledger-admins'],
     queryFn: () => api.get('/admin/admins').then((r) => r.data),
-    enabled: user?.role === 'ledger',
+    enabled: user?.role === 'ledger' || user?.role === 'superadmin',
   });
 
   const executeMutation = useMutation({
@@ -52,8 +52,8 @@ export default function AdminLedgerPage() {
     return <div className="card text-sm text-slate-400">Loading ledger...</div>;
   }
 
-  if (user?.role !== 'ledger') {
-    return <div className="card text-sm text-slate-400">Ledger dashboard is only available to ledger accounts.</div>;
+  if (!['ledger', 'superadmin'].includes(user?.role || '')) {
+    return <div className="card text-sm text-slate-400">Ledger dashboard is only available to ledger or superadmin accounts.</div>;
   }
 
   if (!data?.success) {
@@ -126,7 +126,7 @@ export default function AdminLedgerPage() {
             </div>
           </div>
 
-          {ledger.totalUSD > 0 && user?.role === 'ledger' && (
+          {ledger.totalUSD > 0 && ['ledger', 'superadmin'].includes(user?.role || '') && (
             <div className="card">
               <button
                 onClick={() => setShowConfirm(true)}

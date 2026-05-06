@@ -118,7 +118,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     : user.role === 'superadmin'
       ? [
           { href: '/dashboard/superadmin', icon: Shield, label: 'Overview' },
-          { href: '/dashboard/admin/ledger', icon: Landmark, label: 'Ledger' },
           { href: '/dashboard/admin/admins', icon: ShieldCheck, label: 'Admins' },
           { href: '/dashboard/admin/provider-health', icon: Activity, label: 'Provider Health' },
         ]
