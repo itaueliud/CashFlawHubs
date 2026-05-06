@@ -19,6 +19,14 @@ import {
   Radio,
   ShieldCheck,
   Shield,
+  FileBarChart2,
+  Download,
+  Receipt,
+  KeyRound,
+  Activity,
+  UsersRound,
+  Landmark,
+  Gauge,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -61,7 +69,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
 
-    if (user.role === 'superadmin' && (pathname.startsWith('/dashboard/admin/users') || pathname.startsWith('/dashboard/admin/ledger'))) {
+    if (user.role === 'superadmin' && pathname.startsWith('/dashboard/admin/users')) {
       router.push('/dashboard/superadmin');
       return;
     }
@@ -92,12 +100,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null;
 
   const nav = user.role === 'ledger'
-    ? [{ href: '/dashboard/ledger', icon: TrendingUp, label: 'Ledger' }, { href: '/dashboard/admin/admins', icon: ShieldCheck, label: 'Admins' }]
+    ? [
+        { href: '/dashboard/ledger', icon: Gauge, label: 'Overview' },
+        { href: '/dashboard/admin/ledger', icon: Landmark, label: 'Payout Control' },
+        { href: '/dashboard/admin/admins', icon: ShieldCheck, label: 'Admins' },
+        { href: '/dashboard/ledger/reports', icon: FileBarChart2, label: 'Reports' },
+        { href: '/dashboard/ledger/export', icon: Download, label: 'Export' },
+        { href: '/dashboard/ledger/transactions', icon: Receipt, label: 'Transactions' },
+        { href: '/dashboard/ledger/profile', icon: KeyRound, label: 'Profile' },
+      ]
     : user.role === 'admin'
-    ? [{ href: '/dashboard/admin-console', icon: Shield, label: 'Admin Console' }, { href: '/dashboard/admin/users', icon: User, label: 'Users' }]
+    ? [
+        { href: '/dashboard/admin-console', icon: Gauge, label: 'Overview' },
+        { href: '/dashboard/admin/users', icon: UsersRound, label: 'Users' },
+        { href: '/dashboard/admin/provider-health', icon: Activity, label: 'Provider Health' },
+      ]
     : user.role === 'superadmin'
-      ? [{ href: '/dashboard/superadmin', icon: Shield, label: 'Superadmin' }, { href: '/dashboard/admin/admins', icon: ShieldCheck, label: 'Admins' }]
+      ? [
+          { href: '/dashboard/superadmin', icon: Shield, label: 'Overview' },
+          { href: '/dashboard/admin/ledger', icon: Landmark, label: 'Ledger' },
+          { href: '/dashboard/admin/admins', icon: ShieldCheck, label: 'Admins' },
+          { href: '/dashboard/admin/provider-health', icon: Activity, label: 'Provider Health' },
+        ]
       : BASE_NAV;
+
+  const isNavActive = (href: string) =>
+    href.includes('#')
+      ? pathname === href.split('#')[0]
+      : pathname === href || pathname.startsWith(`${href}/`);
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
@@ -133,7 +163,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             onClick={() => setMobileOpen(false)}
             className={clsx(
               'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
-              pathname === href ? 'bg-green-500/20 text-green-400' : 'text-slate-400 hover:text-white hover:bg-slate-700'
+              isNavActive(href) ? 'bg-green-500/20 text-green-400' : 'text-slate-400 hover:text-white hover:bg-slate-700'
             )}
           >
             <Icon size={18} />
