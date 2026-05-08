@@ -80,17 +80,20 @@ export default function OfferwallsPage() {
               { label: 'Wallet-safe', value: 'Callbacks credit the internal wallet only after validation', icon: Sparkles },
               { label: 'Risk tracked', value: 'Invalid signatures and duplicates are monitored', icon: History },
               { label: 'In-app flow', value: 'Keep users inside the dashboard shell', icon: ExternalLink },
-            ].map((item) => (
-              <div key={item.label} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/70 p-4">
-                <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-pink-500/10 text-pink-300">
-                  <item.icon size={18} />
+            ].map((item) => {
+              const Icon = item.icon as any;
+              return (
+                <div key={item.label} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+                  <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-pink-500/10 text-pink-300">
+                    <Icon size={18} />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-white">{item.label}</div>
+                    <div className="text-xs leading-5 text-slate-400">{item.value}</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-sm font-semibold text-white">{item.label}</div>
-                  <div className="text-xs leading-5 text-slate-400">{item.value}</div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -266,5 +269,6 @@ export default function OfferwallsPage() {
           </div>
         </div>
       ) : null}
+    </div>
   );
 }

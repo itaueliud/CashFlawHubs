@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ExternalLink, Loader2, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ExternalLink, Loader2, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import api from '@/lib/api';
