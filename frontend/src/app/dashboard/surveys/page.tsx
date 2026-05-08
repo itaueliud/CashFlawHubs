@@ -1,8 +1,9 @@
 'use client';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { ExternalLink, History, Lock, TimerReset, Wallet } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const providerLabel = (provider: any) => provider?.badge || provider?.integrationType || 'Survey wall';
 
@@ -18,6 +19,24 @@ export default function SurveysPage() {
     queryKey: ['survey-history'],
     queryFn: () => api.get('/surveys/history?limit=8').then((r) => r.data),
     enabled: !!user,
+  });
+
+  const launchMutation = useMutation({
+    mutationFn: async ({ providerKey, surveyId }: { providerKey: string; surveyId: string }) => {
+      const response = await api.get(`/surveys/launch/${providerKey}/${surveyId}`);
+      return response.data;
+    },
+    onSuccess: (payload) => {
+      if (payload?.wallUrl && typeof window !== 'undefined') {
+        window.open(payload.wallUrl, '_blank', 'noopener,noreferrer');
+        toast.success('Survey wall opened');
+      } else {
+        toast.error('Survey wall URL is unavailable');
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Unable to open survey wall');
+    },
   });
 
   if (!user?.activationStatus) {
@@ -87,10 +106,14 @@ export default function SurveysPage() {
               Provider: <span className="font-semibold text-white">{survey.provider?.name || 'Survey wall'}</span> · {providerLabel(survey.provider)}
             </div>
 
-            {survey.provider?.url ? (
-              <a href={survey.provider.url} target="_blank" rel="noopener noreferrer" className="inline-flex w-fit items-center gap-2 rounded-xl border border-blue-400/30 bg-blue-500/10 px-4 py-2.5 text-sm font-semibold text-blue-200 transition hover:border-blue-300/50 hover:bg-blue-500/15">
+            {survey.canStart ? (
+              <button
+                onClick={() => launchMutation.mutate({ providerKey: survey.providerKey, surveyId: survey.id })}
+                disabled={launchMutation.isPending}
+                className="inline-flex w-fit items-center gap-2 rounded-xl border border-blue-400/30 bg-blue-500/10 px-4 py-2.5 text-sm font-semibold text-blue-200 transition hover:border-blue-300/50 hover:bg-blue-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+              >
                 Open survey wall <ExternalLink size={14} />
-              </a>
+              </button>
             ) : (
               <div className="rounded-xl border border-dashed border-slate-700 bg-slate-950/60 px-4 py-3 text-sm text-slate-500">
                 This provider is not configured yet.

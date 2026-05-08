@@ -1,17 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const { protect, requireActivation } = require('../middleware/auth');
+const { completionRateLimit, deviceFingerprint } = require('../middleware/antiFraud');
 const { Task, TaskCompletion } = require('../models/Task');
 const TaskUnlock = require('../models/TaskUnlock');
 const Wallet = require('../models/Wallet');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
-const { getRedis } = require('../config/redis');
+const { getRedis, isRedisReady } = require('../config/redis');
 const { updateChallengeProgress } = require('../controllers/challengeController');
 const { spendTokens } = require('../services/tokenService');
+const { getCategoryProviders } = require('../config/categoryProviders');
 const logger = require('../utils/logger');
 
-const PREMIUM_TASK_TEMPLATES = [
+const INTERNAL_TASK_TEMPLATES = [
   {
     externalId: 'premium-1',
     source: 'internal',
@@ -20,7 +22,7 @@ const PREMIUM_TASK_TEMPLATES = [
     category: 'analysis',
     rewardUSD: 0.75,
     estimatedMinutes: 10,
-    externalUrl: 'https://example.com/premium-task-1',
+    externalUrl: null,
     isPremium: true,
     tokenCost: 5,
   },
@@ -32,39 +34,148 @@ const PREMIUM_TASK_TEMPLATES = [
     category: 'testing',
     rewardUSD: 1.25,
     estimatedMinutes: 15,
-    externalUrl: 'https://example.com/premium-task-2',
+    externalUrl: null,
     isPremium: true,
     tokenCost: 8,
   },
+  {
+    externalId: 'internal-onboarding-quiz',
+    source: 'internal',
+    title: 'Onboarding Quality Quiz',
+    description: 'Complete a short quality quiz to unlock better task recommendations.',
+    category: 'quality',
+    rewardUSD: 0.2,
+    estimatedMinutes: 5,
+    externalUrl: null,
+    isPremium: false,
+    tokenCost: 0,
+  },
 ];
 
-const ensurePremiumTasks = async () => {
-  const count = await Task.countDocuments({ isPremium: true });
-  if (count > 0) return;
-  await Task.insertMany(PREMIUM_TASK_TEMPLATES);
+const TASK_PROVIDER_SESSION_TTL_SECONDS = 60 * 60 * 12;
+
+const ensureBaselineTasks = async () => {
+  for (const template of INTERNAL_TASK_TEMPLATES) {
+    await Task.updateOne(
+      { externalId: template.externalId },
+      { $setOnInsert: template },
+      { upsert: true }
+    );
+  }
+};
+
+const mapProvider = (provider) => ({
+  key: provider.key,
+  name: provider.name,
+  description: provider.description,
+  integrationType: provider.integrationType,
+  access: provider.access,
+  badge: provider.badge,
+  url: provider.externalUrl || null,
+  live: Boolean(provider.externalUrl) && provider.access !== 'planned',
+});
+
+const getMicrotaskProviders = () => {
+  const category = getCategoryProviders('microtasks');
+  const providers = (category?.providers || []).map(mapProvider);
+
+  return {
+    category: {
+      key: 'microtasks',
+      title: category?.title || 'Microtasks',
+      description: category?.description || 'Partner-powered microtask opportunities.',
+    },
+    providers,
+  };
 };
 
 // @GET /api/tasks
 router.get('/', protect, requireActivation, async (req, res) => {
   try {
-    await ensurePremiumTasks();
-    const tasks = await Task.find({ isActive: true }).sort({ rewardUSD: -1 }).limit(50);
+    await ensureBaselineTasks();
+    const tasks = await Task.find({ isActive: true, source: 'internal' }).sort({ rewardUSD: -1 }).limit(50);
     const unlocked = await TaskUnlock.find({ userId: req.user.id, taskId: { $in: tasks.map((task) => task._id) } });
     const unlockMap = new Set(unlocked.map((item) => item.taskId.toString()));
     const result = tasks.map((task) => ({
       ...task.toObject(),
       unlocked: unlockMap.has(task._id.toString()),
+      completionMode: 'internal_auto',
     }));
-    res.json({ success: true, tasks: result });
+    const providersPayload = getMicrotaskProviders();
+
+    res.json({
+      success: true,
+      tasks: result,
+      providers: providersPayload.providers,
+      providersCategory: providersPayload.category,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @GET /api/tasks/providers
+router.get('/providers', protect, requireActivation, async (req, res) => {
+  try {
+    const payload = getMicrotaskProviders();
+    res.json({
+      success: true,
+      ...payload,
+      liveProviders: payload.providers.filter((provider) => provider.live),
+      plannedProviders: payload.providers.filter((provider) => !provider.live),
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @GET /api/tasks/providers/:providerKey/launch
+router.get('/providers/:providerKey/launch', protect, requireActivation, async (req, res) => {
+  try {
+    const { providerKey } = req.params;
+    const { providers } = getMicrotaskProviders();
+    const provider = providers.find((entry) => entry.key === providerKey);
+
+    if (!provider) {
+      return res.status(404).json({ success: false, message: 'Provider not found' });
+    }
+
+    if (!provider.url) {
+      return res.status(503).json({ success: false, message: 'Provider launch URL is not configured yet' });
+    }
+
+    const sessionId = `TASKP-${providerKey}-${Date.now()}-${req.user.id}`;
+    if (isRedisReady()) {
+      try {
+        await getRedis().setex(
+          `task:provider:session:${sessionId}`,
+          TASK_PROVIDER_SESSION_TTL_SECONDS,
+          JSON.stringify({
+            providerKey,
+            userId: req.user.id.toString(),
+            createdAt: new Date().toISOString(),
+          })
+        );
+      } catch (error) {
+        logger.warn(`Task provider session store failed: ${error.message}`);
+      }
+    }
+
+    res.json({
+      success: true,
+      sessionId,
+      provider,
+      launchUrl: provider.url,
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
 // @POST /api/tasks/:id/unlock
-router.post('/:id/unlock', protect, requireActivation, async (req, res) => {
+router.post('/:id/unlock', protect, requireActivation, deviceFingerprint, async (req, res) => {
   try {
-    await ensurePremiumTasks();
+    await ensureBaselineTasks();
 
     const task = await Task.findById(req.params.id);
     if (!task || !task.isActive) {
@@ -107,9 +218,14 @@ router.post('/:id/unlock', protect, requireActivation, async (req, res) => {
 });
 
 // @POST /api/tasks/:id/complete
-router.post('/:id/complete', protect, requireActivation, async (req, res) => {
+router.post('/:id/complete', protect, requireActivation, deviceFingerprint, completionRateLimit, async (req, res) => {
   try {
-    await ensurePremiumTasks();
+    await ensureBaselineTasks();
+
+    if (!isRedisReady()) {
+      return res.status(503).json({ success: false, message: 'Task completion service is temporarily unavailable' });
+    }
+
     const redis = getRedis();
     const dupKey = `task:completion:${req.user.id}:${req.params.id}`;
     if (await redis.get(dupKey)) {
@@ -118,6 +234,13 @@ router.post('/:id/complete', protect, requireActivation, async (req, res) => {
 
     const task = await Task.findById(req.params.id);
     if (!task || !task.isActive) return res.status(404).json({ success: false, message: 'Task not found' });
+
+    if (task.source !== 'internal') {
+      return res.status(400).json({
+        success: false,
+        message: 'This provider task must be completed on the partner platform and cannot be self-credited here.',
+      });
+    }
 
     if (task.isPremium) {
       const unlock = await TaskUnlock.findOne({ userId: req.user.id, taskId: task._id });
@@ -135,7 +258,10 @@ router.post('/:id/complete', protect, requireActivation, async (req, res) => {
     });
 
     // Credit wallet
-    const wallet = await Wallet.findOne({ userId: req.user.id });
+    let wallet = await Wallet.findOne({ userId: req.user.id });
+    if (!wallet) {
+      wallet = await Wallet.create({ userId: req.user.id });
+    }
     await wallet.credit(task.rewardUSD, 'task');
 
     // Log transaction
@@ -165,6 +291,38 @@ router.post('/:id/complete', protect, requireActivation, async (req, res) => {
   } catch (err) {
     if (err.code === 11000) return res.status(409).json({ success: false, message: 'Task already completed' });
     logger.error(`Task completion error: ${err.message}`);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @GET /api/tasks/history
+router.get('/history', protect, requireActivation, async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const pageNumber = Number(page);
+    const pageSize = Number(limit);
+    const skip = (pageNumber - 1) * pageSize;
+
+    const query = {
+      userId: req.user.id,
+      type: 'task',
+    };
+
+    const [transactions, total] = await Promise.all([
+      Transaction.find(query).sort({ createdAt: -1 }).skip(skip).limit(pageSize),
+      Transaction.countDocuments(query),
+    ]);
+
+    res.json({
+      success: true,
+      transactions,
+      pagination: {
+        total,
+        page: pageNumber,
+        pages: Math.ceil(total / pageSize),
+      },
+    });
+  } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });

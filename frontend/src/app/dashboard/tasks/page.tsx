@@ -2,25 +2,44 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/api';
-import { ArrowRight, BadgeCheck, BrainCircuit, Clock3, Globe2, Lock, Shield, Sparkles, ExternalLink, CheckCircle2, Coins } from 'lucide-react';
+import { ArrowRight, BadgeCheck, BrainCircuit, CheckCircle2, Clock3, Coins, ExternalLink, Globe2, Lock, Shield, Sparkles, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function TasksPage() {
   const { user } = useAuthStore();
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
+  const [activeProviderKey, setActiveProviderKey] = useState<string | null>(null);
   const { data, refetch } = useQuery({
     queryKey: ['tasks-feed'],
     queryFn: () => api.get('/tasks').then((r) => r.data),
     enabled: !!user && !!user.activationStatus,
   });
 
+  const { data: historyData } = useQuery({
+    queryKey: ['tasks-history'],
+    queryFn: () => api.get('/tasks/history?limit=8').then((r) => r.data),
+    enabled: !!user && !!user.activationStatus,
+  });
+
+  const { data: providerLaunchData, isLoading: isProviderLaunchLoading, error: providerLaunchError } = useQuery({
+    queryKey: ['task-provider-launch', activeProviderKey],
+    queryFn: () => api.get(`/tasks/providers/${activeProviderKey}/launch`).then((response) => response.data),
+    enabled: !!user?.activationStatus && !!activeProviderKey,
+  });
+
   const tasks = data?.tasks || [];
+  const providers = data?.providers || [];
+  const history = historyData?.transactions || [];
+  const activeProvider = providers.find((provider: any) => provider.key === activeProviderKey) || null;
   const summary = useMemo(() => ({
     live: tasks.filter((task: any) => task.isActive).length,
     premium: tasks.filter((task: any) => task.isPremium).length,
     unlocked: tasks.filter((task: any) => task.unlocked).length,
-  }), [tasks]);
+    providers: providers.filter((provider: any) => provider.live).length,
+  }), [tasks, providers]);
 
   if (!user?.activationStatus) {
     return (
@@ -88,6 +107,10 @@ export default function TasksPage() {
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-xs text-slate-400">Unlocked tasks</div>
                 <div className="text-2xl font-black text-white">{summary.unlocked}</div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <div className="text-xs text-slate-400">Live providers</div>
+                <div className="text-2xl font-black text-white">{summary.providers}</div>
               </div>
             </div>
           </div>
@@ -166,6 +189,40 @@ export default function TasksPage() {
               </div>
             </div>
           ))}
+
+          {providers.filter((provider: any) => provider.live).map((provider: any) => (
+            <div key={provider.key} className="group rounded-[1.5rem] border border-cyan-500/20 bg-slate-900/90 p-5 transition-all hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-xl hover:shadow-cyan-950/20">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <div className="mb-2 flex flex-wrap gap-2">
+                    <span className="badge-green">Live provider</span>
+                    <span className="badge" style={{ background: 'rgba(34,211,238,0.12)', color: '#67e8f9' }}>
+                      {provider.integrationType}
+                    </span>
+                  </div>
+                  <div className="text-xl font-bold text-white">{provider.name}</div>
+                </div>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-300 transition-transform group-hover:scale-105">
+                  <Globe2 size={18} />
+                </div>
+              </div>
+
+              <p className="mb-4 text-sm leading-6 text-slate-300">{provider.description}</p>
+
+              <div className="mb-5 flex items-center justify-between text-xs uppercase tracking-[0.2em] text-slate-500">
+                <span>{provider.access.replace(/_/g, ' ')}</span>
+                <span>{provider.badge}</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setActiveProviderKey(provider.key)}
+                className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-2.5 text-sm font-semibold text-cyan-200 transition hover:border-cyan-300/50 hover:bg-cyan-500/15"
+              >
+                Open provider <ExternalLink size={14} />
+              </button>
+            </div>
+          ))}
         </div>
 
         <div className="space-y-4 rounded-[1.5rem] border border-blue-500/10 bg-slate-900/90 p-5">
@@ -197,8 +254,106 @@ export default function TasksPage() {
               <li className="flex items-center gap-2"><BadgeCheck size={14} className="text-blue-300" /> External sources open in a new tab</li>
             </ul>
           </div>
+
+          <div className="rounded-2xl border border-slate-700 bg-slate-950/70 p-4">
+            <div className="mb-2 text-sm font-semibold text-white">Recent task earnings</div>
+            {history.length > 0 ? (
+              <div className="space-y-2 text-xs">
+                {history.map((tx: any) => (
+                  <div key={tx._id} className="flex items-center justify-between rounded-xl border border-slate-700 px-3 py-2">
+                    <div>
+                      <div className="font-semibold text-slate-200">{tx.metadata?.source || 'task'}</div>
+                      <div className="text-slate-500">{new Date(tx.createdAt).toLocaleString()}</div>
+                    </div>
+                    <div className="font-semibold text-green-300">+${Number(tx.amountUSD || 0).toFixed(2)}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-slate-500">No task earnings yet.</div>
+            )}
+          </div>
         </div>
       </div>
+
+      {activeProviderKey ? (
+        <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-slate-950/75 backdrop-blur-sm">
+          <div className="flex h-full w-full max-w-6xl flex-col border-l border-slate-700 bg-slate-950 shadow-2xl shadow-black/40">
+            <div className="flex items-center justify-between gap-4 border-b border-slate-700 px-5 py-4">
+              <div>
+                <div className="text-xs uppercase tracking-[0.25em] text-slate-500">Provider drawer</div>
+                <div className="mt-1 text-lg font-black text-white">{activeProvider?.name || activeProviderKey}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveProviderKey(null)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-300 transition hover:border-slate-500 hover:text-white"
+                aria-label="Close provider drawer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="grid min-h-0 flex-1 gap-4 overflow-hidden xl:grid-cols-[1.25fr_0.75fr]">
+              <div className="min-h-0 overflow-hidden border-r border-slate-800 bg-slate-950/90">
+                <div className="border-b border-slate-800 px-4 py-3 text-sm font-semibold text-slate-200">
+                  Provider content area
+                </div>
+                <div className="min-h-[65vh] bg-slate-900">
+                  {providerLaunchError ? (
+                    <div className="flex min-h-[65vh] items-center justify-center px-6 text-center text-slate-300">
+                      Provider could not be loaded. Try closing and reopening the drawer.
+                    </div>
+                  ) : isProviderLaunchLoading || !providerLaunchData?.launchUrl ? (
+                    <div className="flex min-h-[65vh] items-center justify-center px-6 text-slate-300">
+                      Loading provider...
+                    </div>
+                  ) : (
+                    <iframe
+                      src={providerLaunchData.launchUrl}
+                      title={`${activeProvider?.name || activeProviderKey} provider`}
+                      className="h-[65vh] w-full border-0"
+                      allow="clipboard-read; clipboard-write; fullscreen; payment; geolocation; microphone; camera"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-4 overflow-y-auto p-5">
+                <div className="card">
+                  <div className="text-xs uppercase tracking-wide text-slate-500">Provider status</div>
+                  <div className="mt-2 text-xl font-black text-white">Open inside site</div>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    This drawer keeps the provider inside the dashboard shell so the user never leaves your app flow.
+                  </p>
+                </div>
+
+                {activeProvider ? (
+                  <div className="card space-y-3">
+                    <div className="text-sm font-semibold text-white">Provider details</div>
+                    <div className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                      {activeProvider.integrationType} / {activeProvider.access.replace(/_/g, ' ')}
+                    </div>
+                    <div className="text-sm text-slate-300">{activeProvider.description}</div>
+                    <span className="badge-green w-fit">{activeProvider.badge}</span>
+                  </div>
+                ) : null}
+
+                <div className="card space-y-3">
+                  <div className="text-sm font-semibold text-white">Fallback</div>
+                  <p className="text-sm text-slate-300">
+                    If a provider blocks iframe embedding, you can still open its dedicated dashboard page without leaving the site shell.
+                  </p>
+                  <Link href={`/dashboard/tasks/provider/${activeProviderKey}`} className="btn-primary inline-flex items-center gap-2">
+                    Open full page <ExternalLink size={14} />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

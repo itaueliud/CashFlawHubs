@@ -7,6 +7,7 @@ const { COUNTRIES } = require('../config/countries');
 const { HYBRID_PAYMENT_STACK, PROVIDER_STATUS } = require('../config/paymentStack');
 const Wallet = require('../models/Wallet');
 const mongoose = require('mongoose');
+const { getRedis, isRedisReady } = require('../config/redis');
 const logger = require('../utils/logger');
 
 const truthy = (value) => Boolean(value && String(value).trim());
@@ -563,12 +564,131 @@ router.get('/provider-health', protect, adminOnly, async (req, res) => {
     },
   ]);
 
+  const thresholdConfig = {
+    invalidSignaturePerDay: Number(process.env.OFFERWALL_ALERT_INVALID_SIGNATURES_PER_DAY || 3),
+    duplicatePerDay: Number(process.env.OFFERWALL_ALERT_DUPLICATES_PER_DAY || 10),
+    invalidAmountPerDay: Number(process.env.OFFERWALL_ALERT_INVALID_AMOUNTS_PER_DAY || 3),
+    failedPerDay: Number(process.env.OFFERWALL_ALERT_FAILED_PER_DAY || 8),
+    suspiciousEventsPerDay: Number(process.env.OFFERWALL_ALERT_SUSPICIOUS_PER_DAY || 12),
+  };
+
+  const evaluateOfferwallRisk = (metrics) => {
+    const reasons = [];
+    const warningReasons = [];
+
+    if (metrics.invalidSignature >= thresholdConfig.invalidSignaturePerDay) {
+      reasons.push('invalid signatures above threshold');
+    }
+    if (metrics.duplicate >= thresholdConfig.duplicatePerDay) {
+      reasons.push('duplicates above threshold');
+    }
+    if (metrics.invalidAmount >= thresholdConfig.invalidAmountPerDay) {
+      reasons.push('invalid amounts above threshold');
+    }
+    if (metrics.failed >= thresholdConfig.failedPerDay) {
+      reasons.push('callback failures above threshold');
+    }
+    if (metrics.suspiciousEvents >= thresholdConfig.suspiciousEventsPerDay) {
+      reasons.push('suspicious event volume above threshold');
+    }
+
+    if (metrics.failed > 0) warningReasons.push('has callback failures');
+    if (metrics.suspiciousEvents > 0) warningReasons.push('has suspicious callback events');
+
+    if (reasons.length > 0) {
+      return { riskLevel: 'critical', reasons };
+    }
+    if (warningReasons.length > 0) {
+      return { riskLevel: 'warning', reasons: warningReasons };
+    }
+
+    return { riskLevel: 'clean', reasons: [] };
+  };
+
+  const offerwallPerformance = [];
+  const metricsDay = new Date().toISOString().slice(0, 10);
+  if (isRedisReady()) {
+    try {
+      const redis = getRedis();
+      for (const providerKey of ['adgate', 'ayetstudios']) {
+        const metricKeys = {
+          processed: `metrics:offerwall:${providerKey}:${metricsDay}:processed`,
+          credited: `metrics:offerwall:${providerKey}:${metricsDay}:credited`,
+          duplicate: `metrics:offerwall:${providerKey}:${metricsDay}:duplicate`,
+          invalidSignature: `metrics:offerwall:${providerKey}:${metricsDay}:invalid_signature`,
+          invalidAmount: `metrics:offerwall:${providerKey}:${metricsDay}:invalid_amount`,
+          failed: `metrics:offerwall:${providerKey}:${metricsDay}:failed`,
+        };
+
+        const [processed, credited, duplicate, invalidSignature, invalidAmount, failed] = await Promise.all([
+          redis.get(metricKeys.processed),
+          redis.get(metricKeys.credited),
+          redis.get(metricKeys.duplicate),
+          redis.get(metricKeys.invalidSignature),
+          redis.get(metricKeys.invalidAmount),
+          redis.get(metricKeys.failed),
+        ]);
+
+        const parsed = {
+          processed: Number(processed || 0),
+          credited: Number(credited || 0),
+          duplicate: Number(duplicate || 0),
+          invalidSignature: Number(invalidSignature || 0),
+          invalidAmount: Number(invalidAmount || 0),
+          failed: Number(failed || 0),
+        };
+
+        const suspiciousEvents = parsed.duplicate + parsed.invalidSignature + parsed.invalidAmount;
+        const risk = evaluateOfferwallRisk({
+          ...parsed,
+          suspiciousEvents,
+        });
+
+        offerwallPerformance.push({
+          provider: providerKey,
+          day: metricsDay,
+          ...parsed,
+          suspiciousEvents,
+          riskLevel: risk.riskLevel,
+          triggerReasons: risk.reasons,
+        });
+      }
+    } catch (error) {
+      logger.warn(`Unable to load offerwall performance metrics: ${error.message}`);
+    }
+  }
+
+  const adRewardSummary = await Transaction.aggregate([
+    {
+      $match: {
+        type: 'offer',
+        'metadata.provider': { $in: ['adgate', 'ayetstudios'] },
+      },
+    },
+    {
+      $group: {
+        _id: '$metadata.provider',
+        totalRewardsUSD: { $sum: '$amountUSD' },
+        count: { $sum: 1 },
+        latestRewardAt: { $max: '$createdAt' },
+      },
+    },
+    { $sort: { totalRewardsUSD: -1 } },
+  ]);
+
   res.json({
     success: true,
     generatedAt: new Date().toISOString(),
     stack: HYBRID_PAYMENT_STACK,
     providers,
     transactionCounts,
+    adsMetrics: {
+      day: metricsDay,
+      thresholds: thresholdConfig,
+      offerwallPerformance,
+      adRewardSummary,
+      source: isRedisReady() ? 'redis+mongodb' : 'mongodb',
+    },
   });
 });
 

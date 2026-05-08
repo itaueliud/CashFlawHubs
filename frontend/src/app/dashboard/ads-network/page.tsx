@@ -1,9 +1,10 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { ExternalLink, Lock, Radio, Sparkles } from 'lucide-react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { ExternalLink, History, Lock, Radio, Sparkles } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import toast from 'react-hot-toast';
 
 export default function AdsNetworkPage() {
   const { user } = useAuthStore();
@@ -11,6 +12,30 @@ export default function AdsNetworkPage() {
     queryKey: ['ads-network-providers'],
     queryFn: () => api.get('/ads-network/providers').then((r) => r.data),
     enabled: !!user?.activationStatus,
+  });
+
+  const { data: historyData } = useQuery({
+    queryKey: ['ads-network-history'],
+    queryFn: () => api.get('/ads-network/history?limit=8').then((r) => r.data),
+    enabled: !!user?.activationStatus,
+  });
+
+  const launchMutation = useMutation({
+    mutationFn: async (providerKey: string) => {
+      const response = await api.get(`/ads-network/launch/${providerKey}`);
+      return response.data;
+    },
+    onSuccess: (payload) => {
+      if (payload?.wallUrl && typeof window !== 'undefined') {
+        window.open(payload.wallUrl, '_blank', 'noopener,noreferrer');
+        toast.success('Ad network opened');
+      } else {
+        toast.error('Provider URL is unavailable');
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Unable to open ad network');
+    },
   });
 
   if (!user?.activationStatus) {
@@ -26,6 +51,7 @@ export default function AdsNetworkPage() {
 
   const liveProviders = data?.liveProviders || [];
   const plannedProviders = data?.plannedProviders || [];
+  const history = historyData?.transactions || [];
 
   return (
     <div className="space-y-6">
@@ -61,9 +87,13 @@ export default function AdsNetworkPage() {
                 <div className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-4">
                   {provider.integrationType} / {provider.access.replace(/_/g, ' ')}
                 </div>
-                <a href={provider.url} target="_blank" rel="noopener noreferrer" className="btn-primary text-sm inline-flex items-center gap-2">
+                <button
+                  onClick={() => launchMutation.mutate(provider.key)}
+                  disabled={launchMutation.isPending}
+                  className="btn-primary text-sm inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
+                >
                   Open Ad Offers <ExternalLink size={14} />
-                </a>
+                </button>
               </div>
             ))}
           </div>
@@ -87,6 +117,29 @@ export default function AdsNetworkPage() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <History size={18} className="text-cyan-300" />
+          <h2 className="text-lg font-bold">Recent Ad Earnings</h2>
+        </div>
+
+        {history.length === 0 ? (
+          <div className="card text-sm text-slate-400">No ad-network earnings yet. Open a live ad provider to start earning.</div>
+        ) : (
+          <div className="card space-y-3">
+            {history.map((tx: any) => (
+              <div key={tx._id} className="flex items-center justify-between border-b border-slate-700 pb-3 last:border-0 last:pb-0">
+                <div>
+                  <div className="text-sm font-semibold text-white">{tx.metadata?.providerName || tx.metadata?.provider || 'Ad reward'}</div>
+                  <div className="text-xs text-slate-500">{new Date(tx.createdAt).toLocaleString()}</div>
+                </div>
+                <div className="text-sm font-semibold text-green-400">+${Number(tx.amountUSD || 0).toFixed(2)}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );
