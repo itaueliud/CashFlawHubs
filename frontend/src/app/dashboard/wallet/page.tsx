@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/store/authStore';
+import { TurnstileWidget } from '@/components/security/TurnstileWidget';
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -65,6 +66,8 @@ export default function WalletPage() {
   const pendingReference = pendingPurchase?.reference || null;
   const pendingDepositReference = pendingDeposit?.reference || null;
   const withdrawalOpen = Boolean(wallet.withdrawalOpen);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || '';
 
   const persistPendingPurchase = (payload: PendingTokenPurchase | null) => {
     if (typeof window === 'undefined') return;
@@ -200,10 +203,15 @@ export default function WalletPage() {
       return;
     }
 
+    if (turnstileSiteKey && !turnstileToken) {
+      toast.error('Please complete the security check');
+      return;
+    }
+
     setWithdrawing(true);
 
     try {
-      const response = await api.post('/withdrawals/request', data);
+      const response = await api.post('/withdrawals/request', { ...data, turnstileToken: turnstileToken || undefined });
       toast.success(
         `Withdrawal of ${response.data.amountLocal} ${response.data.currency} submitted. It will be included in Friday payout.`
       );
@@ -434,6 +442,18 @@ export default function WalletPage() {
             {withdrawing && <Loader2 size={16} className="animate-spin" />}
             {withdrawalOpen ? 'Request Withdrawal' : 'Withdrawals Open Friday'}
           </button>
+
+          {turnstileSiteKey && (
+            <div className="mt-3">
+              <TurnstileWidget
+                siteKey={turnstileSiteKey}
+                onToken={setTurnstileToken}
+                onExpire={() => setTurnstileToken('')}
+                onError={() => setTurnstileToken('')}
+                className="flex justify-center"
+              />
+            </div>
+          )}
 
           <p className="text-xs text-slate-500">Withdrawals are routed through your country&apos;s configured provider rail, with fallback where available.</p>
         </form>

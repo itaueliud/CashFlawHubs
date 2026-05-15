@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import { TurnstileWidget } from '@/components/security/TurnstileWidget';
 
 const optionalDataUrlSchema = z.union([z.literal(''), z.string().startsWith('data:image/', 'Please upload an image file')]);
 
@@ -122,9 +123,11 @@ function RegisterPageContent() {
   const [cameraError, setCameraError] = useState('');
   const [startingCamera, setStartingCamera] = useState(false);
   const [faceAligned, setFaceAligned] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || '';
 
   const {
     register,
@@ -280,10 +283,15 @@ function RegisterPageContent() {
     const valid = await trigger([...STEPS[3].fields]);
     if (!valid) return;
 
+    if (turnstileSiteKey && !turnstileToken) {
+      toast.error('Please complete the security check');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const { confirmPassword, ...payload } = data;
-      const res = await api.post('/auth/register', payload);
+      const res = await api.post('/auth/register', { ...payload, turnstileToken: turnstileToken || undefined });
       setToken(res.data.token);
       setUser(res.data.user);
       toast.success('Account created! Welcome to CashFlowHubs');
@@ -793,6 +801,18 @@ function RegisterPageContent() {
                               ? 'Strong enough for launch.'
                               : 'Use 10+ characters if possible for a stronger account password.'}
                           </p>
+                        </div>
+
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+                          <p className="mb-2 text-sm font-semibold text-white">Security check</p>
+                          <p className="mb-4 text-sm text-slate-400">Complete the challenge before creating your account.</p>
+                          <TurnstileWidget
+                            siteKey={turnstileSiteKey}
+                            onToken={setTurnstileToken}
+                            onExpire={() => setTurnstileToken('')}
+                            onError={() => setTurnstileToken('')}
+                            className="flex justify-center"
+                          />
                         </div>
                       </div>
                     </div>

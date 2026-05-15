@@ -93,7 +93,7 @@ app.use('/api/', limiter);
 // Stricter limit for auth endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'development' ? 100 : 10,
+  max: process.env.NODE_ENV === 'development' ? 200 : 60,
   message: 'Too many authentication attempts, please try again later.',
   handler: rateLimitJsonHandler('Too many authentication attempts, please try again later.'),
   skip: (req) => process.env.NODE_ENV === 'development' && req.path === '/send-otp',

@@ -91,9 +91,16 @@ npm run dev
 - `NODE_ENV=development` (OTP bypass enabled)
 - `MONGODB_URI=mongodb://127.0.0.1:27017/earnhub`
 - `JWT_SECRET=local-dev-secret-change-me`
+- `TURNSTILE_SECRET_KEY=` (required in production when Turnstile is enabled)
 
 ### Frontend (.env.local)
 - `NEXT_PUBLIC_API_URL=http://localhost:5000`
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY=`
+
+### Turnstile setup
+1. Create a Cloudflare Turnstile widget in your Cloudflare dashboard.
+2. Copy the site key into the frontend env and the secret key into the backend env.
+3. Restart both frontend and backend after updating the values.
 
 ---
 

@@ -6,14 +6,17 @@ import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/store/authStore';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { TurnstileWidget } from '@/components/security/TurnstileWidget';
 
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
   const [portal, setPortal] = useState('');
   const { register, handleSubmit } = useForm<{ identifier: string; password: string }>();
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || '';
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const queryPortal = String(params.get('portal') || '').toLowerCase();
@@ -38,9 +41,14 @@ export default function LoginPage() {
   const hideSignup = portal === 'admin' || portal === 'superadmin';
 
   const onSubmit = async (data: { identifier: string; password: string }) => {
+    if (turnstileSiteKey && !turnstileToken) {
+      toast.error('Please complete the security check');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await login(data.identifier, data.password);
+      await login(data.identifier, data.password, turnstileToken || undefined);
       toast.success('Welcome back!');
       const targetByPortal: Record<string, string> = {
         ledger: '/dashboard/ledger',
@@ -85,6 +93,13 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
+            <TurnstileWidget
+              siteKey={turnstileSiteKey}
+              onToken={setTurnstileToken}
+              onExpire={() => setTurnstileToken('')}
+              onError={() => setTurnstileToken('')}
+              className="flex justify-center"
+            />
             <button type="submit" disabled={isLoading} className="btn-primary w-full py-3 flex items-center justify-center gap-2">
               {isLoading ? <Loader2 size={18} className="animate-spin" /> : 'Login'}
             </button>

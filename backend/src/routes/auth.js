@@ -1,15 +1,50 @@
 // routes/auth.js
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const { sendOTP, sendEmailVerification, verifyEmail, register, login, getMe } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 const { ipMonitor } = require('../middleware/antiFraud');
+const { verifyTurnstile } = require('../middleware/turnstile');
 
-router.post('/send-otp', sendOTP);
-router.post('/send-email-verification', sendEmailVerification);
-router.post('/verify-email', verifyEmail);
-router.post('/register', ipMonitor, register);
-router.post('/login', login);
+const buildAuthLimiter = (windowMs, max, message) =>
+	rateLimit({
+		windowMs,
+		max,
+		standardHeaders: true,
+		legacyHeaders: false,
+		handler: (req, res) => res.status(429).json({ success: false, message }),
+	});
+
+const otpLimiter = buildAuthLimiter(
+	15 * 60 * 1000,
+	process.env.NODE_ENV === 'development' ? 20 : 5,
+	'Too many OTP requests, please try again later.'
+);
+
+const verificationLimiter = buildAuthLimiter(
+	15 * 60 * 1000,
+	process.env.NODE_ENV === 'development' ? 20 : 10,
+	'Too many verification requests, please try again later.'
+);
+
+const registerLimiter = buildAuthLimiter(
+	15 * 60 * 1000,
+	process.env.NODE_ENV === 'development' ? 20 : 6,
+	'Too many registration attempts, please try again later.'
+);
+
+const loginLimiter = buildAuthLimiter(
+	15 * 60 * 1000,
+	process.env.NODE_ENV === 'development' ? 40 : 10,
+	'Too many login attempts, please try again later.'
+);
+
+router.post('/send-otp', otpLimiter, verifyTurnstile, sendOTP);
+router.post('/send-email-verification', verificationLimiter, verifyTurnstile, sendEmailVerification);
+router.post('/verify-email', verificationLimiter, verifyEmail);
+router.post('/register', registerLimiter, verifyTurnstile, ipMonitor, register);
+router.post('/login', loginLimiter, verifyTurnstile, login);
 router.get('/me', protect, getMe);
 
 module.exports = router;

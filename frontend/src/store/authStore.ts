@@ -50,7 +50,7 @@ interface AuthState {
   setUser: (user: User) => void;
   setToken: (token: string) => void;
   setHasHydrated: (hasHydrated: boolean) => void;
-  login: (identifier: string, password: string) => Promise<void>;
+  login: (identifier: string, password: string, turnstileToken?: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -70,10 +70,10 @@ export const useAuthStore = create<AuthState>()(
       },
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
 
-      login: async (identifier, password) => {
+      login: async (identifier, password, turnstileToken) => {
         set({ isLoading: true });
         try {
-          const res = await api.post('/auth/login', { identifier, password });
+          const res = await api.post('/auth/login', { identifier, password, turnstileToken });
           const { token, user } = res.data;
           set({ token, user, isLoading: false });
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
