@@ -114,12 +114,11 @@ export function TurnstileWidget({ siteKey, onToken, onExpire, onError, className
   return (
     <div className={className}>
       <Script
-        src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onTurnstileLoad&render=explicit"
+        src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
         strategy="afterInteractive"
         nonce={nonce || undefined}
         onLoad={() => setScriptReady(true)}
         onError={() => setRenderError(true)}
-        integrity="sha384-5RyMVSDCYIoMc5B6wpuRK1K5uLYXEDDlZjnJiF5Cc0aMnVdPaFAv8mAVYPxNhB1aT9"
       />
       {renderError && (
         <div className="text-red-500 text-sm p-2 bg-red-50 rounded">
