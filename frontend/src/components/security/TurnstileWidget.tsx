@@ -42,6 +42,15 @@ export function TurnstileWidget({ siteKey, onToken, onExpire, onError, className
   const [renderError, setRenderError] = useState(false);
   const nonce = useNonce();
   const retryCountRef = useRef(0);
+  const onTokenRef = useRef(onToken);
+  const onExpireRef = useRef(onExpire);
+  const onErrorRef = useRef(onError);
+
+  useEffect(() => {
+    onTokenRef.current = onToken;
+    onExpireRef.current = onExpire;
+    onErrorRef.current = onError;
+  }, [onError, onExpire, onToken]);
 
   useEffect(() => {
     if (!scriptReady || !siteKey || !containerRef.current || !window.turnstile || renderedWidgetId.current) {
@@ -53,12 +62,12 @@ export function TurnstileWidget({ siteKey, onToken, onExpire, onError, className
         sitekey: siteKey,
         theme: 'dark',
         size: 'normal',
-        callback: (token: string) => onToken(token),
+        callback: (token: string) => onTokenRef.current(token),
         'expired-callback': () => {
-          onExpire?.();
+          onExpireRef.current?.();
         },
         'error-callback': () => {
-          onError?.();
+          onErrorRef.current?.();
         },
         'retry': 'auto',
         'retry-interval': 8000,
@@ -80,9 +89,9 @@ export function TurnstileWidget({ siteKey, onToken, onExpire, onError, className
                 sitekey: siteKey,
                 theme: 'dark',
                 size: 'normal',
-                callback: (token: string) => onToken(token),
-                'expired-callback': () => onExpire?.(),
-                'error-callback': () => onError?.(),
+                callback: (token: string) => onTokenRef.current(token),
+                'expired-callback': () => onExpireRef.current?.(),
+                'error-callback': () => onErrorRef.current?.(),
                 'retry': 'auto',
                 'retry-interval': 8000,
               });
@@ -105,7 +114,7 @@ export function TurnstileWidget({ siteKey, onToken, onExpire, onError, className
       }
       renderedWidgetId.current = null;
     };
-  }, [onError, onExpire, onToken, scriptReady, siteKey]);
+  }, [scriptReady, siteKey]);
 
   if (!siteKey) {
     return null;
