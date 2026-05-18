@@ -22,10 +22,11 @@ const buildContentSecurityPolicy = (nonce: string) =>
     "img-src 'self' data: https:",
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
-    `script-src 'self' 'nonce-${nonce}' https://challenges.cloudflare.com`,
-    "connect-src 'self' https://challenges.cloudflare.com https://*.cloudflare.com",
+    `script-src 'self' 'nonce-${nonce}' 'unsafe-eval' https://challenges.cloudflare.com`,
+    "connect-src 'self' https://challenges.cloudflare.com https://*.cloudflare.com wss://challenges.cloudflare.com",
     "frame-src 'self' https://challenges.cloudflare.com",
-    "worker-src 'self' blob:",
+    "worker-src 'self' blob: https://challenges.cloudflare.com",
+    "child-src 'self' blob: https://challenges.cloudflare.com",
   ].join('; ');
 
 const attachSecurityHeaders = (response: NextResponse, nonce: string) => {
