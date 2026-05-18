@@ -51,7 +51,7 @@ const BASE_NAV = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, logout, hasHydrated } = useAuthStore();
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '';
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {

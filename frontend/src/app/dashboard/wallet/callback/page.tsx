@@ -15,6 +15,12 @@ function WalletCallbackContent() {
   const [message, setMessage] = useState('Confirming your wallet payment...');
 
   useEffect(() => {
+    if (!searchParams) {
+      setStatus('error');
+      setMessage('Missing wallet payment reference.');
+      return;
+    }
+
     const reference = searchParams.get('reference') || searchParams.get('trxref');
 
     if (!reference) {

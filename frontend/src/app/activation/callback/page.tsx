@@ -15,6 +15,12 @@ function ActivationCallbackContent() {
   const [message, setMessage] = useState('Verifying your payment...');
 
   useEffect(() => {
+    if (!searchParams) {
+      setStatus('error');
+      setMessage('Missing payment reference.');
+      return;
+    }
+
     const reference = searchParams.get('reference') || searchParams.get('trxref');
 
     if (!reference) {

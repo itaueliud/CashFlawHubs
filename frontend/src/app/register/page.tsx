@@ -128,6 +128,7 @@ function RegisterPageContent() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || '';
+  const referralCode = searchParams?.get('ref') ?? '';
 
   const {
     register,
@@ -142,7 +143,7 @@ function RegisterPageContent() {
       idNumber: '',
       idDocumentImage: '',
       faceVerificationImage: '',
-      referralCode: searchParams.get('ref') || '',
+      referralCode,
     },
   });
 
