@@ -13,6 +13,37 @@ const shouldSkip = (pathname: string) => SKIP_PREFIXES.some((prefix) => pathname
 
 const createNonce = () => crypto.randomUUID().replace(/-/g, '');
 
+const getOriginFromUrl = (value: string | undefined) => {
+  if (!value) return '';
+
+  try {
+    return new URL(value.trim()).origin;
+  } catch {
+    return '';
+  }
+};
+
+const buildConnectSrc = () => {
+  const sources = new Set([
+    "'self'",
+    'https://challenges.cloudflare.com',
+    'https://*.cloudflare.com',
+    'wss://challenges.cloudflare.com',
+  ]);
+
+  const apiOrigin = getOriginFromUrl(process.env.NEXT_PUBLIC_API_URL);
+  if (apiOrigin) {
+    sources.add(apiOrigin);
+  }
+
+  const appOrigin = getOriginFromUrl(process.env.NEXT_PUBLIC_APP_URL);
+  if (appOrigin) {
+    sources.add(appOrigin);
+  }
+
+  return Array.from(sources).join(' ');
+};
+
 const buildContentSecurityPolicy = (nonce: string) =>
   [
     "default-src 'self'",
@@ -23,7 +54,7 @@ const buildContentSecurityPolicy = (nonce: string) =>
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
     `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com`,
-    "connect-src 'self' https://challenges.cloudflare.com https://*.cloudflare.com wss://challenges.cloudflare.com",
+    `connect-src ${buildConnectSrc()}`,
     "frame-src 'self' https://challenges.cloudflare.com",
     "worker-src 'self' blob: https://challenges.cloudflare.com",
     "child-src 'self' blob: https://challenges.cloudflare.com",
