@@ -116,7 +116,13 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Timezone',
+    'X-Device-Fingerprint',
+    'Accept-Language',
+  ]
 }));
 
 // Body parsing
