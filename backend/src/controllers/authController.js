@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 const User = require('../models/User');
 const Wallet = require('../models/Wallet');
 const { getRedis } = require('../config/redis');
@@ -11,6 +12,7 @@ const devAuthStore = require('../services/devAuthStore');
 const { isUserActivated } = require('../utils/activationWindow');
 
 const CODE_TTL_SECONDS = 300;
+const EMAIL_VERIFY_TTL_SECONDS = 24 * 60 * 60;
 const fallbackStore = new Map();
 
 const signToken = (userId) =>
@@ -60,6 +62,11 @@ const clearCode = async (namespace, key) => {
 
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const normalizeLoginIdentifier = (value = '') => String(value).trim().toLowerCase();
+const normalizeEmail = (value = '') => String(value).trim().toLowerCase();
+const getApiBaseUrl = () =>
+  (process.env.API_BASE_URL || process.env.BACKEND_URL || 'http://localhost:5000').replace(/\/+$/, '');
+const getFrontendBaseUrl = () =>
+  (process.env.FRONTEND_URL || process.env.FRONTEND_APP_URL || process.env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
 
 const validateImagePayload = (value) =>
   typeof value === 'string' && (value.startsWith('data:image/') || value.startsWith('http'));
@@ -123,33 +130,35 @@ exports.sendEmailVerification = async (req, res) => {
     if (!email || !isValidEmail(email)) {
       return res.status(400).json({ success: false, message: 'Valid email required' });
     }
+    const normalizedEmail = normalizeEmail(email);
 
     const existing = isDatabaseReady()
-      ? await User.findOne({ email: email.toLowerCase() })
-      : devAuthStore.findByEmail(email);
+      ? await User.findOne({ email: normalizedEmail })
+      : devAuthStore.findByEmail(normalizedEmail);
     if (existing) {
       return res.status(409).json({ success: false, message: 'Email already registered' });
     }
 
-    const code = generateOTP();
-    await setCode('email_otp', email, code);
-    await clearCode('email_verified', email);
+    const token = crypto.randomBytes(32).toString('hex');
+    await setCode('email_verify_token', token, normalizedEmail, EMAIL_VERIFY_TTL_SECONDS);
+    await clearCode('email_verified', normalizedEmail);
+    const verifyLink = `${getApiBaseUrl()}/api/auth/verify-email-link?token=${encodeURIComponent(token)}`;
 
     await sendgridClient.sendEmail({
-      to: email,
+      to: normalizedEmail,
       subject: 'Verify your CashFlawHubs email',
-      html: `<p>Hello ${firstName || 'there'},</p><p>Your CashFlawHubs verification code is <strong>${code}</strong>.</p><p>This code expires in 5 minutes.</p>`,
+      html: `<p>Hello ${firstName || 'there'},</p><p>Click below to verify your CashFlawHubs email address:</p><p><a href="${verifyLink}">${verifyLink}</a></p><p>This link expires in 24 hours.</p>`,
     });
 
     if (process.env.NODE_ENV === 'development') {
-      logger.info(`[DEV MODE] Email verification code for ${email}: ${code}`);
-      return res.json({ success: true, message: 'Verification code generated', code });
+      logger.info(`[DEV MODE] Email verification link for ${normalizedEmail}: ${verifyLink}`);
+      return res.json({ success: true, message: 'Verification link generated', verifyLink });
     }
 
-    res.json({ success: true, message: 'Verification code sent to your email' });
+    res.json({ success: true, message: 'Verification email sent. Open the link in your inbox.' });
   } catch (error) {
     logger.error(`sendEmailVerification error: ${error.message}`);
-    res.status(500).json({ success: false, message: 'Failed to send email verification code' });
+    res.status(500).json({ success: false, message: 'Failed to send verification email' });
   }
 };
 
@@ -172,6 +181,30 @@ exports.verifyEmail = async (req, res) => {
   } catch (error) {
     logger.error(`verifyEmail error: ${error.message}`);
     res.status(500).json({ success: false, message: 'Failed to verify email' });
+  }
+};
+
+exports.verifyEmailLink = async (req, res) => {
+  const redirectBase = getFrontendBaseUrl();
+  try {
+    const token = String(req.query.token || '').trim();
+    if (!token) {
+      return res.redirect(`${redirectBase}/register?step=3&emailVerified=0&reason=missing_token`);
+    }
+
+    const email = await getCode('email_verify_token', token);
+    if (!email) {
+      return res.redirect(`${redirectBase}/register?step=3&emailVerified=0&reason=invalid_or_expired`);
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+    await clearCode('email_verify_token', token);
+    await setCode('email_verified', normalizedEmail, 'true');
+
+    return res.redirect(`${redirectBase}/register?step=3&emailVerified=1&email=${encodeURIComponent(normalizedEmail)}`);
+  } catch (error) {
+    logger.error(`verifyEmailLink error: ${error.message}`);
+    return res.redirect(`${redirectBase}/register?step=3&emailVerified=0&reason=server_error`);
   }
 };
 
@@ -230,7 +263,7 @@ exports.register = async (req, res) => {
     if (phoneVerified !== 'true') {
       return res.status(400).json({ success: false, message: 'Phone OTP verification required' });
     }
-    const emailVerified = await getCode('email_verified', email);
+    const emailVerified = await getCode('email_verified', normalizeEmail(email));
     if (emailVerified !== 'true') {
       return res.status(400).json({ success: false, message: 'Email verification required' });
     }

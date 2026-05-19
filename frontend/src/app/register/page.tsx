@@ -38,7 +38,6 @@ function RegisterPageContent() {
   const [loading, setLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState('');
   const [phoneOtp, setPhoneOtp] = useState('');
-  const [emailOtp, setEmailOtp] = useState('');
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
   const [referralVerified, setReferralVerified] = useState(false);
@@ -87,6 +86,24 @@ function RegisterPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.referralCode, referralVerified, step]);
 
+  useEffect(() => {
+    const stepParam = searchParams?.get('step');
+    const emailParam = searchParams?.get('email');
+    const emailVerifiedParam = searchParams?.get('emailVerified');
+    const reasonParam = searchParams?.get('reason');
+
+    if (stepParam === '3') setStep(3);
+    if (emailParam) setField('email', emailParam);
+
+    if (emailVerifiedParam === '1') {
+      setEmailVerified(true);
+      toast.success('Email verified successfully');
+    } else if (emailVerifiedParam === '0' && reasonParam) {
+      toast.error('Email verification link is invalid or expired');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const sendPhoneOtp = async () => {
     if (turnstileSiteKey && !turnstileToken) return toast.error('Complete security check first');
     if (!form.phone.trim()) return toast.error('Phone number is required');
@@ -121,23 +138,9 @@ function RegisterPageContent() {
     setLoading(true);
     try {
       await api.post('/auth/send-email-verification', { email: form.email.trim(), firstName: form.firstName, turnstileToken: turnstileToken || undefined });
-      toast.success('Email code sent');
+      toast.success('Verification link sent to your email');
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to send email code');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const verifyEmail = async () => {
-    if (!emailOtp.trim()) return toast.error('Enter email verification code');
-    setLoading(true);
-    try {
-      await api.post('/auth/verify-email', { email: form.email.trim(), code: emailOtp.trim() });
-      setEmailVerified(true);
-      toast.success('Email verified');
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Email code invalid');
+      toast.error(err?.response?.data?.message || 'Failed to send verification email');
     } finally {
       setLoading(false);
     }
@@ -213,7 +216,10 @@ function RegisterPageContent() {
             <input className="input" placeholder="Phone Number" value={form.phone} onChange={(e) => setField('phone', e.target.value)} />
             <div className="flex gap-2"><input className="input" placeholder="Phone OTP" value={phoneOtp} onChange={(e) => setPhoneOtp(e.target.value)} /><button className="btn-secondary" onClick={sendPhoneOtp}>Send OTP</button><button className="btn-primary" onClick={verifyPhone}>Verify</button></div>
             <input className="input" placeholder="Email Address" value={form.email} onChange={(e) => setField('email', e.target.value)} />
-            <div className="flex gap-2"><input className="input" placeholder="Email Code" value={emailOtp} onChange={(e) => setEmailOtp(e.target.value)} /><button className="btn-secondary" onClick={sendEmailOtp}>Send Code</button><button className="btn-primary" onClick={verifyEmail}>Verify</button></div>
+            <div className="flex items-center gap-2">
+              <button className="btn-secondary" onClick={sendEmailOtp}>Send Verification Link</button>
+              <span className={`text-sm ${emailVerified ? 'text-green-400' : 'text-slate-400'}`}>{emailVerified ? 'Email verified' : 'Not verified yet'}</span>
+            </div>
             <button className="btn-primary" disabled={!phoneVerified || !emailVerified} onClick={() => setStep(4)}>Continue</button>
           </div>
         )}
