@@ -3,19 +3,35 @@ const logger = require('../utils/logger');
 
 let redisClient;
 let redisReady = false;
+let redisReconnectAborted = false;
 
 const connectRedis = () => {
   redisClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
     maxRetriesPerRequest: 3,
-    retryStrategy: (times) => Math.min(times * 50, 2000),
+    retryStrategy: (times) => {
+      if (times > 8) {
+        if (!redisReconnectAborted) {
+          logger.warn('Redis reconnect limit reached. Stopping retries until backend restart.');
+          redisReconnectAborted = true;
+        }
+        return null;
+      }
+      return Math.min(times * 200, 2000);
+    },
     lazyConnect: true,
   });
 
-  redisClient.on('connect', () => logger.info('Redis connected'));
+  redisClient.on('connect', () => {
+    redisReconnectAborted = false;
+    logger.info('Redis connected');
+  });
   redisClient.on('ready', () => {
     redisReady = true;
   });
-  redisClient.on('error', (err) => logger.error(`Redis error: ${err.message}`));
+  redisClient.on('error', (err) => {
+    const detail = err?.message || err?.toString?.() || 'Unknown Redis error';
+    logger.error(`Redis error: ${detail}`);
+  });
   redisClient.on('close', () => {
     redisReady = false;
     logger.warn('Redis connection closed');

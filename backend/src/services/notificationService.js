@@ -1,4 +1,5 @@
 const logger = require('../utils/logger');
+const axios = require('axios');
 
 const smsConfigured = () =>
   Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER);
@@ -47,6 +48,44 @@ const sendEmail = async (to, subject, html) => {
   }
 };
 
+const sendgridClient = {
+  sendEmail: async ({ to, subject, html }) => {
+    const shouldBypassInDev =
+      process.env.NODE_ENV === 'development' && String(process.env.SENDGRID_ENABLE_IN_DEV || '').toLowerCase() !== 'true';
+    if (shouldBypassInDev) {
+      logger.info(`[DEV SENDGRID] To: ${to} | Subject: ${subject}`);
+      return;
+    }
+    const apiKey = process.env.SENDGRID_API_KEY;
+    const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+    const fromName = process.env.SENDGRID_FROM_NAME || 'CashFlawHubs';
+
+    if (!apiKey) {
+      throw new Error('SENDGRID_API_KEY is required');
+    }
+    if (!fromEmail) {
+      throw new Error('SENDGRID_FROM_EMAIL is required');
+    }
+
+    await axios.post(
+      'https://api.sendgrid.com/v3/mail/send',
+      {
+        personalizations: [{ to: [{ email: to }] }],
+        from: { email: fromEmail, name: fromName },
+        subject,
+        content: [{ type: 'text/html', value: html }],
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 15000,
+      }
+    );
+  },
+};
+
 // Activation notification
 const sendActivationNotification = async ({ userId, referredBy }) => {
   try {
@@ -71,4 +110,4 @@ const sendActivationNotification = async ({ userId, referredBy }) => {
   }
 };
 
-module.exports = { sendSMS, sendEmail, sendActivationNotification, smsConfigured };
+module.exports = { sendSMS, sendEmail, sendActivationNotification, smsConfigured, sendgridClient };

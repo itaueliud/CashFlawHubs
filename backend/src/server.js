@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -13,6 +14,7 @@ const connectRedis = require('./config/redis');
 const logger = require('./utils/logger');
 const { startJobScheduler } = require('./services/jobScheduler');
 const { startQueueWorker } = require('./services/queueWorker');
+const { initSocket } = require('./services/socketService');
 
 // Route imports
 const authRoutes = require('./routes/auth');
@@ -33,8 +35,10 @@ const notificationRoutes = require('./routes/notifications');
 const catalogRoutes = require('./routes/catalog');
 const adsNetworkRoutes = require('./routes/adsNetwork');
 const adminAdvancedRoutes = require('./routes/adminAdvanced');
+const chatRoutes = require('./routes/chat');
 
 const app = express();
+const server = http.createServer(app);
 app.set('trust proxy', process.env.TRUST_PROXY ? Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY : 1);
 
 const rateLimitJsonHandler = (message) => (req, res) => {
@@ -133,6 +137,7 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/v1/users', userRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/referrals', referralRoutes);
 app.use('/api/surveys', surveyRoutes);
@@ -149,6 +154,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/catalog', catalogRoutes);
 app.use('/api/ads-network', adsNetworkRoutes);
 app.use('/api/admin-advanced', adminAdvancedRoutes);
+app.use('/api/chat', chatRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -165,7 +171,9 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const io = initSocket(server, Array.from(allowedOrigins));
+app.set('io', io);
+server.listen(PORT, () => {
   logger.info(`CashFlawHubs server running on port ${PORT} [${process.env.NODE_ENV}]`);
   startJobScheduler();
   startQueueWorker();

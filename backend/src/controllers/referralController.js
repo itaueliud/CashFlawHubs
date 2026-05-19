@@ -18,7 +18,7 @@ exports.getReferralDashboard = async (req, res) => {
       totalReferrals: user.totalReferrals,
       totalEarnedUSD: wallet?.referralEarnings || 0,
       referralCode: user.referralCode,
-      referralLink: `${process.env.FRONTEND_URL}/signup?ref=${user.referralCode}`,
+      referralLink: `${process.env.FRONTEND_URL}/register?ref=${user.referralCode}`,
       referrals: referrals.map(r => ({
         user: r.newUserId,
         rewardUSD: r.rewardAmountUSD,

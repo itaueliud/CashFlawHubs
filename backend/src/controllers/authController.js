@@ -4,7 +4,7 @@ const User = require('../models/User');
 const Wallet = require('../models/Wallet');
 const { getRedis } = require('../config/redis');
 const logger = require('../utils/logger');
-const { sendSMS, sendEmail, smsConfigured } = require('../services/notificationService');
+const { sendSMS, smsConfigured, sendgridClient } = require('../services/notificationService');
 const { COUNTRIES } = require('../config/countries');
 const { TOKEN_PACKAGES } = require('../config/monetization');
 const devAuthStore = require('../services/devAuthStore');
@@ -64,6 +64,24 @@ const normalizeLoginIdentifier = (value = '') => String(value).trim().toLowerCas
 const validateImagePayload = (value) =>
   typeof value === 'string' && (value.startsWith('data:image/') || value.startsWith('http'));
 const isDatabaseReady = () => mongoose.connection.readyState === 1;
+const normalizeLang = (raw = '') => String(raw || 'en').split(',')[0].trim().split('-')[0].toLowerCase() || 'en';
+const getClientIp = (req) => {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.trim()) {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.ip || req.socket?.remoteAddress || '';
+};
+const getSecurityContext = (req, payload = {}) => ({
+  ipAddress: getClientIp(req),
+  userAgent: String(req.headers['user-agent'] || ''),
+  acceptLanguage: String(req.headers['accept-language'] || ''),
+  browserLanguage: String(payload.browser_language || ''),
+  userLanguage: normalizeLang(payload.user_language || payload.browser_language || req.headers['accept-language'] || 'en'),
+  cfIpCountry: String(req.headers['cf-ipcountry'] || ''),
+  timezone: String(payload.timezone || req.headers['x-timezone'] || ''),
+  deviceFingerprint: String(payload.device_fingerprint || req.headers['x-device-fingerprint'] || ''),
+});
 
 exports.sendOTP = async (req, res) => {
   try {
@@ -117,11 +135,11 @@ exports.sendEmailVerification = async (req, res) => {
     await setCode('email_otp', email, code);
     await clearCode('email_verified', email);
 
-    await sendEmail(
-      email,
-      'Verify your CashFlawHubs email',
-      `<p>Hello ${firstName || 'there'},</p><p>Your CashFlawHubs verification code is <strong>${code}</strong>.</p><p>This code expires in 5 minutes.</p>`
-    );
+    await sendgridClient.sendEmail({
+      to: email,
+      subject: 'Verify your CashFlawHubs email',
+      html: `<p>Hello ${firstName || 'there'},</p><p>Your CashFlawHubs verification code is <strong>${code}</strong>.</p><p>This code expires in 5 minutes.</p>`,
+    });
 
     if (process.env.NODE_ENV === 'development') {
       logger.info(`[DEV MODE] Email verification code for ${email}: ${code}`);
@@ -157,6 +175,25 @@ exports.verifyEmail = async (req, res) => {
   }
 };
 
+exports.verifyPhoneOTP = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+    if (!phone || !otp) {
+      return res.status(400).json({ success: false, message: 'Phone and OTP required' });
+    }
+    const storedCode = await getCode('otp', phone);
+    if (!storedCode || storedCode !== String(otp)) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+    await clearCode('otp', phone);
+    await setCode('phone_verified', phone, 'true');
+    return res.json({ success: true, message: 'Phone verified successfully' });
+  } catch (error) {
+    logger.error(`verifyPhoneOTP error: ${error.message}`);
+    return res.status(500).json({ success: false, message: 'Failed to verify phone OTP' });
+  }
+};
+
 exports.register = async (req, res) => {
   try {
     const {
@@ -168,8 +205,13 @@ exports.register = async (req, res) => {
       password,
       referralCode,
       idNumber,
+      dateOfBirth,
       idDocumentImage,
       faceVerificationImage,
+      browser_language,
+      user_language,
+      timezone,
+      device_fingerprint,
     } = req.body;
 
     if (!firstName || !lastName || !email || !phone || !country || !password) {
@@ -180,6 +222,17 @@ exports.register = async (req, res) => {
     }
     if (!COUNTRIES[country]) {
       return res.status(400).json({ success: false, message: 'Unsupported country' });
+    }
+    if (!referralCode) {
+      return res.status(400).json({ success: false, message: 'Referral code is required' });
+    }
+    const phoneVerified = await getCode('phone_verified', phone);
+    if (phoneVerified !== 'true') {
+      return res.status(400).json({ success: false, message: 'Phone OTP verification required' });
+    }
+    const emailVerified = await getCode('email_verified', email);
+    if (emailVerified !== 'true') {
+      return res.status(400).json({ success: false, message: 'Email verification required' });
     }
     let existingPhone;
     let existingEmail;
@@ -207,11 +260,13 @@ exports.register = async (req, res) => {
     if (existingId) return res.status(409).json({ success: false, message: 'ID number already registered' });
 
     let referrer = null;
-    if (referralCode) {
-      referrer = isDatabaseReady()
-        ? await User.findOne({ referralCode })
-        : devAuthStore.findByReferralCode(referralCode);
+    referrer = isDatabaseReady()
+      ? await User.findOne({ referralCode })
+      : devAuthStore.findByReferralCode(referralCode);
+    if (!referrer) {
+      return res.status(400).json({ success: false, message: 'Invalid referral code' });
     }
+    const securityContext = getSecurityContext(req, { browser_language, user_language, timezone, device_fingerprint });
 
     const fullName = `${firstName} ${lastName}`.trim();
     const identityVerificationStatus =
@@ -232,7 +287,12 @@ exports.register = async (req, res) => {
         identityVerificationStatus,
         referredBy: referrer ? referrer.referralCode : null,
         emailVerified: true,
-        phoneVerified: false,
+        phoneVerified: true,
+        dateOfBirth: dateOfBirth || null,
+        browserLanguage: securityContext.browserLanguage || normalizeLang(securityContext.acceptLanguage),
+        userLanguage: securityContext.userLanguage,
+        lastAcceptLanguage: securityContext.acceptLanguage,
+        timezone: securityContext.timezone,
       });
 
       const token = signToken(user.id);
@@ -265,8 +325,23 @@ exports.register = async (req, res) => {
       identityVerificationStatus,
       referredBy: referrer ? referrer.referralCode : null,
       emailVerified: true,
-      phoneVerified: false,
+      phoneVerified: true,
+      dateOfBirth: dateOfBirth || null,
+      browserLanguage: securityContext.browserLanguage || normalizeLang(securityContext.acceptLanguage),
+      userLanguage: securityContext.userLanguage,
+      lastAcceptLanguage: securityContext.acceptLanguage,
+      timezone: securityContext.timezone,
+      registrationContext: {
+        ...securityContext,
+        registeredAt: new Date(),
+      },
+      securityEvents: [{
+        ...securityContext,
+        eventType: 'registration',
+      }],
     });
+    await clearCode('phone_verified', phone);
+    await clearCode('email_verified', email);
 
     await Wallet.create({ userId: user._id });
 
@@ -286,7 +361,10 @@ exports.register = async (req, res) => {
         email: user.email,
         phone: user.phone,
         country: user.country,
+        dateOfBirth: user.dateOfBirth,
         referralCode: user.referralCode,
+        userLanguage: user.userLanguage,
+        browserLanguage: user.browserLanguage,
         activationStatus: isUserActivated(user),
         activationStatusRaw: user.activationStatus,
         emailVerified: user.emailVerified,
@@ -310,7 +388,7 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
-    const { identifier, phone, email, password } = req.body;
+    const { identifier, phone, email, password, browser_language, user_language, timezone, device_fingerprint } = req.body;
     const rawIdentifier = identifier || email || phone;
     if (!rawIdentifier || !password) {
       return res.status(400).json({ success: false, message: 'Email or phone and password required' });
@@ -391,6 +469,17 @@ exports.login = async (req, res) => {
     user.failedLoginAttempts = 0;
     user.lockUntil = null;
     user.updateStreak();
+    const securityContext = getSecurityContext(req, { browser_language, user_language, timezone, device_fingerprint });
+    user.browserLanguage = securityContext.browserLanguage || user.browserLanguage;
+    user.lastAcceptLanguage = securityContext.acceptLanguage;
+    user.timezone = securityContext.timezone || user.timezone;
+    if (!user.userLanguage || !String(user.userLanguage).trim()) {
+      user.userLanguage = securityContext.userLanguage;
+    }
+    user.securityEvents = [...(user.securityEvents || []), {
+      ...securityContext,
+      eventType: 'login',
+    }].slice(-30);
     await user.save();
 
     const token = signToken(user._id);
@@ -408,7 +497,10 @@ exports.login = async (req, res) => {
         email: user.email,
         phone: user.phone,
         country: user.country,
+        dateOfBirth: user.dateOfBirth,
         referralCode: user.referralCode,
+        userLanguage: user.userLanguage,
+        browserLanguage: user.browserLanguage,
         activationStatus: isUserActivated(user),
         activationStatusRaw: user.activationStatus,
         identityVerificationStatus: user.identityVerificationStatus,

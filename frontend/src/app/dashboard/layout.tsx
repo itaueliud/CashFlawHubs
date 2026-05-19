@@ -43,6 +43,7 @@ const BASE_NAV = [
   { href: '/dashboard/offerwalls', icon: Gift, label: 'Offerwalls' },
   { href: '/dashboard/cash-tasks', icon: TrendingUp, label: 'Cash Tasks' },
   { href: '/dashboard/referrals', icon: Star, label: 'Referral Earnings' },
+  { href: '/dashboard/chat', icon: MessagesSquare, label: 'Job Chats' },
   { href: '/dashboard#daily-challenges', icon: Trophy, label: 'Daily Challenges' },
   { href: '/dashboard/wallet', icon: Wallet, label: 'Wallet' },
   { href: '/dashboard/profile', icon: User, label: 'Profile' },

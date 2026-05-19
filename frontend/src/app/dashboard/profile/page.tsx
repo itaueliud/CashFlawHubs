@@ -34,6 +34,7 @@ const COUNTRY_LABELS: Record<string, string> = {
 type ProfileForm = {
   name: string;
   bio: string;
+  userLanguage: string;
 };
 
 export default function ProfilePage() {
@@ -42,6 +43,7 @@ export default function ProfilePage() {
     defaultValues: {
       name: user?.name || '',
       bio: (user as any)?.bio || '',
+      userLanguage: (user as any)?.userLanguage || '',
     },
   });
 
@@ -49,12 +51,22 @@ export default function ProfilePage() {
     reset({
       name: user?.name || '',
       bio: (user as any)?.bio || '',
+      userLanguage: (user as any)?.userLanguage || '',
     });
   }, [reset, user]);
 
   const onSave = async (data: ProfileForm) => {
     try {
-      await api.put('/users/profile', data);
+      const payload = {
+        ...data,
+        browserLanguage: typeof navigator !== 'undefined' ? navigator.language.split('-')[0].toLowerCase() : '',
+        timezone: typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : '',
+      };
+      await api.put('/users/profile', payload);
+      if (data.userLanguage) {
+        localStorage.setItem('cfh-user-language', data.userLanguage);
+        document.documentElement.lang = data.userLanguage;
+      }
       await refreshUser();
       toast.success('Profile updated!');
     } catch {
@@ -258,6 +270,16 @@ export default function ProfilePage() {
                 className="input resize-none"
                 placeholder="Tell people what you do, what you like, or how you use CashFlowHubs..."
               />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-300">Language</label>
+              <select {...register('userLanguage')} className="input">
+                <option value="">Auto detect</option>
+                <option value="en">English</option>
+                <option value="sw">Swahili</option>
+                <option value="fr">French</option>
+              </select>
             </div>
 
             <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-400">

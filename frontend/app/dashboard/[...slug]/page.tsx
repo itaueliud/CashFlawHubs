@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import DashboardActivatePage from '../../../src/app/dashboard/activate/page';
 import DashboardAdsNetworkPage from '../../../src/app/dashboard/ads-network/page';
 import DashboardCashTasksPage from '../../../src/app/dashboard/cash-tasks/page';
+import DashboardChatPage from '../../../src/app/dashboard/chat/page';
 import DashboardChallengesPage from '../../../src/app/dashboard/challenges/page';
 import DashboardFreelancePage from '../../../src/app/dashboard/freelance/page';
 import DashboardJobsPage from '../../../src/app/dashboard/jobs/page';
@@ -23,6 +24,7 @@ const ROUTES: Record<string, React.ComponentType> = {
   activate: DashboardActivatePage,
   'ads-network': DashboardAdsNetworkPage,
   'cash-tasks': DashboardCashTasksPage,
+  chat: DashboardChatPage,
   challenges: DashboardChallengesPage,
   freelance: DashboardFreelancePage,
   jobs: DashboardJobsPage,

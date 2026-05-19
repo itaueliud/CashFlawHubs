@@ -48,7 +48,12 @@ export default function LoginPage() {
 
     setIsLoading(true);
     try {
-      await login(data.identifier, data.password, turnstileToken || undefined);
+      const browserLanguage = (typeof navigator !== 'undefined' ? navigator.language : 'en').split('-')[0].toLowerCase();
+      const timezone = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : '';
+      await login(data.identifier, data.password, turnstileToken || undefined, browserLanguage, timezone);
+      const language = useAuthStore.getState().user?.userLanguage || browserLanguage || 'en';
+      localStorage.setItem('cfh-user-language', language);
+      document.documentElement.lang = language;
       toast.success('Welcome back!');
       const targetByPortal: Record<string, string> = {
         ledger: '/dashboard/ledger',

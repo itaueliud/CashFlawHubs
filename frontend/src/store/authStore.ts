@@ -35,6 +35,8 @@ interface User {
   totalTokensPurchased?: number;
   totalTokensSpent?: number;
   paymentProvider?: string;
+  userLanguage?: string;
+  browserLanguage?: string;
   paymentRouting?: {
     deposits: string[];
     withdrawals: string[];
@@ -50,7 +52,7 @@ interface AuthState {
   setUser: (user: User) => void;
   setToken: (token: string) => void;
   setHasHydrated: (hasHydrated: boolean) => void;
-  login: (identifier: string, password: string, turnstileToken?: string) => Promise<void>;
+  login: (identifier: string, password: string, turnstileToken?: string, browserLanguage?: string, timezone?: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -70,10 +72,16 @@ export const useAuthStore = create<AuthState>()(
       },
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
 
-      login: async (identifier, password, turnstileToken) => {
+      login: async (identifier, password, turnstileToken, browserLanguage, timezone) => {
         set({ isLoading: true });
         try {
-          const res = await api.post('/auth/login', { identifier, password, turnstileToken });
+          const res = await api.post('/auth/login', {
+            identifier,
+            password,
+            turnstileToken,
+            browser_language: browserLanguage,
+            timezone,
+          });
           const { token, user } = res.data;
           set({ token, user, isLoading: false });
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;

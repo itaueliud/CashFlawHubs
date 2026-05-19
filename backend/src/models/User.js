@@ -59,6 +59,41 @@ const userSchema = new mongoose.Schema({
   activationStatus: { type: Boolean, default: false },
   emailVerified: { type: Boolean, default: false },
   phoneVerified: { type: Boolean, default: false },
+  dateOfBirth: { type: Date, default: null },
+  userLanguage: { type: String, default: 'en' },
+  browserLanguage: { type: String, default: 'en' },
+  lastAcceptLanguage: { type: String, default: '' },
+  timezone: { type: String, default: '' },
+  registrationContext: {
+    ipAddress: { type: String, default: '' },
+    userAgent: { type: String, default: '' },
+    acceptLanguage: { type: String, default: '' },
+    browserLanguage: { type: String, default: '' },
+    cfIpCountry: { type: String, default: '' },
+    timezone: { type: String, default: '' },
+    deviceFingerprint: { type: String, default: '' },
+    registeredAt: { type: Date, default: null },
+  },
+  pending_email: {
+    type: String,
+    lowercase: true,
+    trim: true,
+    default: null,
+  },
+  email_change_token: { type: String, default: null, index: true },
+  email_change_expires_at: { type: Date, default: null },
+  securityEvents: [{
+    eventType: { type: String, default: 'login' },
+    ipAddress: { type: String, default: '' },
+    userAgent: { type: String, default: '' },
+    acceptLanguage: { type: String, default: '' },
+    browserLanguage: { type: String, default: '' },
+    userLanguage: { type: String, default: '' },
+    cfIpCountry: { type: String, default: '' },
+    timezone: { type: String, default: '' },
+    deviceFingerprint: { type: String, default: '' },
+    createdAt: { type: Date, default: Date.now },
+  }],
 
   // Gamification
   level: { type: Number, default: 1 },
@@ -110,6 +145,23 @@ userSchema.pre('validate', function (next) {
   }
 
   next();
+});
+
+userSchema.pre('save', async function (next) {
+  if (!this.isNew) return next();
+  const User = this.constructor;
+  let attempts = 0;
+  while (attempts < 5) {
+    const [refExists, userIdExists] = await Promise.all([
+      User.exists({ referralCode: this.referralCode }),
+      User.exists({ userId: this.userId }),
+    ]);
+    if (!refExists && !userIdExists) return next();
+    if (refExists) this.referralCode = `REF-${uuidv4().slice(0, 8).toUpperCase()}`;
+    if (userIdExists && !this.idNumber) this.userId = `USR-${uuidv4().slice(0, 8).toUpperCase()}`;
+    attempts += 1;
+  }
+  return next(new Error('Unable to generate unique user identifiers'));
 });
 
 // Compare password

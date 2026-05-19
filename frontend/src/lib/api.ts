@@ -21,6 +21,18 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+const getDeviceFingerprint = () => {
+  if (typeof window === 'undefined') return '';
+  const key = 'cfh-device-fingerprint';
+  let fp = localStorage.getItem(key);
+  if (!fp) {
+    const seed = `${navigator.userAgent}|${navigator.platform}|${screen.width}x${screen.height}|${Intl.DateTimeFormat().resolvedOptions().timeZone}`;
+    fp = btoa(unescape(encodeURIComponent(seed))).slice(0, 64);
+    localStorage.setItem(key, fp);
+  }
+  return fp;
+};
+
 // Inject token on every request
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
@@ -29,6 +41,9 @@ api.interceptors.request.use((config) => {
       const token = stored?.state?.token;
       if (token) config.headers.Authorization = `Bearer ${token}`;
     } catch {}
+    config.headers['Accept-Language'] = navigator.language || 'en';
+    config.headers['x-timezone'] = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    config.headers['x-device-fingerprint'] = getDeviceFingerprint();
   }
   return config;
 });

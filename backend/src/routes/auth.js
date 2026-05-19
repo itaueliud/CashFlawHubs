@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
-const { sendOTP, sendEmailVerification, verifyEmail, register, login, getMe } = require('../controllers/authController');
+const { sendOTP, sendEmailVerification, verifyEmail, verifyPhoneOTP, register, login, getMe } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 const { ipMonitor } = require('../middleware/antiFraud');
 const { verifyTurnstile } = require('../middleware/turnstile');
@@ -43,6 +43,7 @@ const loginLimiter = buildAuthLimiter(
 router.post('/send-otp', otpLimiter, verifyTurnstile, sendOTP);
 router.post('/send-email-verification', verificationLimiter, verifyTurnstile, sendEmailVerification);
 router.post('/verify-email', verificationLimiter, verifyEmail);
+router.post('/verify-phone-otp', verificationLimiter, verifyPhoneOTP);
 router.post('/register', registerLimiter, verifyTurnstile, ipMonitor, register);
 router.post('/login', loginLimiter, verifyTurnstile, login);
 router.get('/me', protect, getMe);

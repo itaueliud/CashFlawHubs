@@ -6,6 +6,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Building2, CalendarDays, ExternalLink, Globe2, Loader2, Send, Tag } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 
 export default function JobDetailsPage() {
   const params = useParams<{ id: string }>();
@@ -142,6 +143,9 @@ export default function JobDetailsPage() {
               {applyMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
               Apply on site
             </button>
+            <Link href={`/dashboard/chat?jobId=${jobId}`} className="btn-secondary w-full flex items-center justify-center gap-2">
+              <MessageSquare size={16} /> Open job chat
+            </Link>
           </div>
         </div>
       )}
