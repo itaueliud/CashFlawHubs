@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
