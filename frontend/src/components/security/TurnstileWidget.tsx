@@ -21,6 +21,7 @@ declare global {
       render: (container: HTMLElement | string, options: TurnstileRenderOptions) => string;
       reset: (widgetId: string) => void;
       remove: (widgetId: string) => void;
+      ready?: (callback: () => void) => void;
       isReady?: boolean;
     };
   }
@@ -45,11 +46,23 @@ export function TurnstileWidget({ siteKey, onToken, onExpire, onError, className
   const onTokenRef = useRef(onToken);
   const onExpireRef = useRef(onExpire);
   const onErrorRef = useRef(onError);
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
+    isMountedRef.current = true;
     onTokenRef.current = onToken;
     onExpireRef.current = onExpire;
     onErrorRef.current = onError;
+    if (window.turnstile) {
+      setScriptReady(true);
+    }
+    return () => {
+      isMountedRef.current = false;
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+    };
   }, [onError, onExpire, onToken]);
 
   useEffect(() => {
@@ -57,51 +70,47 @@ export function TurnstileWidget({ siteKey, onToken, onExpire, onError, className
       return;
     }
 
-    try {
-      renderedWidgetId.current = window.turnstile.render(containerRef.current, {
-        sitekey: siteKey,
-        theme: 'dark',
-        size: 'normal',
-        callback: (token: string) => onTokenRef.current(token),
-        'expired-callback': () => {
-          onExpireRef.current?.();
-        },
-        'error-callback': () => {
-          onErrorRef.current?.();
-        },
-        'retry': 'auto',
-        'retry-interval': 8000,
-      });
-      setRenderError(false);
-      retryCountRef.current = 0;
-    } catch (error) {
-      console.error('Turnstile render error:', error);
-      setRenderError(true);
-      
-      // Retry logic for transient errors
-      if (retryCountRef.current < 3) {
-        retryCountRef.current++;
-        const retryDelay = Math.pow(2, retryCountRef.current) * 1000;
-        setTimeout(() => {
-          if (containerRef.current && window.turnstile) {
-            try {
-              renderedWidgetId.current = window.turnstile.render(containerRef.current, {
-                sitekey: siteKey,
-                theme: 'dark',
-                size: 'normal',
-                callback: (token: string) => onTokenRef.current(token),
-                'expired-callback': () => onExpireRef.current?.(),
-                'error-callback': () => onErrorRef.current?.(),
-                'retry': 'auto',
-                'retry-interval': 8000,
-              });
-              setRenderError(false);
-            } catch (retryError) {
-              console.error(`Turnstile retry ${retryCountRef.current} failed:`, retryError);
-            }
-          }
-        }, retryDelay);
+    const renderWidget = () => {
+      if (!isMountedRef.current || !containerRef.current || !window.turnstile || renderedWidgetId.current) {
+        return;
       }
+      try {
+        renderedWidgetId.current = window.turnstile.render(containerRef.current, {
+          sitekey: siteKey,
+          theme: 'dark',
+          size: 'normal',
+          callback: (token: string) => onTokenRef.current(token),
+          'expired-callback': () => {
+            onExpireRef.current?.();
+          },
+          'error-callback': () => {
+            onErrorRef.current?.();
+          },
+          retry: 'auto',
+          'retry-interval': 8000,
+        });
+        setRenderError(false);
+        retryCountRef.current = 0;
+      } catch (error) {
+        console.error('Turnstile render error:', error);
+        setRenderError(true);
+
+        if (retryCountRef.current < 3) {
+          retryCountRef.current++;
+          const retryDelay = Math.pow(2, retryCountRef.current) * 1000;
+          retryTimeoutRef.current = setTimeout(() => {
+            renderWidget();
+          }, retryDelay);
+        }
+      }
+    };
+
+    if (window.turnstile.ready) {
+      window.turnstile.ready(() => {
+        renderWidget();
+      });
+    } else {
+      renderWidget();
     }
 
     return () => {
@@ -111,6 +120,9 @@ export function TurnstileWidget({ siteKey, onToken, onExpire, onError, className
         } catch (e) {
           console.warn('Error removing Turnstile widget:', e);
         }
+      }
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
       }
       renderedWidgetId.current = null;
     };
@@ -123,10 +135,12 @@ export function TurnstileWidget({ siteKey, onToken, onExpire, onError, className
   return (
     <div className={className}>
       <Script
+        id="cloudflare-turnstile-api"
         src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
-        strategy="afterInteractive"
+        strategy="lazyOnload"
         nonce={nonce || undefined}
         onLoad={() => setScriptReady(true)}
+        onReady={() => setScriptReady(true)}
         onError={() => setRenderError(true)}
       />
       {renderError && (
