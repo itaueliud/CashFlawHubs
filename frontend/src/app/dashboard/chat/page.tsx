@@ -17,8 +17,8 @@ export default function ChatPage() {
   const [streamingAi, setStreamingAi] = useState('');
   const socketRef = useRef<Socket | null>(null);
 
-  const jobId = params.get('jobId') || '';
-  const applicantId = params.get('applicantId') || '';
+  const jobId = params?.get('jobId') || '';
+  const applicantId = params?.get('applicantId') || '';
 
   const sessionsQuery = useQuery({
     queryKey: ['chat-sessions'],
