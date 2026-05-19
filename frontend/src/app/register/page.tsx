@@ -47,7 +47,6 @@ function RegisterPageContent() {
     firstName: '',
     lastName: '',
     idNumber: '',
-    dateOfBirth: '',
     country: 'KE',
     phone: '',
     email: '',
@@ -148,7 +147,7 @@ function RegisterPageContent() {
 
   const completeSignup = async () => {
     if (!referralVerified) return toast.error('Verify referral code first');
-    if (!form.firstName || !form.lastName || !form.country || !form.dateOfBirth) return toast.error('Complete personal details');
+    if (!form.firstName || !form.lastName || !form.country) return toast.error('Complete personal details');
     if (!phoneVerified || !emailVerified) return toast.error('Verify phone and email first');
     if (!form.password || form.password.length < 6 || form.password !== form.confirmPassword) return toast.error('Password check failed');
     if (turnstileSiteKey && !turnstileToken) return toast.error('Complete security check');
@@ -199,13 +198,24 @@ function RegisterPageContent() {
 
         {step === 2 && (
           <div className="mt-5 grid gap-3 md:grid-cols-2">
-            <input className="input" placeholder="First Name" value={form.firstName} onChange={(e) => setField('firstName', e.target.value)} />
-            <input className="input" placeholder="Last Name" value={form.lastName} onChange={(e) => setField('lastName', e.target.value)} />
-            <input className="input" placeholder="ID Number" value={form.idNumber} onChange={(e) => setField('idNumber', e.target.value)} />
-            <input className="input" type="date" value={form.dateOfBirth} onChange={(e) => setField('dateOfBirth', e.target.value)} />
-            <select className="input md:col-span-2" value={form.country} onChange={(e) => setField('country', e.target.value)}>
+            <div>
+              <label className="mb-1 block text-sm text-slate-300">First Name</label>
+              <input className="input" placeholder="First Name" value={form.firstName} onChange={(e) => setField('firstName', e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm text-slate-300">Last Name</label>
+              <input className="input" placeholder="Last Name" value={form.lastName} onChange={(e) => setField('lastName', e.target.value)} />
+            </div>
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-sm text-slate-300">ID Number</label>
+              <input className="input" placeholder="ID Number" value={form.idNumber} onChange={(e) => setField('idNumber', e.target.value)} />
+            </div>
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-sm text-slate-300">Country</label>
+              <select className="input md:col-span-2" value={form.country} onChange={(e) => setField('country', e.target.value)}>
               {countries.map((country) => <option key={country.code} value={country.code}>{country.name}</option>)}
             </select>
+            </div>
             <button className="btn-primary md:col-span-2" onClick={() => setStep(3)}>Continue</button>
           </div>
         )}
@@ -213,9 +223,15 @@ function RegisterPageContent() {
         {step === 3 && (
           <div className="mt-5 space-y-4">
             <TurnstileWidget siteKey={turnstileSiteKey} onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} onError={() => setTurnstileToken('')} className="flex justify-center" />
-            <input className="input" placeholder="Phone Number" value={form.phone} onChange={(e) => setField('phone', e.target.value)} />
+            <div>
+              <label className="mb-1 block text-sm text-slate-300">Phone Number</label>
+              <input className="input" placeholder="Phone Number" value={form.phone} onChange={(e) => setField('phone', e.target.value)} />
+            </div>
             <div className="flex gap-2"><input className="input" placeholder="Phone OTP" value={phoneOtp} onChange={(e) => setPhoneOtp(e.target.value)} /><button className="btn-secondary" onClick={sendPhoneOtp}>Send OTP</button><button className="btn-primary" onClick={verifyPhone}>Verify</button></div>
-            <input className="input" placeholder="Email Address" value={form.email} onChange={(e) => setField('email', e.target.value)} />
+            <div>
+              <label className="mb-1 block text-sm text-slate-300">Email Address</label>
+              <input className="input" placeholder="Email Address" value={form.email} onChange={(e) => setField('email', e.target.value)} />
+            </div>
             <div className="flex items-center gap-2">
               <button className="btn-secondary" onClick={sendEmailOtp}>Send Verification Link</button>
               <span className={`text-sm ${emailVerified ? 'text-green-400' : 'text-slate-400'}`}>{emailVerified ? 'Email verified' : 'Not verified yet'}</span>
@@ -226,13 +242,21 @@ function RegisterPageContent() {
 
         {step === 4 && (
           <div className="mt-5 space-y-3">
-            <input type="password" className="input" placeholder="Password" value={form.password} onChange={(e) => setField('password', e.target.value)} />
-            <input type="password" className="input" placeholder="Confirm Password" value={form.confirmPassword} onChange={(e) => setField('confirmPassword', e.target.value)} />
+            <div>
+              <label className="mb-1 block text-sm text-slate-300">Password</label>
+              <input type="password" className="input" placeholder="Password" value={form.password} onChange={(e) => setField('password', e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm text-slate-300">Confirm Password</label>
+              <input type="password" className="input" placeholder="Confirm Password" value={form.confirmPassword} onChange={(e) => setField('confirmPassword', e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm text-slate-300">Language</label>
             <select className="input" value={form.user_language} onChange={(e) => setField('user_language', e.target.value)}>
               <option value="">Auto-detect language</option>
               {langs.map((lang) => <option key={lang} value={lang}>{lang.toUpperCase()}</option>)}
             </select>
-            <TurnstileWidget siteKey={turnstileSiteKey} onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} onError={() => setTurnstileToken('')} className="flex justify-center" />
+            </div>
             <button className="btn-primary" onClick={() => setStep(5)}>Review</button>
           </div>
         )}
