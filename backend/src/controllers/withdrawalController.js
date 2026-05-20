@@ -10,6 +10,8 @@ const logger = require('../utils/logger');
 
 const getEatDate = () => new Date(Date.now() + (3 * 60 * 60 * 1000));
 const isFriday = () => getEatDate().getUTCDay() === 5;
+const isFridayOnlyWithdrawalEnabled = () => String(process.env.WITHDRAWALS_FRIDAY_ONLY || 'false').toLowerCase() === 'true';
+const isWithdrawalWindowOpen = () => !isFridayOnlyWithdrawalEnabled() || isFriday();
 
 const getWithdrawalCallbackUrl = (strategy) => {
   const base = process.env.BACKEND_URL;
@@ -38,7 +40,7 @@ exports.requestWithdrawal = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Account must be activated to withdraw' });
     }
 
-    if (!isFriday()) {
+    if (!isWithdrawalWindowOpen()) {
       return res.status(403).json({ success: false, message: 'Withdrawals are only available on Fridays' });
     }
 

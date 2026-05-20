@@ -8,6 +8,8 @@ const logger = require('../utils/logger');
 const getEatDate = () => new Date(Date.now() + (3 * 60 * 60 * 1000));
 
 const isFriday = () => getEatDate().getUTCDay() === 5;
+const isFridayOnlyWithdrawalEnabled = () => String(process.env.WITHDRAWALS_FRIDAY_ONLY || 'false').toLowerCase() === 'true';
+const isWithdrawalWindowOpen = () => !isFridayOnlyWithdrawalEnabled() || isFriday();
 
 const nextFridayDate = () => {
   const now = getEatDate();
@@ -33,6 +35,7 @@ exports.getWallet = async (req, res) => {
     const countryConfig = COUNTRIES[user.country];
     const rate = await getCurrencyRate(countryConfig.currency);
     const friday = isFriday();
+    const withdrawalOpen = isWithdrawalWindowOpen();
 
     res.json({
       success: true,
@@ -57,11 +60,13 @@ exports.getWallet = async (req, res) => {
           freelance: wallet.freelanceEarnings,
           challenges: wallet.challengeEarnings,
         },
-        withdrawalOpen: friday,
-        nextPayoutDate: friday
-          ? 'Today. Friday payouts are running now.'
+        withdrawalOpen,
+        nextPayoutDate: withdrawalOpen
+          ? (friday ? 'Today. Friday payouts are running now.' : 'Open now')
           : `Next Friday - ${nextFridayDate()}`,
-        payoutNote: 'Referral rewards still settle in the Friday batch. Direct wallet withdrawals now route through the country payout provider with fallback where configured.',
+        payoutNote: isFridayOnlyWithdrawalEnabled()
+          ? 'Referral rewards still settle in the Friday batch. Direct wallet withdrawals now route through the country payout provider with fallback where configured.'
+          : 'Withdrawals are open daily and route through the country payout provider with fallback where configured.',
       },
     });
   } catch (error) {

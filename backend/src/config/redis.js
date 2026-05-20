@@ -5,14 +5,28 @@ let redisClient;
 let redisReady = false;
 let redisReconnectAborted = false;
 let lastRedisErrorLogAt = 0;
+let redisDisabledLogged = false;
 
 const REDIS_MAX_RETRY_LIMIT = Number(process.env.REDIS_MAX_RETRY_LIMIT || 0); // 0 = unlimited
 const REDIS_RETRY_MAX_DELAY_MS = Number(process.env.REDIS_RETRY_MAX_DELAY_MS || 5000);
 const REDIS_CONNECT_TIMEOUT_MS = Number(process.env.REDIS_CONNECT_TIMEOUT_MS || 10000);
+const REDIS_ENABLED = String(process.env.REDIS_ENABLED || '').toLowerCase() === 'true'
+  || Boolean(process.env.REDIS_URL);
 
 const connectRedis = () => {
+  if (!REDIS_ENABLED) {
+    if (!redisDisabledLogged) {
+      logger.warn('Redis is disabled (set REDIS_ENABLED=true and REDIS_URL to enable).');
+      redisDisabledLogged = true;
+    }
+    redisClient = null;
+    redisReady = false;
+    return null;
+  }
+
   redisClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-    maxRetriesPerRequest: null,
+    maxRetriesPerRequest: 1,
+    enableOfflineQueue: false,
     connectTimeout: REDIS_CONNECT_TIMEOUT_MS,
     retryStrategy: (times) => {
       if (REDIS_MAX_RETRY_LIMIT > 0 && times > REDIS_MAX_RETRY_LIMIT) {
@@ -53,11 +67,17 @@ const connectRedis = () => {
     logger.warn('Redis connection closed');
   });
 
+  redisClient.connect().catch((error) => {
+    const detail = error?.message || String(error);
+    logger.warn(`Redis initial connect failed: ${detail}`);
+  });
+
   return redisClient;
 };
 
 const getRedis = () => {
   if (!redisClient) throw new Error('Redis not initialized');
+  if (!redisReady) throw new Error('Redis not ready');
   return redisClient;
 };
 
