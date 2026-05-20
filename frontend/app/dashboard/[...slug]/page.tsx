@@ -6,6 +6,9 @@ import DashboardCashTasksPage from '../../../src/app/dashboard/cash-tasks/page';
 import DashboardChatPage from '../../../src/app/dashboard/chat/page';
 import DashboardChallengesPage from '../../../src/app/dashboard/challenges/page';
 import DashboardFreelancePage from '../../../src/app/dashboard/freelance/page';
+import DashboardJobApplicationsPage from '../../../src/app/dashboard/jobs/applications/page';
+import DashboardJobApplicantsManagePage from '../../../src/app/dashboard/jobs/[id]/applicants/page';
+import DashboardJobDetailsPage from '../../../src/app/dashboard/jobs/[id]/page';
 import DashboardJobsPage from '../../../src/app/dashboard/jobs/page';
 import DashboardLedgerPage from '../../../src/app/dashboard/ledger/page';
 import DashboardOfferwallsPage from '../../../src/app/dashboard/offerwalls/page';
@@ -27,6 +30,7 @@ const ROUTES: Record<string, React.ComponentType> = {
   chat: DashboardChatPage,
   challenges: DashboardChallengesPage,
   freelance: DashboardFreelancePage,
+  'jobs/applications': DashboardJobApplicationsPage,
   jobs: DashboardJobsPage,
   ledger: DashboardLedgerPage,
   offerwalls: DashboardOfferwallsPage,
@@ -40,6 +44,19 @@ const ROUTES: Record<string, React.ComponentType> = {
 
 export default function DashboardCatchAllPage({ params }: { params: { slug?: string[] } }) {
   const slug = params.slug?.join('/') || '';
+  const DirectRoute = ROUTES[slug];
+  if (DirectRoute) {
+    return <DirectRoute />;
+  }
+
+  if (params.slug?.[0] === 'jobs' && params.slug.length === 2) {
+    return <DashboardJobDetailsPage />;
+  }
+
+  if (params.slug?.[0] === 'jobs' && params.slug.length === 3 && params.slug[2] === 'applicants') {
+    return <DashboardJobApplicantsManagePage />;
+  }
+
   const [segment] = slug.split('/');
   const Page = ROUTES[segment];
 

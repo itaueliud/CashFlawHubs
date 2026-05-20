@@ -1,5 +1,6 @@
 const axios = require('axios');
 const Job = require('../models/Job');
+const JobApplication = require('../models/JobApplication');
 const Transaction = require('../models/Transaction');
 const { getRedis } = require('../config/redis');
 const logger = require('../utils/logger');
@@ -178,9 +179,61 @@ exports.getJob = async (req, res) => {
     if (!job || !job.isActive || (job.expiresAt && job.expiresAt <= new Date())) {
       return res.status(404).json({ success: false, message: 'Job not found' });
     }
+
+    const canManageApplications =
+      ['admin', 'superadmin'].includes(String(req.user.role || '')) ||
+      (job.postedBy && String(job.postedBy) === String(req.user.id));
+
+    const [userApplication, applications] = await Promise.all([
+      JobApplication.findOne({
+        jobId: job._id,
+        userId: req.user.id,
+      }).select('status appliedAt createdAt tokenCost'),
+      canManageApplications
+        ? JobApplication.find({ jobId: job._id })
+            .sort({ createdAt: -1 })
+            .populate({
+              path: 'userId',
+              select: 'firstName lastName name email phone userId',
+            })
+            .select('status appliedAt createdAt updatedAt tokenCost coverLetter userId')
+        : Promise.resolve([]),
+    ]);
+
     job.views += 1;
     await job.save();
-    res.json({ success: true, job });
+
+    const normalizedApplications = canManageApplications
+      ? applications.map((application) => {
+          const applicant = application.userId || {};
+          return {
+            _id: application._id,
+            status: application.status,
+            appliedAt: application.appliedAt,
+            createdAt: application.createdAt,
+            updatedAt: application.updatedAt,
+            tokenCost: application.tokenCost || 0,
+            coverLetter: application.coverLetter || '',
+            applicant: {
+              id: applicant._id,
+              userId: applicant.userId,
+              firstName: applicant.firstName,
+              lastName: applicant.lastName,
+              name: applicant.name,
+              email: applicant.email,
+              phone: applicant.phone,
+            },
+          };
+        })
+      : [];
+
+    res.json({
+      success: true,
+      job,
+      userApplication,
+      canManageApplications,
+      applications: normalizedApplications,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
