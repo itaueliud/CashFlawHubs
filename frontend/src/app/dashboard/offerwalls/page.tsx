@@ -1,11 +1,120 @@
 'use client';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
-import { ArrowLeft, ExternalLink, History, Lock, Radio, Sparkles, X } from 'lucide-react';
+import { ExternalLink, History, Lock, Radio, Sparkles, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useNonce } from '@/components/security/NonceProvider';
+
+type OfferwallSnippetConfig = {
+  label: string;
+  scriptSrc: string;
+  blockedUrl: string;
+  javascriptUrl: string;
+};
+
+const OFFERWALL_SNIPPETS: Record<string, OfferwallSnippetConfig> = {
+  ayetstudios: {
+    label: 'Trianglerockers',
+    scriptSrc: 'https://trianglerockers.com/script_include.php?id=1896723',
+    blockedUrl: 'https://trianglerockers.com/help/ablk.php?lkt=4',
+    javascriptUrl: 'https://trianglerockers.com/help/enable_javascript.php?lkt=4',
+  },
+  adgate: {
+    label: 'PlayableDownload',
+    scriptSrc: 'https://playabledownload.com/script_include.php?id=1896727',
+    blockedUrl: 'https://playabledownload.com/help/ablk.php?lkt=4',
+    javascriptUrl: 'https://playabledownload.com/help/enable_javascript.php?lkt=4',
+  },
+};
+
+function OfferwallScriptHost({ providerKey, providerName }: { providerKey: string | null; providerName: string }) {
+  const scriptMountRef = useRef<HTMLDivElement | null>(null);
+  const nonce = useNonce();
+  const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+
+  useEffect(() => {
+    const host = scriptMountRef.current;
+    if (!host) return;
+
+    host.replaceChildren();
+
+    if (!providerKey) {
+      setStatus('idle');
+      return;
+    }
+
+    const snippet = OFFERWALL_SNIPPETS[providerKey];
+    if (!snippet) {
+      setStatus('error');
+      return;
+    }
+
+    setStatus('loading');
+    const scriptNonce = nonce || undefined;
+
+    const addInlineScript = (code: string) => {
+      const script = document.createElement('script');
+      script.type = 'text/javascript';
+      if (scriptNonce) script.setAttribute('nonce', scriptNonce);
+      script.text = code;
+      host.appendChild(script);
+      return script;
+    };
+
+    addInlineScript('var lck = false;');
+
+    const loader = document.createElement('script');
+    loader.type = 'text/javascript';
+    loader.src = snippet.scriptSrc;
+    loader.async = false;
+    loader.onload = () => setStatus('ready');
+    loader.onerror = () => setStatus('error');
+    host.appendChild(loader);
+
+    addInlineScript(`if(!lck){top.location = '${snippet.blockedUrl}'; }`);
+
+    const noScript = document.createElement('noscript');
+    noScript.innerHTML = `Please enable JavaScript to access this page.<meta http-equiv="refresh" content="0;url=${snippet.javascriptUrl}" />`;
+    host.appendChild(noScript);
+
+    return () => {
+      host.replaceChildren();
+    };
+  }, [nonce, providerKey]);
+
+  return (
+    <div className="min-h-[65vh] rounded-3xl border border-slate-700 bg-slate-950/95 p-4 shadow-inner shadow-black/30">
+      <div className="mb-3 flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
+        <div>
+          <div className="text-xs uppercase tracking-[0.25em] text-slate-500">Provider script host</div>
+          <div className="mt-1 text-sm font-semibold text-white">{providerName}</div>
+        </div>
+        <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-slate-400">
+          {status === 'ready' ? 'Loaded' : status === 'loading' ? 'Loading' : status === 'error' ? 'Error' : 'Idle'}
+        </span>
+      </div>
+
+      <div className="relative min-h-[60vh] overflow-hidden rounded-2xl bg-slate-900">
+        <div ref={scriptMountRef} className="absolute inset-0 z-0" />
+        {status === 'idle' ? (
+          <div className="relative z-10 flex min-h-[60vh] items-center justify-center px-6 text-center text-sm text-slate-400">
+            Select a live provider to load its monetization script.
+          </div>
+        ) : status === 'loading' ? (
+          <div className="relative z-10 flex min-h-[60vh] items-center justify-center px-6 text-center text-sm text-slate-300">
+            Loading provider script...
+          </div>
+        ) : status === 'error' ? (
+          <div className="relative z-10 flex min-h-[60vh] items-center justify-center px-6 text-center text-sm text-slate-300">
+            The provider script failed to load. Check the browser console and ad-block settings.
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 export default function OfferwallsPage() {
   const { user } = useAuthStore();
@@ -22,7 +131,7 @@ export default function OfferwallsPage() {
     enabled: !!user?.activationStatus,
   });
 
-  const { data: launchData, isLoading: isLaunchLoading, error: launchError } = useQuery({
+  const { data: launchData } = useQuery({
     queryKey: ['offerwall-launch', activeProviderKey],
     queryFn: () => api.get(`/offerwalls/launch/${activeProviderKey}`).then((r) => r.data),
     enabled: !!user?.activationStatus && !!activeProviderKey,
@@ -43,6 +152,7 @@ export default function OfferwallsPage() {
   const plannedProviders = providers.filter((provider: any) => !provider.live);
   const history = historyData?.transactions || [];
   const activeProvider = useMemo(() => providers.find((provider: any) => provider.key === activeProviderKey) || null, [providers, activeProviderKey]);
+  const activeSnippet = activeProviderKey ? OFFERWALL_SNIPPETS[activeProviderKey] : null;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -197,26 +307,7 @@ export default function OfferwallsPage() {
 
             <div className="grid min-h-0 flex-1 gap-4 overflow-hidden xl:grid-cols-[1.25fr_0.75fr]">
               <div className="min-h-0 overflow-hidden border-r border-slate-800 bg-slate-950/90">
-                <div className="border-b border-slate-800 px-4 py-3 text-sm font-semibold text-slate-200">Offerwall content area</div>
-                <div className="min-h-[65vh] bg-slate-900">
-                  {launchError ? (
-                    <div className="flex min-h-[65vh] items-center justify-center px-6 text-center text-slate-300">
-                      Offerwall could not be loaded. Try reopening the drawer.
-                    </div>
-                  ) : isLaunchLoading || !launchData?.wallUrl ? (
-                    <div className="flex min-h-[65vh] items-center justify-center px-6 text-slate-300">
-                      Loading offerwall...
-                    </div>
-                  ) : (
-                    <iframe
-                      src={launchData.wallUrl}
-                      title={`${activeProvider?.name || activeProviderKey} offerwall`}
-                      className="h-[65vh] w-full border-0"
-                      allow="clipboard-read; clipboard-write; fullscreen; payment; geolocation; microphone; camera"
-                      referrerPolicy="no-referrer"
-                    />
-                  )}
-                </div>
+                <OfferwallScriptHost providerKey={activeProviderKey} providerName={activeProvider?.name || activeProviderKey || 'Offerwall'} />
               </div>
 
               <div className="space-y-4 overflow-y-auto p-5">
@@ -224,7 +315,7 @@ export default function OfferwallsPage() {
                   <div className="text-xs uppercase tracking-wide text-slate-500">Provider status</div>
                   <div className="mt-2 text-xl font-black text-white">Open inside site</div>
                   <p className="mt-2 text-sm leading-6 text-slate-300">
-                    This drawer keeps the offerwall in the dashboard shell and ties callbacks to the backend session.
+                    This drawer loads the provider script directly in the dashboard shell and keeps the backend session tied to the selection.
                   </p>
                 </div>
 
@@ -236,14 +327,28 @@ export default function OfferwallsPage() {
                     </div>
                     <div className="text-sm text-slate-300">{activeProvider.description}</div>
                     <span className={activeProvider.live ? 'badge-green w-fit' : 'badge-blue w-fit'}>{activeProvider.badge}</span>
+                    {activeSnippet ? (
+                      <div className="text-xs text-slate-500">{activeSnippet.label} script will load for this provider.</div>
+                    ) : null}
                   </div>
                 ) : null}
 
                 <div className="card space-y-3">
                   <div className="text-sm font-semibold text-white">In-site only</div>
                   <p className="text-sm text-slate-300">
-                    Offerwalls stay inside your dashboard shell. If a provider blocks embedding, reopen the drawer or pick another live provider.
+                    Offerwalls stay inside your dashboard shell. If a provider blocks the script, reopen the drawer, disable ad-blocking, or try the direct wall link.
                   </p>
+                  <button
+                    type="button"
+                    disabled={!launchData?.wallUrl}
+                    onClick={() => {
+                      if (!launchData?.wallUrl) return;
+                      window.open(launchData.wallUrl, '_blank', 'noopener,noreferrer');
+                    }}
+                    className="inline-flex w-fit items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Open direct wall <ExternalLink size={14} />
+                  </button>
                 </div>
 
                 <div className="card space-y-3">
