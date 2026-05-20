@@ -23,6 +23,13 @@ const getOriginFromUrl = (value: string | undefined) => {
   }
 };
 
+const getSocketOriginFromHttpOrigin = (origin: string) => {
+  if (!origin) return '';
+  if (origin.startsWith('https://')) return `wss://${origin.slice('https://'.length)}`;
+  if (origin.startsWith('http://')) return `ws://${origin.slice('http://'.length)}`;
+  return '';
+};
+
 const buildConnectSrc = () => {
   const sources = new Set([
     "'self'",
@@ -34,11 +41,19 @@ const buildConnectSrc = () => {
   const apiOrigin = getOriginFromUrl(process.env.NEXT_PUBLIC_API_URL);
   if (apiOrigin) {
     sources.add(apiOrigin);
+    const apiSocketOrigin = getSocketOriginFromHttpOrigin(apiOrigin);
+    if (apiSocketOrigin) {
+      sources.add(apiSocketOrigin);
+    }
   }
 
   const appOrigin = getOriginFromUrl(process.env.NEXT_PUBLIC_APP_URL);
   if (appOrigin) {
     sources.add(appOrigin);
+    const appSocketOrigin = getSocketOriginFromHttpOrigin(appOrigin);
+    if (appSocketOrigin) {
+      sources.add(appSocketOrigin);
+    }
   }
 
   return Array.from(sources).join(' ');

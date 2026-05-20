@@ -97,6 +97,14 @@ export default function WalletPage() {
       }
       return true;
     } catch (error: any) {
+      if (error?.response?.status === 404) {
+        setPendingPurchase(null);
+        persistPendingPurchase(null);
+        if (!silent) {
+          toast.error('Payment reference was not found. Please start the purchase again.');
+        }
+        return false;
+      }
       if (!silent) {
         toast.error(error.response?.data?.message || 'Unable to verify token purchase yet');
       }
@@ -134,6 +142,14 @@ export default function WalletPage() {
       }
       return true;
     } catch (error: any) {
+      if (error?.response?.status === 404) {
+        setPendingDeposit(null);
+        persistPendingDeposit(null);
+        if (!silent) {
+          toast.error('Payment reference was not found. Please start the deposit again.');
+        }
+        return false;
+      }
       if (!silent) {
         toast.error(error.response?.data?.message || 'Unable to verify deposit yet');
       }
