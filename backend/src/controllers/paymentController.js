@@ -316,6 +316,40 @@ const getTokenPurchaseCallbackUrl = (providerKey, reference) => {
   }
 };
 
+const initiateRoutedDepositWithFallback = async ({
+  countryConfig,
+  country,
+  requestedProvider,
+  reference,
+  frontendReturnUrl,
+  payloadBase,
+}) => {
+  const configuredStrategies = countryConfig.paymentRouting?.deposits || [];
+  const strategies = requestedProvider
+    ? [requestedProvider]
+    : (configuredStrategies.length ? configuredStrategies : [countryConfig.paymentProvider || 'paystack']);
+  const errors = [];
+
+  for (const strategy of strategies) {
+    try {
+      const providerCallbackUrl = getTokenPurchaseCallbackUrl(strategy, reference);
+      const payment = await paymentOrchestrator.initiateDeposit({
+        country,
+        requestedProvider: strategy,
+        payload: {
+          ...payloadBase,
+          callbackUrl: strategy.startsWith('paystack') ? frontendReturnUrl : providerCallbackUrl,
+        },
+      });
+      return { payment, strategyUsed: strategy };
+    } catch (error) {
+      errors.push(`${strategy}: ${error.message}`);
+    }
+  }
+
+  throw new Error(`Deposit routing failed for ${country}. ${errors.join(' | ')}`);
+};
+
 const markTransactionSuccessful = async (reference, provider, providerTransactionId, extraMetadata = {}) => {
   const tx = await Transaction.findOne({
     $or: [{ providerTransactionId: reference }, { 'metadata.reference': reference }],
@@ -614,8 +648,6 @@ exports.initiateTokenPurchase = async (req, res) => {
 
     const countryConfig = COUNTRIES[user.country];
     const reference = buildReference('TOK', user.userId);
-    const depositStrategy = provider || countryConfig.paymentRouting?.deposits?.[0] || countryConfig.paymentProvider || 'paystack';
-    const providerCallbackUrl = getTokenPurchaseCallbackUrl(depositStrategy, reference);
     const frontendReturnUrl = getFrontendReturnUrl('token_purchase', reference);
 
     const transaction = await Transaction.create({
@@ -637,14 +669,16 @@ exports.initiateTokenPurchase = async (req, res) => {
       },
     });
 
-    const payment = await paymentOrchestrator.initiateDeposit({
+    const { payment } = await initiateRoutedDepositWithFallback({
+      countryConfig,
       country: user.country,
-      requestedProvider: depositStrategy,
-      payload: {
+      requestedProvider: provider,
+      reference,
+      frontendReturnUrl,
+      payloadBase: {
         reference,
         amountLocal: tokenPackage.amountKES,
         currency: 'KES',
-        callbackUrl: depositStrategy.startsWith('paystack') ? frontendReturnUrl : providerCallbackUrl,
         customer: {
           name: user.name,
           email: user.email || `${normalizePhoneNumber(user.phone)}@cashflawhubs.app`,
@@ -697,8 +731,6 @@ exports.initiateWalletDeposit = async (req, res) => {
 
     const countryConfig = COUNTRIES[user.country];
     const reference = buildReference('DEP', user.userId);
-    const depositStrategy = provider || countryConfig.paymentRouting?.deposits?.[0] || countryConfig.paymentProvider || 'paystack';
-    const providerCallbackUrl = getTokenPurchaseCallbackUrl(depositStrategy, reference);
     const frontendReturnUrl = getFrontendReturnUrl('deposit', reference);
     const paymentPhone = String(phoneNumber || user.phone || '').trim();
 
@@ -726,14 +758,16 @@ exports.initiateWalletDeposit = async (req, res) => {
       },
     });
 
-    const payment = await paymentOrchestrator.initiateDeposit({
+    const { payment } = await initiateRoutedDepositWithFallback({
+      countryConfig,
       country: user.country,
-      requestedProvider: depositStrategy,
-      payload: {
+      requestedProvider: provider,
+      reference,
+      frontendReturnUrl,
+      payloadBase: {
         reference,
         amountLocal: numericAmount,
         currency: countryConfig.currency,
-        callbackUrl: depositStrategy.startsWith('paystack') ? frontendReturnUrl : providerCallbackUrl,
         customer: {
           name: user.name,
           email: user.email || `${normalizePhoneNumber(paymentPhone)}@cashflawhubs.app`,

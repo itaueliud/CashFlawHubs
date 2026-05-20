@@ -105,13 +105,9 @@ export function TurnstileWidget({ siteKey, onToken, onExpire, onError, className
       }
     };
 
-    if (window.turnstile.ready) {
-      window.turnstile.ready(() => {
-        renderWidget();
-      });
-    } else {
-      renderWidget();
-    }
+    // Turnstile warns when ready() is used with async/defer-loaded scripts.
+    // Since scriptReady is set from Script onLoad/onReady, render directly here.
+    renderWidget();
 
     return () => {
       if (renderedWidgetId.current && window.turnstile?.remove) {

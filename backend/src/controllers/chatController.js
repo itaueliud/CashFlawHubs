@@ -14,7 +14,17 @@ const determineRole = (session, userId) => {
   return null;
 };
 
-const requireSessionMembership = async (sessionId, userId) => {
+const isAdminUser = (user) => ['admin', 'superadmin'].includes(String(user?.role || ''));
+
+const canAccessSession = (session, user) => {
+  if (isAdminUser(user)) return 'admin';
+  const userId = user?._id || user?.id;
+  if (session.posterId && asObjectIdString(session.posterId) === asObjectIdString(userId)) return 'poster';
+  if (asObjectIdString(session.applicantId) === asObjectIdString(userId)) return 'applicant';
+  return null;
+};
+
+const requireSessionMembership = async (sessionId, user) => {
   const session = await ChatSession.findById(sessionId);
   if (!session) {
     const error = new Error('Chat session not found');
@@ -22,7 +32,7 @@ const requireSessionMembership = async (sessionId, userId) => {
     throw error;
   }
 
-  const role = determineRole(session, userId);
+  const role = canAccessSession(session, user);
   if (!role) {
     const error = new Error('You are not allowed to access this chat');
     error.statusCode = 403;
@@ -89,15 +99,36 @@ exports.initiateJobChat = async (req, res) => {
 exports.listMyChatSessions = async (req, res) => {
   try {
     const userId = req.user._id || req.user.id;
-    const sessions = await ChatSession.find({
-      $or: [{ posterId: userId }, { applicantId: userId }],
-    })
+    const query = isAdminUser(req.user)
+      ? {}
+      : { $or: [{ posterId: userId }, { applicantId: userId }] };
+
+    const sessions = await ChatSession.find(query)
       .sort({ lastMessageAt: -1 })
       .populate('jobId', 'title company location')
-      .populate('posterId', 'name userId')
-      .populate('applicantId', 'name userId');
+      .populate('posterId', 'name userId role')
+      .populate('applicantId', 'name userId role');
 
-    return res.json({ success: true, sessions });
+    const messageCounts = await Promise.all(
+      sessions.map(async (session) => {
+        const unreadCount = await ChatMessage.countDocuments({
+          sessionId: session._id,
+          senderId: { $ne: userId },
+          ...(isAdminUser(req.user)
+            ? {}
+            : { 'readBy.userId': { $ne: userId } }),
+        });
+        return { sessionId: String(session._id), unreadCount };
+      })
+    );
+
+    const unreadBySessionId = Object.fromEntries(messageCounts.map((item) => [item.sessionId, item.unreadCount]));
+    const sessionsWithUnread = sessions.map((session) => ({
+      ...session.toObject(),
+      unreadCount: unreadBySessionId[String(session._id)] || 0,
+    }));
+
+    return res.json({ success: true, sessions: sessionsWithUnread });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -107,13 +138,24 @@ exports.getChatHistory = async (req, res) => {
   try {
     const { sessionId } = req.params;
     const userId = req.user._id || req.user.id;
-    await requireSessionMembership(sessionId, userId);
+    const { session } = await requireSessionMembership(sessionId, req.user);
 
     const messages = await ChatMessage.find({ sessionId })
       .sort({ createdAt: 1 })
       .populate('senderId', 'name userId');
 
-    return res.json({ success: true, messages });
+    await ChatMessage.updateMany(
+      {
+        sessionId,
+        senderId: { $ne: userId },
+        'readBy.userId': { $ne: userId },
+      },
+      {
+        $push: { readBy: { userId, readAt: new Date() } },
+      }
+    );
+
+    return res.json({ success: true, session, messages });
   } catch (error) {
     return res.status(error.statusCode || 500).json({ success: false, message: error.message });
   }
@@ -129,18 +171,25 @@ exports.sendChatMessage = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Message content is required' });
     }
 
-    const { session, role } = await requireSessionMembership(sessionId, userId);
+    const { session, role } = await requireSessionMembership(sessionId, req.user);
+    if (session.isFrozen && role !== 'admin') {
+      return res.status(423).json({ success: false, message: 'Conversation is frozen by admin review' });
+    }
 
     const message = await ChatMessage.create({
       sessionId: session._id,
       jobId: session.jobId,
       senderId: userId,
       role,
+      messageType: req.body?.messageType || 'text',
       content: String(content).trim(),
+      attachments: Array.isArray(req.body?.attachments) ? req.body.attachments : [],
+      readBy: [{ userId, readAt: new Date() }],
       metadata: req.body?.metadata || {},
     });
 
     session.lastMessageAt = new Date();
+    session.lastMessagePreview = String(content).slice(0, 140);
     await session.save();
     const io = req.app.get('io');
     if (io) {
@@ -206,7 +255,7 @@ exports.toggleAiForSession = async (req, res) => {
   try {
     const { sessionId } = req.params;
     const userId = req.user._id || req.user.id;
-    const { session, role } = await requireSessionMembership(sessionId, userId);
+    const { session, role } = await requireSessionMembership(sessionId, req.user);
 
     if (role !== 'poster') {
       return res.status(403).json({ success: false, message: 'Only the job poster can change AI settings' });
@@ -215,6 +264,208 @@ exports.toggleAiForSession = async (req, res) => {
     session.aiEnabled = Boolean(req.body?.aiEnabled);
     await session.save();
 
+    return res.json({ success: true, session });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+};
+
+exports.setSessionStatus = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { status } = req.body;
+    const userId = req.user._id || req.user.id;
+    const { session, role } = await requireSessionMembership(sessionId, req.user);
+
+    if (!['poster', 'admin'].includes(role)) {
+      return res.status(403).json({ success: false, message: 'Only poster or admin can change status' });
+    }
+    if (!['open', 'in_progress', 'closed'].includes(String(status))) {
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+    }
+    session.status = status;
+    await session.save();
+    const io = req.app.get('io');
+    if (io) io.to(`chat:${session._id}`).emit('chat:session-updated', { sessionId: session._id, session });
+
+    await ChatMessage.create({
+      sessionId: session._id,
+      jobId: session.jobId,
+      senderId: userId,
+      role: role === 'admin' ? 'admin' : 'system',
+      messageType: 'admin_notice',
+      content: `Chat status updated to ${status}`,
+      readBy: [{ userId, readAt: new Date() }],
+      metadata: { status },
+    });
+    return res.json({ success: true, session });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+};
+
+exports.flagChatMessage = async (req, res) => {
+  try {
+    const { sessionId, messageId } = req.params;
+    const { reason = 'Suspicious activity reported' } = req.body || {};
+    const userId = req.user._id || req.user.id;
+    const { session } = await requireSessionMembership(sessionId, req.user);
+
+    const message = await ChatMessage.findOne({ _id: messageId, sessionId });
+    if (!message) return res.status(404).json({ success: false, message: 'Message not found' });
+
+    message.isFlagged = true;
+    message.flaggedBy = userId;
+    message.flaggedReason = String(reason).slice(0, 500);
+    await message.save();
+
+    session.moderationStatus = 'flagged';
+    session.flaggedAt = new Date();
+    session.flaggedBy = userId;
+    session.flaggedReason = String(reason).slice(0, 500);
+    await session.save();
+
+    const io = req.app.get('io');
+    if (io) io.to(`chat:${session._id}`).emit('chat:session-updated', { sessionId: session._id, session });
+
+    return res.json({ success: true, session, message });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+};
+
+exports.createOfferMessage = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { terms = '', amount = '', currency = 'USD' } = req.body || {};
+    const userId = req.user._id || req.user.id;
+    const { session, role } = await requireSessionMembership(sessionId, req.user);
+    if (!['poster', 'applicant'].includes(role)) {
+      return res.status(403).json({ success: false, message: 'Only participants can create offers' });
+    }
+
+    const content = `Offer: ${terms}`;
+    const message = await ChatMessage.create({
+      sessionId: session._id,
+      jobId: session.jobId,
+      senderId: userId,
+      role,
+      messageType: 'offer',
+      content,
+      metadata: { offer: { terms, amount, currency, state: 'pending' } },
+      readBy: [{ userId, readAt: new Date() }],
+    });
+
+    session.lastMessageAt = new Date();
+    session.lastMessagePreview = content.slice(0, 140);
+    await session.save();
+    const io = req.app.get('io');
+    if (io) io.to(`chat:${session._id}`).emit('chat:message', { sessionId: session._id, message });
+    return res.json({ success: true, message });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+};
+
+exports.respondToOfferMessage = async (req, res) => {
+  try {
+    const { sessionId, messageId } = req.params;
+    const { action } = req.body || {};
+    const userId = req.user._id || req.user.id;
+    const { session } = await requireSessionMembership(sessionId, req.user);
+    const message = await ChatMessage.findOne({ _id: messageId, sessionId, messageType: 'offer' });
+    if (!message) return res.status(404).json({ success: false, message: 'Offer not found' });
+    if (!['accept', 'counter', 'reject'].includes(String(action))) {
+      return res.status(400).json({ success: false, message: 'Invalid offer action' });
+    }
+    message.metadata = { ...(message.metadata || {}), offer: { ...(message.metadata?.offer || {}), state: action, respondedBy: userId, respondedAt: new Date() } };
+    await message.save();
+    const io = req.app.get('io');
+    if (io) io.to(`chat:${session._id}`).emit('chat:message-updated', { sessionId: session._id, message });
+    return res.json({ success: true, message });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+};
+
+exports.uploadAttachment = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    await requireSessionMembership(sessionId, req.user);
+    if (!req.file) return res.status(400).json({ success: false, message: 'Attachment is required' });
+    const relativePath = `/uploads/chat/${req.file.filename}`;
+    return res.json({
+      success: true,
+      attachment: {
+        name: req.file.originalname,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+        url: relativePath,
+      },
+    });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
+};
+
+exports.adminModerateSession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { action, reason = '' } = req.body || {};
+    if (!isAdminUser(req.user)) return res.status(403).json({ success: false, message: 'Admin access required' });
+
+    const session = await ChatSession.findById(sessionId);
+    if (!session) return res.status(404).json({ success: false, message: 'Chat session not found' });
+
+    const adminUserId = req.user._id || req.user.id;
+    if (action === 'join') {
+      session.moderationStatus = 'under_review';
+      session.adminJoinedAt = new Date();
+      session.adminJoinedBy = adminUserId;
+    } else if (action === 'freeze') {
+      session.isFrozen = true;
+      session.moderationStatus = 'under_review';
+    } else if (action === 'unfreeze') {
+      session.isFrozen = false;
+    } else if (action === 'resolve') {
+      session.moderationStatus = 'resolved';
+      session.resolvedAt = new Date();
+      session.isFrozen = false;
+    } else if (action === 'warn') {
+      session.moderationStatus = 'under_review';
+    } else if (action === 'suspend' || action === 'ban') {
+      const targetId = req.body?.targetUserId;
+      if (!targetId) return res.status(400).json({ success: false, message: 'targetUserId is required' });
+      const targetUser = await User.findById(targetId);
+      if (!targetUser) return res.status(404).json({ success: false, message: 'Target user not found' });
+      targetUser.isActive = false;
+      targetUser.isBanned = action === 'ban';
+      targetUser.banReason = reason || `Chat moderation: ${action}`;
+      await targetUser.save();
+      session.moderationStatus = 'under_review';
+    } else {
+      return res.status(400).json({ success: false, message: 'Unsupported moderation action' });
+    }
+
+    await session.save();
+    const content = action === 'join'
+      ? `Admin ${req.user.name || 'staff'} has joined as mediator. Payments outside the platform violate terms.`
+      : `Admin action: ${action}${reason ? ` (${reason})` : ''}`;
+    const adminMsg = await ChatMessage.create({
+      sessionId: session._id,
+      jobId: session.jobId,
+      senderId: adminUserId,
+      role: 'admin',
+      messageType: 'admin_notice',
+      content,
+      readBy: [{ userId: adminUserId, readAt: new Date() }],
+      metadata: { action, reason },
+    });
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`chat:${session._id}`).emit('chat:session-updated', { sessionId: session._id, session });
+      io.to(`chat:${session._id}`).emit('chat:message', { sessionId: session._id, message: adminMsg });
+    }
     return res.json({ success: true, session });
   } catch (error) {
     return res.status(error.statusCode || 500).json({ success: false, message: error.message });

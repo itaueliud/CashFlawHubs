@@ -36,6 +36,7 @@ const seedDB = async () => {
     activationStatus: true,
     phoneVerified: true,
     emailVerified: true,
+    tokenBalance: 200,
   });
   await Wallet.create({ userId: superadmin._id, balanceUSD: 0 });
   console.log('✅ Superadmin user created — phone: +254700000001 / password: Superadmin@1234');
@@ -51,6 +52,7 @@ const seedDB = async () => {
     activationStatus: true,
     phoneVerified: true,
     emailVerified: true,
+    tokenBalance: 200,
   });
   await Wallet.create({ userId: admin._id, balanceUSD: 0 });
   console.log('✅ Admin user created — phone: +254700000000 / password: Admin@1234');
@@ -65,6 +67,7 @@ const seedDB = async () => {
     activationStatus: true,
     phoneVerified: true,
     emailVerified: true,
+    tokenBalance: 200,
   });
   await Wallet.create({ userId: ledger._id, balanceUSD: 0 });
   console.log('Ledger user created - phone: +254700000002 / password: Ledger@1234');
@@ -82,6 +85,7 @@ const seedDB = async () => {
     surveysCompleted: 12,
     tasksCompleted: 8,
     totalReferrals: 3,
+    tokenBalance: 200,
   });
   await Wallet.create({
     userId: testUser._id,

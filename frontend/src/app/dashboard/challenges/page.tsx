@@ -38,17 +38,17 @@ export default function ChallengesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="card bg-gradient-to-r from-amber-500/10 to-yellow-500/5 border-amber-500/30">
+      <div className="card bg-gradient-to-r from-emerald-500/10 to-green-500/5 border-emerald-500/30">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-black flex items-center gap-2">
-              <Trophy size={22} className="text-amber-400" /> Daily Challenges
+              <Trophy size={22} className="text-emerald-400" /> Daily Challenges
             </h1>
             <p className="text-sm text-slate-300 mt-1">
               Complete challenges, claim cash rewards, and stack XP every day.
             </p>
           </div>
-          <div className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-1.5 flex items-center gap-1.5 whitespace-nowrap">
+          <div className="text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-3 py-1.5 flex items-center gap-1.5 whitespace-nowrap">
             <CalendarClock size={13} /> Resets at midnight
           </div>
         </div>
@@ -73,7 +73,7 @@ export default function ChallengesPage() {
                   </div>
                   <div className="text-right">
                     <div className="badge-green">${challenge.rewardUSD}</div>
-                    <div className="text-xs text-amber-400 mt-1">+{challenge.xpReward} XP</div>
+                    <div className="text-xs text-emerald-400 mt-1">+{challenge.xpReward} XP</div>
                   </div>
                 </div>
 
@@ -93,7 +93,7 @@ export default function ChallengesPage() {
                       <CheckCircle2 size={14} /> Reward claimed
                     </div>
                   ) : challenge.completed ? (
-                    <span className="text-sm text-amber-400">Completed. Claim your reward.</span>
+                    <span className="text-sm text-emerald-400">Completed. Claim your reward.</span>
                   ) : (
                     <span className="text-sm text-slate-400">Keep going to complete this challenge.</span>
                   )}

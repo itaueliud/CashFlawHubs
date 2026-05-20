@@ -55,20 +55,22 @@ export default function AdsNetworkPage() {
 
   return (
     <div className="space-y-6">
+      <div className="rounded-[2rem] border border-emerald-500/20 bg-gradient-to-br from-emerald-950 via-slate-950 to-slate-900 p-6 shadow-2xl shadow-emerald-950/20">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-2xl font-black">Ads / Ad Network</h1>
           <p className="text-slate-400 text-sm mt-1">Live rewarded ad partners first, with future SDK and network slots kept separate.</p>
         </div>
-        <div className="card px-4 py-3">
+          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
           <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Operational Now</div>
           <div className="text-2xl font-black text-green-400">{data?.activeProviders || 0}</div>
         </div>
       </div>
+      </div>
 
       <section className="space-y-4">
         <div className="flex items-center gap-2">
-          <Sparkles size={18} className="text-green-400" />
+          <Sparkles size={18} className="text-emerald-400" />
           <h2 className="text-lg font-bold">Live Ad Networks</h2>
         </div>
 
@@ -77,9 +79,9 @@ export default function AdsNetworkPage() {
         ) : (
           <div className="grid md:grid-cols-2 gap-4">
             {liveProviders.map((provider: any) => (
-              <div key={provider.key} className="card border-green-500/20 bg-green-500/[0.03]">
+              <div key={provider.key} className="card border-emerald-500/20 bg-emerald-500/[0.03]">
                 <div className="flex items-start justify-between mb-3">
-                  <Radio className="text-cyan-400" size={28} />
+                  <Radio className="text-emerald-400" size={28} />
                   <span className="badge-green">Live</span>
                 </div>
                 <h3 className="font-bold text-lg mb-1">{provider.name}</h3>
@@ -121,7 +123,7 @@ export default function AdsNetworkPage() {
 
       <section className="space-y-4">
         <div className="flex items-center gap-2">
-          <History size={18} className="text-cyan-300" />
+          <History size={18} className="text-emerald-300" />
           <h2 className="text-lg font-bold">Recent Ad Earnings</h2>
         </div>
 

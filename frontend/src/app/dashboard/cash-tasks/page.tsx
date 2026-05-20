@@ -37,8 +37,8 @@ export default function CashTasksPage() {
 
   if (!user?.activationStatus) {
     return (
-      <div className="mx-auto flex max-w-3xl flex-col items-center justify-center rounded-[2rem] border border-orange-500/20 bg-gradient-to-br from-orange-950 via-slate-950 to-slate-900 px-6 py-16 text-center shadow-2xl shadow-orange-950/20">
-        <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-300">
+      <div className="mx-auto flex max-w-3xl flex-col items-center justify-center rounded-[2rem] border border-emerald-500/20 bg-gradient-to-br from-emerald-950 via-slate-950 to-slate-900 px-6 py-16 text-center shadow-2xl shadow-emerald-950/20">
+        <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-300">
           <Lock size={30} />
         </div>
         <h2 className="text-3xl font-black tracking-tight text-white">Activation required</h2>
@@ -64,10 +64,10 @@ export default function CashTasksPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="overflow-hidden rounded-[2rem] border border-orange-500/20 bg-gradient-to-br from-orange-950 via-slate-950 to-slate-900 p-6 shadow-2xl shadow-orange-950/20 lg:p-8">
+      <div className="overflow-hidden rounded-[2rem] border border-emerald-500/20 bg-gradient-to-br from-emerald-950 via-slate-950 to-slate-900 p-6 shadow-2xl shadow-emerald-950/20 lg:p-8">
         <div className="grid gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:items-center">
           <div className="space-y-5">
-            <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/20 bg-orange-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-orange-300">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-emerald-300">
               <Sparkles size={12} /> Cash task hub
             </div>
             <div>
@@ -79,7 +79,7 @@ export default function CashTasksPage() {
             <div className="flex flex-wrap gap-3">
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-xs text-slate-400">Live providers</div>
-                <div className="text-2xl font-black text-orange-300">{providers.length}</div>
+                <div className="text-2xl font-black text-emerald-300">{providers.length}</div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-xs text-slate-400">Planned providers</div>
@@ -100,7 +100,7 @@ export default function CashTasksPage() {
               { label: 'Production ready', value: 'Launch sessions, history, and activation guardrails', icon: History },
             ].map((item) => (
               <div key={item.label} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/70 p-4">
-                <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-orange-500/10 text-orange-300">
+                <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-300">
                   <item.icon size={18} />
                 </div>
                 <div>
@@ -116,18 +116,18 @@ export default function CashTasksPage() {
       <div className="grid gap-4 lg:grid-cols-[1.45fr_0.55fr]">
         <div className="grid gap-4 xl:grid-cols-2">
           {providers.map((provider: any) => (
-            <div key={provider.key} className="group rounded-[1.5rem] border border-orange-500/10 bg-slate-900/90 p-5 transition-all hover:-translate-y-1 hover:border-orange-400/30 hover:shadow-xl hover:shadow-orange-950/20">
+            <div key={provider.key} className="group rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 transition-all hover:-translate-y-1 hover:border-emerald-400/30 hover:shadow-xl hover:shadow-emerald-950/20">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <div className="mb-2 flex flex-wrap gap-2">
                     <span className="badge-green">Live board</span>
-                    <span className="badge" style={{ background: 'rgba(251,146,60,0.12)', color: '#fdba74' }}>
+                    <span className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }}>
                       {provider.integrationType}
                     </span>
                   </div>
                   <div className="text-xl font-bold text-white">{provider.name}</div>
                 </div>
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-300 transition-transform group-hover:scale-105">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300 transition-transform group-hover:scale-105">
                   <Briefcase size={18} />
                 </div>
               </div>
@@ -142,7 +142,7 @@ export default function CashTasksPage() {
               <button
                 type="button"
                 onClick={() => setActiveProviderKey(provider.key)}
-                className="inline-flex items-center gap-2 rounded-xl border border-orange-400/30 bg-orange-500/10 px-4 py-2.5 text-sm font-semibold text-orange-200 transition hover:border-orange-300/50 hover:bg-orange-500/15"
+                className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-500/15"
               >
                 Open board <ExternalLink size={14} />
               </button>
@@ -150,7 +150,7 @@ export default function CashTasksPage() {
           ))}
         </div>
 
-        <div className="space-y-4 rounded-[1.5rem] border border-orange-500/10 bg-slate-900/90 p-5">
+        <div className="space-y-4 rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5">
           <div>
             <div className="mb-1 text-xs uppercase tracking-[0.25em] text-slate-500">Cash task queue</div>
             <h2 className="text-xl font-bold text-white">Top opportunities</h2>
@@ -179,12 +179,12 @@ export default function CashTasksPage() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-slate-700 bg-gradient-to-br from-orange-500/10 to-slate-950 px-4 py-4">
+          <div className="rounded-2xl border border-slate-700 bg-gradient-to-br from-emerald-500/10 to-slate-950 px-4 py-4">
             <div className="text-sm font-semibold text-white">Production checklist</div>
             <ul className="mt-3 space-y-2 text-sm text-slate-300">
-              <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-orange-300" /> Keep the board inside the dashboard shell</li>
-              <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-orange-300" /> Track history with the same wallet-safe transaction log</li>
-              <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-orange-300" /> Add provider accounts when live APIs are ready</li>
+              <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-emerald-300" /> Keep the board inside the dashboard shell</li>
+              <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-emerald-300" /> Track history with the same wallet-safe transaction log</li>
+              <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-emerald-300" /> Add provider accounts when live APIs are ready</li>
             </ul>
           </div>
 

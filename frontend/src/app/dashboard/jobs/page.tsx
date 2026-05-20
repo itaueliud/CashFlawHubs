@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { Search, Building2, Clock, Plus, Loader2, ArrowRight, Briefcase, Filter, SearchCheck, ShieldCheck, Sparkles, TrendingUp } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
@@ -20,8 +20,23 @@ const EMPTY_FORM = {
   budgetCurrency: 'KES',
   durationMonths: '1',
 };
+const JOB_CATEGORIES = [
+  'Software Development',
+  'Design',
+  'Marketing',
+  'Customer Support',
+  'Writing',
+  'Data Entry',
+  'Virtual Assistance',
+  'Finance',
+  'Other',
+];
+const JOB_TYPES = ['full-time', 'part-time', 'contract', 'internship'];
+const JOB_LOCATIONS = ['Remote', 'Hybrid', 'On-site'];
+const BUDGET_CURRENCIES = ['KES', 'USD', 'UGX', 'TZS', 'GHS', 'NGN', 'ETB'];
 
 export default function JobsPage() {
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [page, setPage] = useState(1);
@@ -167,15 +182,21 @@ export default function JobsPage() {
           <div className="grid md:grid-cols-3 gap-4">
             <div>
               <label className="text-sm text-slate-300 mb-1 block">Category</label>
-              <input className="input" value={form.category} onChange={(e) => updateField('category', e.target.value)} />
+              <select className="input" value={form.category} onChange={(e) => updateField('category', e.target.value)}>
+                {JOB_CATEGORIES.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
             </div>
             <div>
               <label className="text-sm text-slate-300 mb-1 block">Job Type</label>
-              <input className="input" value={form.jobType} onChange={(e) => updateField('jobType', e.target.value)} />
+              <select className="input" value={form.jobType} onChange={(e) => updateField('jobType', e.target.value)}>
+                {JOB_TYPES.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
             </div>
             <div>
               <label className="text-sm text-slate-300 mb-1 block">Location</label>
-              <input className="input" value={form.location} onChange={(e) => updateField('location', e.target.value)} />
+              <select className="input" value={form.location} onChange={(e) => updateField('location', e.target.value)}>
+                {JOB_LOCATIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
             </div>
           </div>
 
@@ -190,7 +211,9 @@ export default function JobsPage() {
             </div>
             <div>
               <label className="text-sm text-slate-300 mb-1 block">Budget Currency</label>
-              <input className="input" value={form.budgetCurrency} onChange={(e) => updateField('budgetCurrency', e.target.value)} />
+              <select className="input" value={form.budgetCurrency} onChange={(e) => updateField('budgetCurrency', e.target.value)}>
+                {BUDGET_CURRENCIES.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
             </div>
           </div>
 
@@ -268,9 +291,19 @@ export default function JobsPage() {
                       </div>
                     </div>
                     <div className="flex flex-col items-start gap-3 lg:items-end">
-                      <Link href={`/dashboard/jobs/${job._id}`} className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!job?._id) {
+                            toast.error('This job cannot be opened right now');
+                            return;
+                          }
+                          router.push(`/dashboard/jobs/${job._id}`);
+                        }}
+                        className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
+                      >
                         Apply on site <ArrowRight size={14} />
-                      </Link>
+                      </button>
                       <div className="text-xs uppercase tracking-[0.2em] text-slate-500">CashFlowHubs remote board</div>
                     </div>
                   </div>

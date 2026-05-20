@@ -15,10 +15,13 @@ export default function ReferralsPage() {
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-black">Referral Earnings</h1><p className="text-slate-400 text-sm mt-1">Earn 200 KES for every activated referral</p></div>
+      <div className="rounded-[2rem] border border-emerald-500/20 bg-gradient-to-br from-emerald-950 via-slate-950 to-slate-900 p-6 shadow-2xl shadow-emerald-950/20">
+        <h1 className="text-2xl font-black">Referral Earnings</h1>
+        <p className="text-slate-300 text-sm mt-1">Earn 200 KES for every activated referral</p>
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {[
-          { label: 'Total Referrals', value: data?.totalReferrals || 0, icon: Users, color: 'text-blue-400' },
+          { label: 'Total Referrals', value: data?.totalReferrals || 0, icon: Users, color: 'text-emerald-400' },
           { label: 'Total Earned', value: `$${(data?.totalEarnedUSD || 0).toFixed(2)}`, icon: DollarSign, color: 'text-green-400' },
           { label: 'Per Referral', value: '200 KES', icon: Trophy, color: 'text-yellow-400' },
         ].map((s) => (
@@ -38,7 +41,7 @@ export default function ReferralsPage() {
           <button onClick={telegram} className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-xl transition-all inline-flex items-center gap-2"><Send size={14} /> Telegram</button>
         </div>
       </div>
-      <div className="card bg-slate-900">
+      <div className="card bg-slate-900 border-emerald-500/20">
         <h3 className="font-semibold mb-3">How It Works</h3>
         <div className="space-y-2">
           {['Share your link with friends', 'They register using your link', 'They pay 500 KES activation fee', 'You instantly receive 200 KES!'].map((s, i) => (

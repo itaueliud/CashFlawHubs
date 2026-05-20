@@ -83,7 +83,7 @@ const createUser = async (payload) => {
     activationStatus: false,
     emailVerified: !!payload.emailVerified,
     phoneVerified: !!payload.phoneVerified,
-    tokenBalance: 10,
+    tokenBalance: 200,
     totalTokensPurchased: 0,
     totalTokensSpent: 0,
     role: 'user',

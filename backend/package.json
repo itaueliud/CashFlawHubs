@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "seed": "node scripts/seed.js"
+    "seed": "node scripts/seed.js",
+    "set-test-tokens": "node scripts/set-test-user-tokens.js"
   },
   "dependencies": {
     "amqplib": "^0.10.3",

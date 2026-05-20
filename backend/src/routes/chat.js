@@ -9,7 +9,14 @@ const {
   getChatHistory,
   sendChatMessage,
   toggleAiForSession,
+  setSessionStatus,
+  flagChatMessage,
+  createOfferMessage,
+  respondToOfferMessage,
+  uploadAttachment,
+  adminModerateSession,
 } = require('../controllers/chatController');
+const chatUpload = require('../middleware/chatUpload');
 
 router.use(protect);
 const chatLimiter = rateLimit({
@@ -27,5 +34,11 @@ router.get('/sessions', listMyChatSessions);
 router.get('/sessions/:sessionId/history', getChatHistory);
 router.post('/sessions/:sessionId/messages', moderateChatPayload, sendChatMessage);
 router.patch('/sessions/:sessionId/ai', toggleAiForSession);
+router.patch('/sessions/:sessionId/status', setSessionStatus);
+router.post('/sessions/:sessionId/attachments', chatUpload.single('file'), uploadAttachment);
+router.patch('/sessions/:sessionId/messages/:messageId/flag', flagChatMessage);
+router.post('/sessions/:sessionId/offers', createOfferMessage);
+router.patch('/sessions/:sessionId/offers/:messageId/respond', respondToOfferMessage);
+router.patch('/sessions/:sessionId/moderate', adminModerateSession);
 
 module.exports = router;

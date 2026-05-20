@@ -46,10 +46,10 @@ export default function OfferwallsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="overflow-hidden rounded-[2rem] border border-pink-500/20 bg-gradient-to-br from-pink-950 via-slate-950 to-slate-900 p-6 shadow-2xl shadow-pink-950/20 lg:p-8">
+      <div className="overflow-hidden rounded-[2rem] border border-emerald-500/20 bg-gradient-to-br from-emerald-950 via-slate-950 to-slate-900 p-6 shadow-2xl shadow-emerald-950/20 lg:p-8">
         <div className="grid gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:items-center">
           <div className="space-y-5">
-            <div className="inline-flex items-center gap-2 rounded-full border border-pink-500/20 bg-pink-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-pink-300">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-emerald-300">
               <Sparkles size={12} /> Rewarded offerwall hub
             </div>
             <div>
@@ -61,7 +61,7 @@ export default function OfferwallsPage() {
             <div className="flex flex-wrap gap-3">
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-xs text-slate-400">Live providers</div>
-                <div className="text-2xl font-black text-pink-300">{liveProviders.length}</div>
+                <div className="text-2xl font-black text-emerald-300">{liveProviders.length}</div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-xs text-slate-400">Planned providers</div>
@@ -84,7 +84,7 @@ export default function OfferwallsPage() {
               const Icon = item.icon as any;
               return (
                 <div key={item.label} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/70 p-4">
-                  <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-pink-500/10 text-pink-300">
+                  <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-300">
                     <Icon size={18} />
                   </div>
                   <div>
@@ -101,18 +101,18 @@ export default function OfferwallsPage() {
       <div className="grid gap-4 lg:grid-cols-[1.4fr_0.6fr]">
         <div className="grid gap-4 xl:grid-cols-2">
           {providers.map((provider: any) => (
-            <div key={provider.key} className="group rounded-[1.5rem] border border-pink-500/10 bg-slate-900/90 p-5 transition-all hover:-translate-y-1 hover:border-pink-400/30 hover:shadow-xl hover:shadow-pink-950/20">
+            <div key={provider.key} className="group rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 transition-all hover:-translate-y-1 hover:border-emerald-400/30 hover:shadow-xl hover:shadow-emerald-950/20">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <div className="mb-2 flex flex-wrap gap-2">
                     <span className={provider.live ? 'badge-green' : 'badge-blue'}>{provider.badge}</span>
-                    <span className="badge" style={{ background: 'rgba(244,114,182,0.12)', color: '#f9a8d4' }}>
+                    <span className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }}>
                       {provider.integrationType}
                     </span>
                   </div>
                   <div className="text-xl font-bold text-white">{provider.name}</div>
                 </div>
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-pink-500/10 text-pink-300 transition-transform group-hover:scale-105">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300 transition-transform group-hover:scale-105">
                   <Radio size={18} />
                 </div>
               </div>
@@ -134,7 +134,7 @@ export default function OfferwallsPage() {
                   setActiveProviderKey(provider.key);
                 }}
                 disabled={!provider.live}
-                className="inline-flex items-center gap-2 rounded-xl border border-pink-400/30 bg-pink-500/10 px-4 py-2.5 text-sm font-semibold text-pink-200 transition hover:border-pink-300/50 hover:bg-pink-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Open offerwall <ExternalLink size={14} />
               </button>
@@ -142,7 +142,7 @@ export default function OfferwallsPage() {
           ))}
         </div>
 
-        <div className="space-y-4 rounded-[1.5rem] border border-pink-500/10 bg-slate-900/90 p-5">
+        <div className="space-y-4 rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5">
           <div>
             <div className="mb-1 text-xs uppercase tracking-[0.25em] text-slate-500">Offerwall history</div>
             <h2 className="text-xl font-bold text-white">Recent rewards</h2>
@@ -166,12 +166,12 @@ export default function OfferwallsPage() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-slate-700 bg-gradient-to-br from-pink-500/10 to-slate-950 px-4 py-4">
+          <div className="rounded-2xl border border-slate-700 bg-gradient-to-br from-emerald-500/10 to-slate-950 px-4 py-4">
             <div className="text-sm font-semibold text-white">Production checklist</div>
             <ul className="mt-3 space-y-2 text-sm text-slate-300">
-              <li className="flex items-center gap-2"><Sparkles size={14} className="text-pink-300" /> Use signed callback validation for each provider</li>
-              <li className="flex items-center gap-2"><Sparkles size={14} className="text-pink-300" /> Keep wallet credits idempotent with Redis dedupe</li>
-              <li className="flex items-center gap-2"><Sparkles size={14} className="text-pink-300" /> Monitor duplicate, invalid, and failed callback counts</li>
+              <li className="flex items-center gap-2"><Sparkles size={14} className="text-emerald-300" /> Use signed callback validation for each provider</li>
+              <li className="flex items-center gap-2"><Sparkles size={14} className="text-emerald-300" /> Keep wallet credits idempotent with Redis dedupe</li>
+              <li className="flex items-center gap-2"><Sparkles size={14} className="text-emerald-300" /> Monitor duplicate, invalid, and failed callback counts</li>
             </ul>
           </div>
         </div>

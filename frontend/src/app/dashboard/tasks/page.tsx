@@ -43,11 +43,11 @@ export default function TasksPage() {
 
   if (!user?.activationStatus) {
     return (
-      <div className="mx-auto flex max-w-3xl flex-col items-center justify-center rounded-[2rem] border border-blue-500/20 bg-gradient-to-br from-blue-950 via-slate-950 to-slate-900 px-6 py-16 text-center shadow-2xl shadow-blue-950/20">
-        <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10 text-blue-300">
+      <div className="mx-auto flex max-w-3xl flex-col items-center justify-center rounded-[2rem] border border-emerald-500/20 bg-gradient-to-br from-emerald-950 via-slate-950 to-slate-900 px-6 py-16 text-center shadow-2xl shadow-emerald-950/20">
+        <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-300">
           <Lock size={30} />
         </div>
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-blue-300">
+        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">
           <Shield size={12} /> Access locked
         </div>
         <h2 className="text-3xl font-black tracking-tight">Activate to unlock microtasks</h2>
@@ -83,10 +83,10 @@ export default function TasksPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="overflow-hidden rounded-[2rem] border border-blue-500/20 bg-gradient-to-br from-blue-950 via-slate-950 to-slate-900 p-6 shadow-2xl shadow-blue-950/20 lg:p-8">
+      <div className="overflow-hidden rounded-[2rem] border border-emerald-500/20 bg-gradient-to-br from-emerald-950 via-slate-950 to-slate-900 p-6 shadow-2xl shadow-emerald-950/20 lg:p-8">
         <div className="grid gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:items-center">
           <div className="space-y-5">
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-blue-300">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-emerald-300">
               <Sparkles size={12} /> Freelancer-style task hub
             </div>
             <div>
@@ -98,7 +98,7 @@ export default function TasksPage() {
             <div className="flex flex-wrap gap-3">
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-xs text-slate-400">Live sources</div>
-                <div className="text-2xl font-black text-blue-300">{summary.live}</div>
+                <div className="text-2xl font-black text-emerald-300">{summary.live}</div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-xs text-slate-400">Planned integrations</div>
@@ -123,7 +123,7 @@ export default function TasksPage() {
               { label: 'Marketplace feel', value: 'Blue, dense, proposal-style cards', icon: Clock3 },
             ].map((item) => (
               <div key={item.label} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/70 p-4">
-                <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-300">
+                <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-300">
                   <item.icon size={18} />
                 </div>
                 <div>
@@ -139,18 +139,18 @@ export default function TasksPage() {
       <div className="grid gap-4 lg:grid-cols-[1.4fr_0.6fr]">
         <div className="grid gap-4 xl:grid-cols-2">
           {tasks.map((task: any) => (
-            <div key={task._id} className="group rounded-[1.5rem] border border-blue-500/10 bg-slate-900/90 p-5 transition-all hover:-translate-y-1 hover:border-blue-400/30 hover:shadow-xl hover:shadow-blue-950/20">
+            <div key={task._id} className="group rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 transition-all hover:-translate-y-1 hover:border-emerald-400/30 hover:shadow-xl hover:shadow-emerald-950/20">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <div className="mb-2 flex flex-wrap gap-2">
                     <span className="badge-blue">${Number(task.rewardUSD).toFixed(2)}</span>
-                    <span className="badge" style={{ background: 'rgba(96,165,250,0.12)', color: '#93c5fd' }}>
+                    <span className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }}>
                       {task.category}
                     </span>
                   </div>
                   <div className="text-xl font-bold text-white">{task.title}</div>
                 </div>
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-300 transition-transform group-hover:scale-105">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300 transition-transform group-hover:scale-105">
                   <Sparkles size={18} />
                 </div>
               </div>
@@ -175,7 +175,7 @@ export default function TasksPage() {
                   <button
                     onClick={() => handleComplete(task._id)}
                     disabled={busyTaskId === task._id}
-                    className="inline-flex items-center gap-2 rounded-xl border border-blue-400/30 bg-blue-500/10 px-4 py-2.5 text-sm font-semibold text-blue-200 transition hover:border-blue-300/50 hover:bg-blue-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <CheckCircle2 size={14} /> Complete task
                   </button>
@@ -191,18 +191,18 @@ export default function TasksPage() {
           ))}
 
           {providers.filter((provider: any) => provider.live).map((provider: any) => (
-            <div key={provider.key} className="group rounded-[1.5rem] border border-cyan-500/20 bg-slate-900/90 p-5 transition-all hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-xl hover:shadow-cyan-950/20">
+            <div key={provider.key} className="group rounded-[1.5rem] border border-emerald-500/20 bg-slate-900/90 p-5 transition-all hover:-translate-y-1 hover:border-emerald-400/40 hover:shadow-xl hover:shadow-emerald-950/20">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <div className="mb-2 flex flex-wrap gap-2">
                     <span className="badge-green">Live provider</span>
-                    <span className="badge" style={{ background: 'rgba(34,211,238,0.12)', color: '#67e8f9' }}>
+                    <span className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }}>
                       {provider.integrationType}
                     </span>
                   </div>
                   <div className="text-xl font-bold text-white">{provider.name}</div>
                 </div>
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-300 transition-transform group-hover:scale-105">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300 transition-transform group-hover:scale-105">
                   <Globe2 size={18} />
                 </div>
               </div>
@@ -217,7 +217,7 @@ export default function TasksPage() {
               <button
                 type="button"
                 onClick={() => setActiveProviderKey(provider.key)}
-                className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-2.5 text-sm font-semibold text-cyan-200 transition hover:border-cyan-300/50 hover:bg-cyan-500/15"
+                className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-500/15"
               >
                 Open provider <ExternalLink size={14} />
               </button>
@@ -225,7 +225,7 @@ export default function TasksPage() {
           ))}
         </div>
 
-        <div className="space-y-4 rounded-[1.5rem] border border-blue-500/10 bg-slate-900/90 p-5">
+        <div className="space-y-4 rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5">
           <div>
             <div className="mb-1 text-xs uppercase tracking-[0.25em] text-slate-500">Task stream</div>
             <h2 className="text-xl font-bold text-white">Market snapshot</h2>
@@ -246,12 +246,12 @@ export default function TasksPage() {
             ))}
           </div>
 
-          <div className="rounded-2xl border border-slate-700 bg-gradient-to-br from-blue-500/10 to-slate-950 px-4 py-4">
+          <div className="rounded-2xl border border-slate-700 bg-gradient-to-br from-emerald-500/10 to-slate-950 px-4 py-4">
             <div className="text-sm font-semibold text-white">Freelancer-style cues</div>
             <ul className="mt-3 space-y-2 text-sm text-slate-300">
-              <li className="flex items-center gap-2"><BadgeCheck size={14} className="text-blue-300" /> Premium tasks require token unlock</li>
-              <li className="flex items-center gap-2"><BadgeCheck size={14} className="text-blue-300" /> Completion credits the wallet instantly</li>
-              <li className="flex items-center gap-2"><BadgeCheck size={14} className="text-blue-300" /> External sources open in a new tab</li>
+              <li className="flex items-center gap-2"><BadgeCheck size={14} className="text-emerald-300" /> Premium tasks require token unlock</li>
+              <li className="flex items-center gap-2"><BadgeCheck size={14} className="text-emerald-300" /> Completion credits the wallet instantly</li>
+              <li className="flex items-center gap-2"><BadgeCheck size={14} className="text-emerald-300" /> External sources open in a new tab</li>
             </ul>
           </div>
 
