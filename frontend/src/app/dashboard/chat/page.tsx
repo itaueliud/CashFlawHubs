@@ -17,6 +17,7 @@ export default function ChatPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { user } = useAuthStore();
   const isAdmin = ['admin', 'superadmin'].includes(String(user?.role || ''));
+  const currentUserId = String(user?.id || user?.userId || '');
 
   const [activeSessionId, setActiveSessionId] = useState('');
   const [message, setMessage] = useState('');
@@ -230,7 +231,7 @@ export default function ChatPage() {
 
         <div className="flex-1 space-y-3 overflow-y-auto pr-1">
           {(historyQuery.data || []).map((msg: any) => {
-            const own = String(msg?.senderId?._id || msg?.senderId || '') === String(user?.id || user?._id || '');
+            const own = String(msg?.senderId?._id || msg?.senderId || '') === currentUserId;
             const bubbleClass = msg.messageType === 'admin_notice'
               ? 'mx-auto max-w-2xl border-blue-500/40 bg-blue-500/10 text-blue-100'
               : msg.isFlagged
