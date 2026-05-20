@@ -137,12 +137,18 @@ export default function JobDetailsPage() {
             </div>
 
             <button
-              onClick={() => applyMutation.mutate()}
+              onClick={() => {
+                if (data?.applicationUrl && data?.source !== 'internal') {
+                  window.open(data.applicationUrl, '_blank', 'noopener,noreferrer');
+                  return;
+                }
+                applyMutation.mutate();
+              }}
               disabled={applyMutation.isPending}
               className="btn-primary w-full flex items-center justify-center gap-2"
             >
               {applyMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-              Apply on site
+              {data?.applicationUrl && data?.source !== 'internal' ? 'Open application' : 'Apply on site'}
             </button>
             <Link href={`/dashboard/chat?jobId=${jobId}`} className="btn-secondary w-full flex items-center justify-center gap-2">
               <MessageSquare size={16} /> Open job chat
