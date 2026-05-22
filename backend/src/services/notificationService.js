@@ -1,46 +1,19 @@
 const logger = require('../utils/logger');
 const axios = require('axios');
 
-// SMS provider detection: Africa's Talking preferred when configured, otherwise Twilio
 const smsConfigured = () =>
-  Boolean(
-    (process.env.AFRICASTALKING_API_KEY && process.env.AFRICASTALKING_USERNAME) ||
-      (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER)
-  );
+  Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER);
 
-// Send SMS via configured provider (Africa's Talking preferred)
+// SMS via Twilio
 const sendSMS = async (phone, message) => {
   try {
     if (process.env.NODE_ENV === 'development') {
       logger.info(`[DEV SMS] To: ${phone} | Message: ${message}`);
       return;
     }
-
     if (!smsConfigured()) {
       throw new Error('SMS provider is not configured');
     }
-
-    // Africa's Talking (preferred if configured)
-    if (process.env.AFRICASTALKING_API_KEY && process.env.AFRICASTALKING_USERNAME) {
-      const params = new URLSearchParams();
-      params.append('username', process.env.AFRICASTALKING_USERNAME);
-      params.append('to', phone);
-      params.append('message', message);
-      if (process.env.AFRICASTALKING_SENDER) params.append('from', process.env.AFRICASTALKING_SENDER);
-
-      await axios.post('https://api.africastalking.com/version1/messaging', params.toString(), {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          apiKey: process.env.AFRICASTALKING_API_KEY,
-        },
-        timeout: 15000,
-      });
-
-      logger.info(`SMS sent via Africa's Talking to ${phone}`);
-      return;
-    }
-
-    // Fallback: Twilio
     const twilio = require('twilio');
     const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
     await client.messages.create({
@@ -48,7 +21,6 @@ const sendSMS = async (phone, message) => {
       from: process.env.TWILIO_PHONE_NUMBER,
       to: phone,
     });
-
     logger.info(`SMS sent to ${phone}`);
   } catch (error) {
     logger.error(`SMS send failed to ${phone}: ${error.message}`);
