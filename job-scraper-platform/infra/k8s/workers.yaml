@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scraper-worker
+  namespace: job-scraper
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: scraper-worker
+  template:
+    metadata:
+      labels:
+        app: scraper-worker
+    spec:
+      containers:
+        - name: scraper-worker
+          image: ghcr.io/your-org/job-scraper-worker:latest
+          envFrom:
+            - configMapRef:
+                name: scraper-config
+            - secretRef:
+                name: scraper-secrets
+          env:
+            - name: REDIS_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: scraper-secrets
+                  key: REDIS_HOST
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "768Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: enrichment-worker
+  namespace: job-scraper
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: enrichment-worker
+  template:
+    metadata:
+      labels:
+        app: enrichment-worker
+    spec:
+      containers:
+        - name: enrichment-worker
+          image: ghcr.io/your-org/job-scraper-enrichment:latest
+          envFrom:
+            - configMapRef:
+                name: scraper-config
+            - secretRef:
+                name: scraper-secrets
+          env:
+            - name: REDIS_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: scraper-secrets
+                  key: REDIS_HOST
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: publisher
+  namespace: job-scraper
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: publisher
+  template:
+    metadata:
+      labels:
+        app: publisher
+    spec:
+      containers:
+        - name: publisher
+          image: ghcr.io/your-org/job-scraper-publisher:latest
+          envFrom:
+            - configMapRef:
+                name: scraper-config
+            - secretRef:
+                name: scraper-secrets
+          env:
+            - name: REDIS_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: scraper-secrets
+                  key: REDIS_HOST

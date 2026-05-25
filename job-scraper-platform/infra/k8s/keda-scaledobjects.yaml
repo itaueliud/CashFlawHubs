@@ -1,0 +1,50 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: scraper-worker-queue-scaler
+  namespace: job-scraper
+spec:
+  scaleTargetRef:
+    name: scraper-worker
+  minReplicaCount: 2
+  maxReplicaCount: 30
+  triggers:
+    - type: redis
+      metadata:
+        addressFromEnv: REDIS_HOST
+        listName: remotejobs:scrape:wait
+        listLength: "100"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: enrichment-worker-queue-scaler
+  namespace: job-scraper
+spec:
+  scaleTargetRef:
+    name: enrichment-worker
+  minReplicaCount: 1
+  maxReplicaCount: 20
+  triggers:
+    - type: redis
+      metadata:
+        addressFromEnv: REDIS_HOST
+        listName: remotejobs:enrich:wait
+        listLength: "200"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: publisher-queue-scaler
+  namespace: job-scraper
+spec:
+  scaleTargetRef:
+    name: publisher
+  minReplicaCount: 1
+  maxReplicaCount: 15
+  triggers:
+    - type: redis
+      metadata:
+        addressFromEnv: REDIS_HOST
+        listName: remotejobs:publish:wait
+        listLength: "200"

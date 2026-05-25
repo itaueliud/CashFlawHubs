@@ -1,0 +1,13 @@
+{
+  "name": "apps-enrichment-worker",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {"build":"tsc -p tsconfig.json","start":"node dist/index.js","dev":"tsx src/index.ts","lint":"echo lint"},
+  "dependencies": {
+    "@platform/core":"workspace:*",
+    "@platform/db":"workspace:*",
+    "@platform/queue":"workspace:*",
+    "@platform/enrichment":"workspace:*"
+  }
+}

@@ -1,0 +1,61 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: jobs
+      POSTGRES_PASSWORD: jobs
+      POSTGRES_DB: jobs
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./infra/postgres:/docker-entrypoint-initdb.d
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.app
+      args: { APP_NAME: apps/api }
+    env_file: .env
+    depends_on: [redis, postgres]
+    ports:
+      - "8080:8080"
+
+  discovery:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.app
+      args: { APP_NAME: apps/discovery }
+    env_file: .env
+    depends_on: [redis, postgres]
+
+  scraper-worker:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.app
+      args: { APP_NAME: apps/scraper-worker }
+    env_file: .env
+    depends_on: [redis, postgres]
+
+  enrichment-worker:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.app
+      args: { APP_NAME: apps/enrichment-worker }
+    env_file: .env
+    depends_on: [redis, postgres]
+
+  publisher:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.app
+      args: { APP_NAME: apps/publisher }
+    env_file: .env
+    depends_on: [redis, postgres]

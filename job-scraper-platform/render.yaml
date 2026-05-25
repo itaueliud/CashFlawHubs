@@ -1,0 +1,105 @@
+services:
+  - type: web
+    name: job-scraper-api
+    runtime: node
+    rootDir: .
+    buildCommand: npm install && npm run build
+    startCommand: npm --workspace apps/api run start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: job-scraper-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: job-scraper-redis
+          property: connectionString
+
+  - type: worker
+    name: job-scraper-worker
+    runtime: node
+    rootDir: .
+    buildCommand: npm install && npx playwright install chromium --with-deps && npm run build
+    startCommand: npm --workspace apps/scraper-worker run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: job-scraper-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: job-scraper-redis
+          property: connectionString
+
+  - type: worker
+    name: job-enrichment-worker
+    runtime: node
+    rootDir: .
+    buildCommand: npm install && npm run build
+    startCommand: npm --workspace apps/enrichment-worker run start
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: job-scraper-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: job-scraper-redis
+          property: connectionString
+      - key: OPENAI_API_KEY
+        sync: false
+
+  - type: worker
+    name: job-publisher
+    runtime: node
+    rootDir: .
+    buildCommand: npm install && npm run build
+    startCommand: npm --workspace apps/publisher run start
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: job-scraper-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: job-scraper-redis
+          property: connectionString
+      - key: WEBSITE_API_BASE_URL
+        sync: false
+      - key: WEBSITE_API_KEY
+        sync: false
+
+  - type: cron
+    name: job-discovery
+    runtime: node
+    rootDir: .
+    schedule: "*/30 * * * *"
+    buildCommand: npm install && npm run build
+    startCommand: npm --workspace apps/discovery run start
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: job-scraper-redis
+          property: connectionString
+      - key: DISCOVERY_SEED_DOMAINS
+        sync: false
+
+  - type: keyvalue
+    name: job-scraper-redis
+    plan: starter
+    ipAllowList: []
+
+databases:
+  - name: job-scraper-postgres
+    databaseName: jobs
+    user: jobs

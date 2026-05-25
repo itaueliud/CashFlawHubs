@@ -1,6 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { getJobs, getJob, getCategories, createJobPosting } = require('../controllers/jobController');
+const {
+  getJobs,
+  getJob,
+  getCategories,
+  createJobPosting,
+  syncScrapedJob,
+  expireScrapedJobs,
+} = require('../controllers/jobController');
 const {
 	applyToJob,
 	getMyJobApplications,
@@ -15,6 +22,8 @@ router.get('/', protect, getJobs);
 router.post('/', protect, requireActivation, createJobPosting);
 router.get('/categories', protect, getCategories);
 router.get('/applications/me', protect, getMyJobApplications);
+router.post('/sync', syncScrapedJob);
+router.post('/expire', expireScrapedJobs);
 router.get('/:id/applications', protect, getJobApplicationsForManagement);
 router.get('/:id/applicants', protect, getJobApplicants);
 router.patch('/:id/applications/:applicationId/status', protect, updateJobApplicationStatus);

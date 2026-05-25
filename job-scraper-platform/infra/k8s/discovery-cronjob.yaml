@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: discovery
+  namespace: job-scraper
+spec:
+  schedule: "*/30 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: discovery
+              image: ghcr.io/your-org/job-scraper-discovery:latest
+              envFrom:
+                - configMapRef:
+                    name: scraper-config
+                - secretRef:
+                    name: scraper-secrets
+

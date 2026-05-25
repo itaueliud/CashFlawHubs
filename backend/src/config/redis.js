@@ -12,6 +12,7 @@ const REDIS_RETRY_MAX_DELAY_MS = Number(process.env.REDIS_RETRY_MAX_DELAY_MS || 
 const REDIS_CONNECT_TIMEOUT_MS = Number(process.env.REDIS_CONNECT_TIMEOUT_MS || 10000);
 const REDIS_ENABLED = String(process.env.REDIS_ENABLED || '').toLowerCase() === 'true'
   || Boolean(process.env.REDIS_URL);
+const REDIS_URL = process.env.REDIS_URL;
 
 const connectRedis = () => {
   if (!REDIS_ENABLED) {
@@ -24,7 +25,17 @@ const connectRedis = () => {
     return null;
   }
 
-  redisClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+  if (!REDIS_URL) {
+    if (!redisDisabledLogged) {
+      logger.warn('Redis is enabled but REDIS_URL is missing. Disabling Redis for this process.');
+      redisDisabledLogged = true;
+    }
+    redisClient = null;
+    redisReady = false;
+    return null;
+  }
+
+  redisClient = new Redis(REDIS_URL, {
     maxRetriesPerRequest: 1,
     enableOfflineQueue: false,
     connectTimeout: REDIS_CONNECT_TIMEOUT_MS,

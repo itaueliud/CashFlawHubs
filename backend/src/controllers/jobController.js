@@ -37,6 +37,60 @@ const normalizeJobType = (value, fallback = 'full-time') => {
   return normalized ? normalized.toLowerCase() : fallback;
 };
 
+const normalizeAdzunaCategory = (category) => {
+  const label = String(category?.label || category?.tag || '').trim();
+  if (!label) return 'Other';
+  return label.replace(/\s+Jobs$/i, '').trim() || 'Other';
+};
+
+const formatAdzunaSalary = (job) => {
+  const min = Number(job.salary_min) || null;
+  const max = Number(job.salary_max) || null;
+  if (min && max) return `${Math.round(min)} - ${Math.round(max)}`;
+  if (min) return `${Math.round(min)}+`;
+  if (max) return `Up to ${Math.round(max)}`;
+  return null;
+};
+
+const formatScrapedSalary = (job) => {
+  const min = Number(job.salary_min ?? job.salaryMin) || null;
+  const max = Number(job.salary_max ?? job.salaryMax) || null;
+  const currency = job.currency || '';
+  if (min && max) return `${currency} ${min} - ${max}`.trim();
+  if (min) return `${currency} ${min}+`.trim();
+  if (max) return `Up to ${currency} ${max}`.trim();
+  return null;
+};
+
+const inferScrapedCategory = (job) => {
+  const tags = Array.isArray(job.tags) ? job.tags.map((tag) => String(tag).toLowerCase()) : [];
+  const text = `${job.title || ''} ${job.description || ''} ${tags.join(' ')}`.toLowerCase();
+  if (/react|node|python|java|developer|engineer|software|frontend|backend/.test(text)) return 'Software Development';
+  if (/devops|cloud|aws|azure|gcp|kubernetes|sre/.test(text)) return 'DevOps & Cloud';
+  if (/data scientist|machine learning|analytics|data engineer/.test(text)) return 'Data Science';
+  if (/designer|ui|ux|figma|product design/.test(text)) return 'Design';
+  if (/marketing|seo|content|growth/.test(text)) return 'Marketing';
+  if (/support|customer success|helpdesk/.test(text)) return 'Customer Support';
+  if (/sales|account executive|business development/.test(text)) return 'Sales';
+  return 'Other';
+};
+
+const requireScraperApiKey = (req, res) => {
+  const expected = process.env.JOB_SCRAPER_API_KEY || process.env.WEBSITE_API_KEY;
+  if (!expected) {
+    res.status(503).json({ success: false, message: 'Job scraper API key is not configured' });
+    return false;
+  }
+
+  const provided = req.get('x-api-key');
+  if (provided !== expected) {
+    res.status(401).json({ success: false, message: 'Invalid scraper API key' });
+    return false;
+  }
+
+  return true;
+};
+
 // @GET /api/jobs
 exports.getJobs = async (req, res) => {
   try {
@@ -274,6 +328,76 @@ exports.getJob = async (req, res) => {
   }
 };
 
+// @POST /api/jobs/sync
+exports.syncScrapedJob = async (req, res) => {
+  try {
+    if (!requireScraperApiKey(req, res)) return;
+
+    const scraped = req.body || {};
+    const hash = scraped.hash || scraped.id;
+    const applicationUrl = scraped.apply_url || scraped.applyUrl || scraped.source_url || scraped.sourceUrl;
+    const title = String(scraped.title || '').trim();
+    const company = String(scraped.company || 'Unknown company').trim();
+    const description = String(scraped.description || '').trim();
+
+    if (!hash || !title || !description || !applicationUrl) {
+      return res.status(400).json({ success: false, message: 'Missing required scraped job fields' });
+    }
+
+    const job = await Job.findOneAndUpdate(
+      { externalId: `scraper-${hash}` },
+      {
+        externalId: `scraper-${hash}`,
+        source: 'scraper',
+        title,
+        company,
+        companyLogo: null,
+        category: inferScrapedCategory(scraped),
+        categoryOther: null,
+        jobType: normalizeJobType(scraped.employment_type || scraped.employmentType, 'full-time'),
+        location: scraped.remote ? 'Remote' : (scraped.location || 'Remote'),
+        salary: formatScrapedSalary(scraped),
+        description: description.slice(0, 10000),
+        tags: Array.isArray(scraped.tags) ? scraped.tags.slice(0, 20) : [],
+        applicationUrl,
+        postedBy: null,
+        budgetAmount: null,
+        budgetCurrency: null,
+        postingTokenCost: 0,
+        applicationTokenCost: 0,
+        expiresAt: null,
+        publishedAt: scraped.posted_at || scraped.postedAt ? new Date(scraped.posted_at || scraped.postedAt) : new Date(),
+        isActive: scraped.is_active !== false && scraped.isActive !== false,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    return res.json({ success: true, job });
+  } catch (error) {
+    logger.error(`syncScrapedJob error: ${error.message}`);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @POST /api/jobs/expire
+exports.expireScrapedJobs = async (req, res) => {
+  try {
+    if (!requireScraperApiKey(req, res)) return;
+
+    const hoursWithoutSeen = Math.min(Math.max(Number(req.body?.hoursWithoutSeen) || 72, 1), 720);
+    const cutoff = new Date(Date.now() - hoursWithoutSeen * 60 * 60 * 1000);
+    const result = await Job.updateMany(
+      { source: 'scraper', updatedAt: { $lt: cutoff } },
+      { $set: { isActive: false } }
+    );
+
+    return res.json({ success: true, expired: result.modifiedCount || 0 });
+  } catch (error) {
+    logger.error(`expireScrapedJobs error: ${error.message}`);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // Called by cron scheduler every 6 hours
 exports.syncJobs = async () => {
   logger.info('Syncing remote jobs...');
@@ -399,6 +523,67 @@ exports.syncJobs = async () => {
       }
     } else {
       logger.info('Jooble sync skipped: JOOBLE_API_KEY not configured');
+    }
+
+    // Adzuna (optional, enabled when ADZUNA_APP_ID and ADZUNA_APP_KEY are configured)
+    if (process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY) {
+      try {
+        const adzunaCountry = String(process.env.ADZUNA_COUNTRY || 'us').toLowerCase();
+        const adzunaKeywords = process.env.ADZUNA_WHAT || 'remote';
+        const adzunaLocation = process.env.ADZUNA_WHERE || '';
+        const adzunaPages = Math.min(Math.max(Number(process.env.ADZUNA_PAGES || 2), 1), 10);
+        const adzunaResultsPerPage = Math.min(Math.max(Number(process.env.ADZUNA_RESULTS_PER_PAGE || 50), 1), 50);
+        const adzunaMaxDaysOld = Math.min(Math.max(Number(process.env.ADZUNA_MAX_DAYS_OLD || 30), 1), 90);
+        const adzunaBaseUrl = process.env.ADZUNA_API_URL || 'https://api.adzuna.com/v1/api/jobs';
+
+        for (let page = 1; page <= adzunaPages; page++) {
+          const adzunaRes = await axios.get(`${adzunaBaseUrl.replace(/\/+$/, '')}/${adzunaCountry}/search/${page}`, {
+            timeout: 12000,
+            params: {
+              app_id: process.env.ADZUNA_APP_ID,
+              app_key: process.env.ADZUNA_APP_KEY,
+              results_per_page: adzunaResultsPerPage,
+              what: adzunaKeywords,
+              where: adzunaLocation,
+              max_days_old: adzunaMaxDaysOld,
+              sort_by: 'date',
+              content_type: 'application/json',
+            },
+          });
+
+          const adzunaJobs = adzunaRes.data?.results || [];
+          for (const job of adzunaJobs.slice(0, remoteLimit)) {
+            const applicationUrl = job.redirect_url || job.adref;
+            if (!applicationUrl || !job.id) continue;
+
+            await Job.findOneAndUpdate(
+              { externalId: `adzuna-${job.id}` },
+              {
+                externalId: `adzuna-${job.id}`,
+                source: 'adzuna',
+                title: job.title || 'Remote role',
+                company: job.company?.display_name || 'Unknown company',
+                companyLogo: null,
+                category: normalizeAdzunaCategory(job.category),
+                jobType: normalizeJobType(job.contract_time || job.contract_type),
+                location: job.location?.display_name || 'Remote',
+                salary: formatAdzunaSalary(job),
+                description: (job.description || '').slice(0, 4000),
+                tags: ['adzuna', adzunaCountry, ...(job.contract_time ? [job.contract_time] : [])],
+                applicationUrl,
+                publishedAt: job.created ? new Date(job.created) : new Date(),
+                isActive: true,
+              },
+              { upsert: true, new: true }
+            );
+            synced++;
+          }
+        }
+      } catch (adzunaError) {
+        logger.warn(`Adzuna sync skipped: ${adzunaError.message}`);
+      }
+    } else {
+      logger.info('Adzuna sync skipped: ADZUNA_APP_ID or ADZUNA_APP_KEY not configured');
     }
 
     // Hard-delete jobs older than 1 year.
