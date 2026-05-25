@@ -177,7 +177,7 @@ export default function JobDetailsPage() {
               <p className="text-sm leading-7 text-slate-300 whitespace-pre-line">{job.description}</p>
             </div>
 
-            {job.tags?.length > 0 && (
+            {(job.tags?.length ?? 0) > 0 && (
               <div className="space-y-3">
                 <h2 className="font-bold text-lg">Skills</h2>
                 <div className="flex flex-wrap gap-2">
