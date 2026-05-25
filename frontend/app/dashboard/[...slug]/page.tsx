@@ -21,10 +21,31 @@ import DashboardTasksPage from '../../../src/app/dashboard/tasks/page';
 import DashboardWalletPage from '../../../src/app/dashboard/wallet/page';
 import AdminConsolePage from '../../../src/app/dashboard/admin-console/page';
 import AdminWorkspacePage from '../../../src/app/dashboard/admin/page';
+import AdminUsersPage from '../../../src/app/dashboard/admin/users/page';
+import AdminAdminsPage from '../../../src/app/dashboard/admin/admins/page';
+import AdminLedgerPage from '../../../src/app/dashboard/admin/ledger/page';
+import AdminModerationPage from '../../../src/app/dashboard/admin/moderation/page';
+import AdminSupportPage from '../../../src/app/dashboard/admin/support/page';
+import AdminAuditPage from '../../../src/app/dashboard/admin/audit/page';
+import AdminConfigPage from '../../../src/app/dashboard/admin/config/page';
+import AdminProviderHealthPage from '../../../src/app/dashboard/admin/provider-health/page';
+import LedgerReportsPage from '../../../src/app/dashboard/ledger/reports/page';
+import LedgerExportPage from '../../../src/app/dashboard/ledger/export/page';
+import LedgerTransactionsPage from '../../../src/app/dashboard/ledger/transactions/page';
+import LedgerReconciliationPage from '../../../src/app/dashboard/ledger/reconciliation/page';
+import LedgerProfilePage from '../../../src/app/dashboard/ledger/profile/page';
 
 const ROUTES: Record<string, React.ComponentType> = {
   'admin-console': AdminConsolePage,
   admin: AdminWorkspacePage,
+  'admin/users': AdminUsersPage,
+  'admin/admins': AdminAdminsPage,
+  'admin/ledger': AdminLedgerPage,
+  'admin/moderation': AdminModerationPage,
+  'admin/support': AdminSupportPage,
+  'admin/audit': AdminAuditPage,
+  'admin/config': AdminConfigPage,
+  'admin/provider-health': AdminProviderHealthPage,
   activate: DashboardActivatePage,
   'ads-network': DashboardAdsNetworkPage,
   'cash-tasks': DashboardCashTasksPage,
@@ -35,6 +56,11 @@ const ROUTES: Record<string, React.ComponentType> = {
   'jobs/applications': DashboardJobApplicationsPage,
   jobs: DashboardJobsPage,
   ledger: DashboardLedgerPage,
+  'ledger/reports': LedgerReportsPage,
+  'ledger/export': LedgerExportPage,
+  'ledger/transactions': LedgerTransactionsPage,
+  'ledger/reconciliation': LedgerReconciliationPage,
+  'ledger/profile': LedgerProfilePage,
   offerwalls: DashboardOfferwallsPage,
   profile: DashboardProfilePage,
   referrals: DashboardReferralsPage,

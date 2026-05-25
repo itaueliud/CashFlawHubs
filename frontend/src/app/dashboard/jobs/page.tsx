@@ -31,6 +31,7 @@ export default function JobsPage() {
   const [page, setPage] = useState(1);
   const [tab, setTab] = useState<'browse' | 'post'>('browse');
   const [posting, setPosting] = useState(false);
+  const [syncingJobs, setSyncingJobs] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const { user, setUser } = useAuthStore();
   const queryClient = useQueryClient();
@@ -53,6 +54,8 @@ export default function JobsPage() {
 
   const jobs = data?.jobs || [];
   const pagination = data?.pagination || {};
+  const sourceCounts = data?.sourceCounts || {};
+  const sourceCount = Object.values(sourceCounts).filter((count: any) => Number(count) > 0).length;
   const tokenPolicy = data?.tokenPolicy;
   const availableCategories: string[] = (catData && catData.length > 0) ? catData : ['Other'];
 
@@ -91,6 +94,20 @@ export default function JobsPage() {
     }
   };
 
+  const onSyncJobs = async () => {
+    setSyncingJobs(true);
+    try {
+      const response = await api.post('/jobs/sync-now');
+      toast.success(response.data?.message || 'Job sync completed');
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['job-cats'] });
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to sync jobs');
+    } finally {
+      setSyncingJobs(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="overflow-hidden rounded-[2rem] border border-emerald-500/20 bg-gradient-to-br from-emerald-950 via-slate-950 to-slate-900 shadow-2xl shadow-emerald-950/20">
@@ -112,7 +129,7 @@ export default function JobsPage() {
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-xs text-slate-400">Sources</div>
-                <div className="text-2xl font-black text-white">2</div>
+                <div className="text-2xl font-black text-white">{sourceCount || 0}</div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-xs text-slate-400">Token balance</div>
@@ -258,7 +275,26 @@ export default function JobsPage() {
               <button onClick={() => setTab('post')} className="btn-primary inline-flex items-center gap-2 lg:shrink-0">
                 <Plus size={16} /> Post Job
               </button>
+              {['admin', 'superadmin', 'ledger'].includes(user?.role || '') && (
+                <button
+                  onClick={onSyncJobs}
+                  disabled={syncingJobs}
+                  className="btn-secondary inline-flex items-center gap-2 lg:shrink-0 disabled:opacity-60"
+                >
+                  {syncingJobs && <Loader2 size={16} className="animate-spin" />}
+                  Sync Sources
+                </button>
+              )}
             </div>
+            {Object.keys(sourceCounts).length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                {Object.entries(sourceCounts).map(([source, count]) => (
+                  <span key={source} className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-slate-300">
+                    {source}: {Number(count)}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {isLoading ? (

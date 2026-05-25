@@ -111,10 +111,19 @@ exports.getJobs = async (req, res) => {
       Job.find(query).sort({ publishedAt: -1 }).skip(skip).limit(Number(limit)),
       Job.countDocuments(query),
     ]);
+    const sourceCounts = await Job.aggregate([
+      { $match: { isActive: true, $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] } },
+      { $group: { _id: '$source', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]);
 
     res.json({
       success: true,
       jobs,
+      sourceCounts: sourceCounts.reduce((acc, item) => {
+        acc[item._id || 'unknown'] = item.count;
+        return acc;
+      }, {}),
       tokenPolicy: {
         applicationTiers: JOB_APPLICATION_TOKEN_TIERS,
         tokenPackages: TOKEN_PACKAGES,
@@ -406,68 +415,76 @@ exports.syncJobs = async () => {
 
   try {
     // Remotive
-    const remotiveRes = await axios.get(process.env.REMOTIVE_API_URL || 'https://remotive.com/api/remote-jobs', {
-      timeout: 10000,
-    });
-    const remotiveJobs = remotiveRes.data?.jobs || [];
+    try {
+      const remotiveRes = await axios.get(process.env.REMOTIVE_API_URL || 'https://remotive.com/api/remote-jobs', {
+        timeout: 10000,
+      });
+      const remotiveJobs = remotiveRes.data?.jobs || [];
 
-    const remotiveOps = remotiveJobs.slice(0, remoteLimit).map((job) => ({
-      updateOne: {
-        filter: { externalId: `remotive-${job.id}` },
-        update: {
-          $set: {
-            externalId: `remotive-${job.id}`,
-            source: 'remotive',
-            title: job.title,
-            company: job.company_name,
-            companyLogo: job.company_logo,
-            category: job.category || 'Other',
-            jobType: normalizeJobType(job.job_type),
-            location: 'Remote',
-            salary: job.salary || null,
-            description: job.description?.slice(0, 2000) || '',
-            tags: job.tags || [],
-            applicationUrl: job.url,
-            publishedAt: new Date(job.publication_date),
-            isActive: true,
+      const remotiveOps = remotiveJobs.slice(0, remoteLimit).map((job) => ({
+        updateOne: {
+          filter: { externalId: `remotive-${job.id}` },
+          update: {
+            $set: {
+              externalId: `remotive-${job.id}`,
+              source: 'remotive',
+              title: job.title,
+              company: job.company_name,
+              companyLogo: job.company_logo,
+              category: job.category || 'Other',
+              jobType: normalizeJobType(job.job_type),
+              location: 'Remote',
+              salary: job.salary || null,
+              description: job.description?.slice(0, 2000) || '',
+              tags: job.tags || [],
+              applicationUrl: job.url,
+              publishedAt: new Date(job.publication_date),
+              isActive: true,
+            },
           },
+          upsert: true,
         },
-        upsert: true,
-      },
-    }));
-    if (remotiveOps.length > 0) {
-      await Job.bulkWrite(remotiveOps, { ordered: false });
-      synced += remotiveOps.length;
+      }));
+      if (remotiveOps.length > 0) {
+        await Job.bulkWrite(remotiveOps, { ordered: false });
+        synced += remotiveOps.length;
+      }
+    } catch (remotiveError) {
+      logger.warn(`Remotive sync skipped: ${remotiveError.message}`);
     }
 
     // Jobicy
-    const jobicyRes = await axios.get(process.env.JOBICY_API_URL || 'https://jobicy.com/api/v2/remote-jobs', {
-      timeout: 10000,
-    });
-    const jobicyJobs = jobicyRes.data?.jobs || [];
+    try {
+      const jobicyRes = await axios.get(process.env.JOBICY_API_URL || 'https://jobicy.com/api/v2/remote-jobs', {
+        timeout: 10000,
+      });
+      const jobicyJobs = jobicyRes.data?.jobs || [];
 
-    for (const job of jobicyJobs.slice(0, remoteLimit)) {
-      await Job.findOneAndUpdate(
-        { externalId: `jobicy-${job.id}` },
-        {
-          externalId: `jobicy-${job.id}`,
-          source: 'jobicy',
-          title: job.jobTitle,
-          company: job.companyName,
-          companyLogo: job.companyLogo || null,
-          category: job.jobIndustry?.[0] || 'Other',
-          jobType: normalizeJobType(job.jobType),
-          location: 'Remote',
-          salary: job.annualSalaryMin ? `$${job.annualSalaryMin} - $${job.annualSalaryMax}` : null,
-          description: job.jobDescription?.slice(0, 2000) || '',
-          tags: job.jobLevel ? [job.jobLevel] : [],
-          applicationUrl: job.url,
-          publishedAt: new Date(job.pubDate),
-          isActive: true,
-        },
-        { upsert: true, new: true }
-      );
-      synced++;
+      for (const job of jobicyJobs.slice(0, remoteLimit)) {
+        await Job.findOneAndUpdate(
+          { externalId: `jobicy-${job.id}` },
+          {
+            externalId: `jobicy-${job.id}`,
+            source: 'jobicy',
+            title: job.jobTitle,
+            company: job.companyName,
+            companyLogo: job.companyLogo || null,
+            category: job.jobIndustry?.[0] || 'Other',
+            jobType: normalizeJobType(job.jobType),
+            location: 'Remote',
+            salary: job.annualSalaryMin ? `$${job.annualSalaryMin} - $${job.annualSalaryMax}` : null,
+            description: job.jobDescription?.slice(0, 2000) || '',
+            tags: job.jobLevel ? [job.jobLevel] : [],
+            applicationUrl: job.url,
+            publishedAt: new Date(job.pubDate),
+            isActive: true,
+          },
+          { upsert: true, new: true }
+        );
+        synced++;
+      }
+    } catch (jobicyError) {
+      logger.warn(`Jobicy sync skipped: ${jobicyError.message}`);
     }
 
     // Jooble (optional, enabled when JOOBLE_API_KEY is configured)

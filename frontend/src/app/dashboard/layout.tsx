@@ -81,12 +81,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
 
-    if (user.role === 'admin' && (pathname === '/dashboard' || pathname.startsWith('/dashboard/jobs') || pathname.startsWith('/dashboard/surveys') || pathname.startsWith('/dashboard/tasks') || pathname.startsWith('/dashboard/ads-network') || pathname.startsWith('/dashboard/offerwalls') || pathname.startsWith('/dashboard/cash-tasks') || pathname.startsWith('/dashboard/referrals') || pathname.startsWith('/dashboard/wallet') || pathname.startsWith('/dashboard/profile') || pathname.startsWith('/dashboard/activate') || pathname.startsWith('/dashboard/freelance') || pathname.startsWith('/dashboard/admin/ledger') || pathname.startsWith('/dashboard/admin/admins') || pathname.startsWith('/dashboard/ledger') || pathname.startsWith('/dashboard/superadmin'))) {
+    if (user.role === 'admin' && (pathname === '/dashboard' || pathname.startsWith('/dashboard/surveys') || pathname.startsWith('/dashboard/tasks') || pathname.startsWith('/dashboard/ads-network') || pathname.startsWith('/dashboard/offerwalls') || pathname.startsWith('/dashboard/cash-tasks') || pathname.startsWith('/dashboard/referrals') || pathname.startsWith('/dashboard/wallet') || pathname.startsWith('/dashboard/profile') || pathname.startsWith('/dashboard/activate') || pathname.startsWith('/dashboard/freelance') || pathname.startsWith('/dashboard/admin/ledger') || pathname.startsWith('/dashboard/admin/admins') || pathname.startsWith('/dashboard/ledger') || pathname.startsWith('/dashboard/superadmin'))) {
       router.push('/dashboard/admin-console');
       return;
     }
 
-    if (user.role === 'superadmin' && (pathname === '/dashboard' || pathname.startsWith('/dashboard/jobs') || pathname.startsWith('/dashboard/surveys') || pathname.startsWith('/dashboard/tasks') || pathname.startsWith('/dashboard/ads-network') || pathname.startsWith('/dashboard/offerwalls') || pathname.startsWith('/dashboard/cash-tasks') || pathname.startsWith('/dashboard/referrals') || pathname.startsWith('/dashboard/wallet') || pathname.startsWith('/dashboard/profile') || pathname.startsWith('/dashboard/activate') || pathname.startsWith('/dashboard/freelance'))) {
+    if (user.role === 'superadmin' && (pathname === '/dashboard' || pathname.startsWith('/dashboard/surveys') || pathname.startsWith('/dashboard/tasks') || pathname.startsWith('/dashboard/ads-network') || pathname.startsWith('/dashboard/offerwalls') || pathname.startsWith('/dashboard/cash-tasks') || pathname.startsWith('/dashboard/referrals') || pathname.startsWith('/dashboard/wallet') || pathname.startsWith('/dashboard/profile') || pathname.startsWith('/dashboard/activate') || pathname.startsWith('/dashboard/freelance'))) {
       router.push('/dashboard/superadmin');
       return;
     }
@@ -124,6 +124,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     : user.role === 'admin'
     ? [
         { href: '/dashboard/admin-console', icon: Gauge, label: 'Overview' },
+        { href: '/dashboard/jobs', icon: Briefcase, label: 'Remote Jobs' },
         { href: '/dashboard/admin/users', icon: UsersRound, label: 'Users' },
         { href: '/dashboard/admin/moderation', icon: ShieldCheck, label: 'Moderation' },
         { href: '/dashboard/admin/support', icon: MessagesSquare, label: 'Support' },
@@ -133,6 +134,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     : user.role === 'superadmin'
       ? [
           { href: '/dashboard/superadmin', icon: Shield, label: 'Overview' },
+          { href: '/dashboard/jobs', icon: Briefcase, label: 'Remote Jobs' },
           { href: '/dashboard/admin/users', icon: UsersRound, label: 'Users' },
           { href: '/dashboard/admin/admins', icon: ShieldCheck, label: 'Admins' },
           { href: '/dashboard/admin/moderation', icon: ShieldCheck, label: 'Moderation' },
