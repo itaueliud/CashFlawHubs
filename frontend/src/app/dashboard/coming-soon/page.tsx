@@ -25,7 +25,7 @@ const MODULE_COPY: Record<string, { title: string; description: string }> = {
 
 export default function ComingSoonPage() {
   const searchParams = useSearchParams();
-  const key = String(searchParams.get('module') || '').toLowerCase();
+  const key = String(searchParams?.get('module') || '').toLowerCase();
   const copy = MODULE_COPY[key] || {
     title: 'Module Coming Soon',
     description: 'This earning module is in staged rollout and will be available soon.',
