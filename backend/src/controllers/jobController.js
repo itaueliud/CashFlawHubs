@@ -5,6 +5,7 @@ const Transaction = require('../models/Transaction');
 const { getRedis } = require('../config/redis');
 const logger = require('../utils/logger');
 const { JOB_APPLICATION_TOKEN_TIERS, TOKEN_PACKAGES, JOB_POSTING_TOKEN_COST, getApplicationTokenCost } = require('../config/monetization');
+const { scrapeAll } = require('../services/jobScraper');
 
 // @GET /api/jobs
 exports.getJobs = async (req, res) => {
@@ -241,132 +242,16 @@ exports.getJob = async (req, res) => {
 
 // Called by cron scheduler every 6 hours
 exports.syncJobs = async () => {
-  logger.info('Syncing remote jobs...');
-  let synced = 0;
-  const remoteLimit = Math.min(Number(process.env.JOBS_SYNC_LIMIT || 100), 200);
-
+  logger.info('Syncing remote jobs with batched scraper pipeline...');
   try {
-    // Remotive
-    const remotiveRes = await axios.get(process.env.REMOTIVE_API_URL || 'https://remotive.com/api/remote-jobs', {
-      timeout: 10000,
+    return await scrapeAll({
+      maxJobs: Number(process.env.JOBS_SYNC_LIMIT || process.env.SCRAPER_MAX_JOBS || 100000),
+      batchSize: Number(process.env.SCRAPER_BATCH_SIZE || 100),
+      retries: Number(process.env.SCRAPER_RETRIES || 3),
+      retryDelayMs: Number(process.env.SCRAPER_RETRY_DELAY_MS || 500),
     });
-    const remotiveJobs = remotiveRes.data?.jobs || [];
-
-    for (const job of remotiveJobs.slice(0, remoteLimit)) {
-      await Job.findOneAndUpdate(
-        { externalId: `remotive-${job.id}` },
-        {
-          externalId: `remotive-${job.id}`,
-          source: 'remotive',
-          title: job.title,
-          company: job.company_name,
-          companyLogo: job.company_logo,
-          category: job.category || 'Other',
-          jobType: job.job_type || 'full-time',
-          location: 'Remote',
-          salary: job.salary || null,
-          description: job.description?.slice(0, 2000) || '',
-          tags: job.tags || [],
-          applicationUrl: job.url,
-          publishedAt: new Date(job.publication_date),
-          isActive: true,
-        },
-        { upsert: true, new: true }
-      );
-      synced++;
-    }
-
-    // Jobicy
-    const jobicyRes = await axios.get(process.env.JOBICY_API_URL || 'https://jobicy.com/api/v2/remote-jobs', {
-      timeout: 10000,
-    });
-    const jobicyJobs = jobicyRes.data?.jobs || [];
-
-    for (const job of jobicyJobs.slice(0, remoteLimit)) {
-      await Job.findOneAndUpdate(
-        { externalId: `jobicy-${job.id}` },
-        {
-          externalId: `jobicy-${job.id}`,
-          source: 'jobicy',
-          title: job.jobTitle,
-          company: job.companyName,
-          companyLogo: job.companyLogo || null,
-          category: job.jobIndustry?.[0] || 'Other',
-          jobType: job.jobType || 'full-time',
-          location: 'Remote',
-          salary: job.annualSalaryMin ? `$${job.annualSalaryMin} - $${job.annualSalaryMax}` : null,
-          description: job.jobDescription?.slice(0, 2000) || '',
-          tags: job.jobLevel ? [job.jobLevel] : [],
-          applicationUrl: job.url,
-          publishedAt: new Date(job.pubDate),
-          isActive: true,
-        },
-        { upsert: true, new: true }
-      );
-      synced++;
-    }
-
-    // Jooble (optional, enabled when JOOBLE_API_KEY is configured)
-    if (process.env.JOOBLE_API_KEY) {
-      try {
-        const joobleCountry = String(process.env.JOOBLE_COUNTRY || 'ke').toLowerCase();
-        const joobleKeywords = process.env.JOOBLE_KEYWORDS || 'remote';
-        const joobleLocation = process.env.JOOBLE_LOCATION || '';
-        const joobleApiUrl = process.env.JOOBLE_API_URL || 'https://jooble.org/api';
-
-        const joobleRes = await axios.post(
-          `${joobleApiUrl.replace(/\/+$/, '')}/${process.env.JOOBLE_API_KEY}`,
-          {
-            keywords: joobleKeywords,
-            location: joobleLocation,
-            page: 1,
-          },
-          {
-            timeout: 12000,
-            headers: { 'Content-Type': 'application/json' },
-          }
-        );
-
-        const joobleJobs = joobleRes.data?.jobs || [];
-        for (const job of joobleJobs.slice(0, remoteLimit)) {
-          const applicationUrl = job.link || job.url;
-          if (!applicationUrl) continue;
-          const externalId = job.id || job.link || `${job.title || 'job'}-${job.company || 'company'}`;
-          await Job.findOneAndUpdate(
-            { externalId: `jooble-${externalId}` },
-            {
-              externalId: `jooble-${externalId}`,
-              source: 'jooble',
-              title: job.title || 'Remote role',
-              company: job.company || 'Unknown company',
-              companyLogo: null,
-              category: job.category || 'Other',
-              jobType: job.type || 'full-time',
-              location: job.location || 'Remote',
-              salary: job.salary || null,
-              description: (job.snippet || job.description || '').slice(0, 2000),
-              tags: ['jooble', joobleCountry],
-              applicationUrl,
-              publishedAt: job.updated ? new Date(job.updated) : new Date(),
-              isActive: true,
-            },
-            { upsert: true, new: true }
-          );
-          synced++;
-        }
-      } catch (joobleError) {
-        logger.warn(`Jooble sync skipped: ${joobleError.message}`);
-      }
-    } else {
-      logger.info('Jooble sync skipped: JOOBLE_API_KEY not configured');
-    }
-
-    // Deactivate old jobs (>30 days)
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    await Job.updateMany({ publishedAt: { $lt: thirtyDaysAgo } }, { isActive: false });
-
-    logger.info(`Job sync complete. Synced ${synced} jobs.`);
   } catch (error) {
     logger.error(`syncJobs error: ${error.message}`);
+    return { processed: 0, upserted: 0, matched: 0, modified: 0 };
   }
 };

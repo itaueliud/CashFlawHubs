@@ -65,6 +65,7 @@ export default function JobsPage() {
   const jobs = data?.jobs || [];
   const pagination = data?.pagination || {};
   const tokenPolicy = data?.tokenPolicy;
+  const sourceCount = new Set(jobs.map((job: any) => job.source || 'internal')).size;
 
   const updateField = (key: string, value: string) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -115,7 +116,7 @@ export default function JobsPage() {
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-xs text-slate-400">Sources</div>
-                <div className="text-2xl font-black text-white">2</div>
+                <div className="text-2xl font-black text-white">{sourceCount || 0}</div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-xs text-slate-400">Token balance</div>
@@ -277,33 +278,54 @@ export default function JobsPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="badge-green">Remote</span>
                         <span className="badge-blue">{job.category}</span>
+                        <span className="badge capitalize">{job.source || 'internal'}</span>
                         {job.source === 'internal' && <span className="badge-yellow">{job.applicationTokenCost}T apply</span>}
                         {job.salary && <span className="badge" style={{ background: 'rgba(16,185,129,0.14)', color: '#6ee7b7' }}>{job.salary}</span>}
                       </div>
-                      <div className="space-y-2">
-                        <h3 className="text-xl font-bold text-white">{job.title}</h3>
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400">
-                          <span className="flex items-center gap-1"><Building2 size={12} />{job.company}</span>
-                          <span className="flex items-center gap-1"><Clock size={12} />{new Date(job.publishedAt).toLocaleDateString()}</span>
-                          <span className="capitalize">{job.jobType}</span>
-                          <span className="capitalize text-slate-500">{job.source}</span>
+                      <div className="flex items-start gap-3">
+                        {job.companyLogo ? (
+                          <img
+                            src={job.companyLogo}
+                            alt={job.company}
+                            className="h-12 w-12 rounded-2xl border border-white/10 object-cover bg-slate-950"
+                          />
+                        ) : null}
+                        <div className="space-y-2">
+                          <h3 className="text-xl font-bold text-white">{job.title}</h3>
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400">
+                            <span className="flex items-center gap-1"><Building2 size={12} />{job.company}</span>
+                            <span className="flex items-center gap-1"><Clock size={12} />{new Date(job.publishedAt).toLocaleDateString()}</span>
+                            <span className="capitalize">{job.jobType}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
                     <div className="flex flex-col items-start gap-3 lg:items-end">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!job?._id) {
-                            toast.error('This job cannot be opened right now');
-                            return;
-                          }
-                          router.push(`/dashboard/jobs/${job._id}`);
-                        }}
-                        className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
-                      >
-                        Apply on site <ArrowRight size={14} />
-                      </button>
+                      <div className="flex flex-wrap gap-2 lg:justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!job?._id) {
+                              toast.error('This job cannot be opened right now');
+                              return;
+                            }
+                            router.push(`/dashboard/jobs/${job._id}`);
+                          }}
+                          className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
+                        >
+                          View details <ArrowRight size={14} />
+                        </button>
+                        {job.applicationUrl && job.source !== 'internal' ? (
+                          <a
+                            href={job.applicationUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white"
+                          >
+                            Open source <ArrowRight size={14} />
+                          </a>
+                        ) : null}
+                      </div>
                       <div className="text-xs uppercase tracking-[0.2em] text-slate-500">CashFlowHubs remote board</div>
                     </div>
                   </div>

@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const jobSchema = new mongoose.Schema({
   externalId: { type: String, required: true, unique: true },
+  canonicalKey: { type: String, unique: true, sparse: true, default: null },
   source: { type: String, enum: ['remotive', 'jobicy', 'jooble', 'adzuna', 'internal'], required: true },
   title: { type: String, required: true },
   company: { type: String, required: true },

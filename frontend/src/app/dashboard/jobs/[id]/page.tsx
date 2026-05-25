@@ -14,6 +14,7 @@ type JobDetails = {
   _id: string;
   title: string;
   company: string;
+  companyLogo?: string | null;
   category: string;
   source: string;
   jobType?: string;
@@ -85,6 +86,8 @@ export default function JobDetailsPage() {
   const userApplication = data?.userApplication;
   const canManageApplications = Boolean(data?.canManageApplications);
   const managedApplications = data?.applications || [];
+  const isInternalJob = job?.source === 'internal';
+  const jobTags = job?.tags || [];
 
   const applyMutation = useMutation({
     mutationFn: async () => {
@@ -161,11 +164,22 @@ export default function JobDetailsPage() {
                   <span className="badge-green capitalize">{job.source}</span>
                   {job.jobType && <span className="badge-yellow capitalize">{job.jobType}</span>}
                 </div>
-                <h1 className="text-3xl font-black leading-tight">{job.title}</h1>
-                <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-400">
-                  <span className="flex items-center gap-2"><Building2 size={15} /> {job.company}</span>
-                  <span className="flex items-center gap-2"><CalendarDays size={15} /> {publishedLabel}</span>
-                  <span className="flex items-center gap-2"><Globe2 size={15} /> {job.location || 'Remote'}</span>
+                <div className="flex items-start gap-3">
+                  {job.companyLogo ? (
+                    <img
+                      src={job.companyLogo}
+                      alt={job.company}
+                      className="h-12 w-12 rounded-2xl border border-white/10 object-cover bg-slate-950"
+                    />
+                  ) : null}
+                  <div>
+                    <h1 className="text-3xl font-black leading-tight">{job.title}</h1>
+                    <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-400">
+                      <span className="flex items-center gap-2"><Building2 size={15} /> {job.company}</span>
+                      <span className="flex items-center gap-2"><CalendarDays size={15} /> {publishedLabel}</span>
+                      <span className="flex items-center gap-2"><Globe2 size={15} /> {job.location || 'Remote'}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
               {job.salary && <div className="badge-green text-sm">{job.salary}</div>}
@@ -176,11 +190,11 @@ export default function JobDetailsPage() {
               <p className="text-sm leading-7 text-slate-300 whitespace-pre-line">{job.description}</p>
             </div>
 
-            {job.tags?.length > 0 && (
+            {jobTags.length > 0 && (
               <div className="space-y-3">
                 <h2 className="font-bold text-lg">Skills</h2>
                 <div className="flex flex-wrap gap-2">
-                  {job.tags.map((tag: string) => (
+                  {jobTags.map((tag: string) => (
                     <span key={tag} className="badge-blue flex items-center gap-1"><Tag size={12} /> {tag}</span>
                   ))}
                 </div>
@@ -189,9 +203,9 @@ export default function JobDetailsPage() {
 
             {job.applicationUrl && (
               <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4 text-sm text-slate-300">
-                The original posting source is still available, but applying happens here in CashFlowConnect.
+                {isInternalJob ? 'The original posting source is still available, but applying happens here in CashFlowHubs.' : 'This role was scraped from a remote source. You can open the original posting or keep the application in-platform.'}
                 <a href={job.applicationUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-green-400 hover:text-green-300">
-                  View original source <ExternalLink size={14} />
+                  {isInternalJob ? 'View original source' : 'Open original source'} <ExternalLink size={14} />
                 </a>
               </div>
             )}
@@ -199,9 +213,13 @@ export default function JobDetailsPage() {
 
           <div className="card space-y-4 h-fit sticky top-24">
             <div>
-              <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">Apply in site</div>
-              <h2 className="text-xl font-bold">Submit your application</h2>
-              <p className="text-sm text-slate-400 mt-2">Your application is recorded inside the platform, so you stay here while applying.</p>
+              <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">{isInternalJob ? 'Apply in site' : 'Scraped role'}</div>
+              <h2 className="text-xl font-bold">{isInternalJob ? 'Submit your application' : 'Review and apply'}</h2>
+              <p className="text-sm text-slate-400 mt-2">
+                {isInternalJob
+                  ? 'Your application is recorded inside the platform, so you stay here while applying.'
+                  : 'Use the source link if you want the external listing, or submit here to keep your application tracked in CashFlowHubs.'}
+              </p>
             </div>
 
             <div className="space-y-2 text-sm text-slate-300">
@@ -215,7 +233,7 @@ export default function JobDetailsPage() {
               </div>
               <div className="rounded-xl bg-slate-900 px-4 py-3">
                 <div className="text-slate-500 text-xs mb-1">Apply method</div>
-                <div>On-site application</div>
+                <div>{isInternalJob ? 'On-site application' : 'External posting + on-site tracking'}</div>
               </div>
               {typeof job.applicationTokenCost === 'number' && job.applicationTokenCost > 0 ? (
                 <div className="rounded-xl bg-slate-900 px-4 py-3">
@@ -235,14 +253,26 @@ export default function JobDetailsPage() {
               />
             </div>
 
-            <button
-              onClick={() => applyMutation.mutate()}
-              disabled={applyMutation.isPending || Boolean(userApplication)}
-              className="btn-primary w-full flex items-center justify-center gap-2"
-            >
-              {applyMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-              {userApplication ? 'Applied' : 'Apply on site'}
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={() => applyMutation.mutate()}
+                disabled={applyMutation.isPending || Boolean(userApplication)}
+                className="btn-primary w-full flex items-center justify-center gap-2"
+              >
+                {applyMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                {userApplication ? 'Applied' : isInternalJob ? 'Apply on site' : 'Track application here'}
+              </button>
+              {!isInternalJob && job.applicationUrl ? (
+                <a
+                  href={job.applicationUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn-secondary w-full flex items-center justify-center gap-2"
+                >
+                  <ExternalLink size={16} /> Open original source
+                </a>
+              ) : null}
+            </div>
             {userApplication ? (
               <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
                 Application status: <span className="font-semibold capitalize">{userApplication.status}</span>

@@ -37,9 +37,11 @@
     "socket.io": "^4.8.1",
     "twilio": "^4.19.0",
     "uuid": "^9.0.0",
-    "winston": "^3.11.0"
+    "winston": "^3.11.0",
+    "cheerio": "^1.0.0-rc.12"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
   }
 }
+

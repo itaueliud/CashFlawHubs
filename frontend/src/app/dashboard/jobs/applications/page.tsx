@@ -12,6 +12,7 @@ type AppliedJob = {
   company: string;
   location?: string;
   applicationUrl?: string;
+  source?: string;
 };
 
 type JobApplicationItem = {
@@ -89,6 +90,7 @@ export default function JobApplicationsPage() {
                       <span className="badge-blue capitalize">{application.status}</span>
                       {application.tokenCost > 0 ? <span className="badge-yellow">{application.tokenCost}T spent</span> : null}
                       <span className="badge-green">{application.jobAvailable ? 'Open' : 'Closed'}</span>
+                      <span className="badge capitalize">{job?.source || 'internal'}</span>
                     </div>
                     <h2 className="truncate text-lg font-bold text-white">{job?.title || 'Job unavailable'}</h2>
                     <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400">
