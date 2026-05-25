@@ -166,46 +166,60 @@ router.get('/stats', protect, adminOnly, async (req, res) => {
 });
 
 router.get('/users', protect, staffOnly, async (req, res) => {
-  if (!['admin', 'superadmin'].includes(req.user.role)) {
-    return res.status(403).json({ success: false, message: 'Admin access required' });
+  try {
+    if (!['admin', 'superadmin'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+    const { page = 1, limit = 50, search = '', role = '', banned = '' } = req.query;
+    const safePage = Math.max(Number(page) || 1, 1);
+    const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
+    const query = {};
+
+    if (req.user.role === 'admin') {
+      query.role = 'user';
+      query.$or = [{ managedBy: req.user._id }, { managedBy: null }];
+    } else if (role && ['user', 'admin', 'superadmin'].includes(String(role))) {
+      query.role = role;
+    } else if (req.user.role === 'superadmin') {
+      query.role = 'user';
+    }
+
+    if (String(banned) === 'true') query.isBanned = true;
+    if (String(banned) === 'false') query.isBanned = false;
+
+    const term = normalizeSearch(search);
+    if (term) {
+      query.$and = [
+        ...(query.$and || []),
+        {
+          $or: [
+            { name: { $regex: term, $options: 'i' } },
+            { email: { $regex: term, $options: 'i' } },
+            { phone: { $regex: term, $options: 'i' } },
+            { userId: { $regex: term, $options: 'i' } },
+          ],
+        },
+      ];
+    }
+
+    const [users, total] = await Promise.all([
+      User.find(query)
+        .sort({ createdAt: -1 })
+        .skip((safePage - 1) * safeLimit)
+        .limit(safeLimit)
+        .select('name email phone country role activationStatus isBanned userId userAccessType createdAt managedBy')
+        .lean(),
+      User.countDocuments(query),
+    ]);
+    res.json({ success: true, users, pagination: { total, page: safePage, limit: safeLimit } });
+  } catch (error) {
+    logger.error(`Admin users list failed: ${error.message}`);
+    res.status(500).json({ success: false, message: 'Failed to load users', error: error.message });
   }
-  const { page = 1, limit = 50, search = '', role = '', banned = '' } = req.query;
-  const safeLimit = Math.min(Number(limit) || 50, 200);
-  const query = {};
-
-  if (req.user.role === 'admin') {
-    query.role = 'user';
-    query.$or = [{ managedBy: req.user.id }, { managedBy: null }];
-  } else if (role && ['user', 'admin', 'superadmin'].includes(String(role))) {
-    query.role = role;
-  } else if (req.user.role === 'superadmin') {
-    query.role = 'user';
-  }
-
-  if (String(banned) === 'true') query.isBanned = true;
-  if (String(banned) === 'false') query.isBanned = false;
-
-  const term = normalizeSearch(search);
-  if (term) {
-    query.$and = [
-      ...(query.$and || []),
-      {
-        $or: [
-          { name: { $regex: term, $options: 'i' } },
-          { email: { $regex: term, $options: 'i' } },
-          { phone: { $regex: term, $options: 'i' } },
-          { userId: { $regex: term, $options: 'i' } },
-        ],
-      },
-    ];
-  }
-
-  const users = await User.find(query).sort({ createdAt: -1 }).skip((page-1)*safeLimit).limit(safeLimit);
-  res.json({ success: true, users });
 });
 
 router.put('/users/:id/ban', protect, staffOnly, async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({ success: false, message: 'Admin access required' });
   }
   const targetUser = await User.findById(req.params.id);
@@ -225,7 +239,7 @@ router.put('/users/:id/ban', protect, staffOnly, async (req, res) => {
 });
 
 router.put('/users/:id/unban', protect, staffOnly, async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({ success: false, message: 'Admin access required' });
   }
   const targetUser = await User.findById(req.params.id);
@@ -341,7 +355,7 @@ router.put('/admins/:id/unban', protect, ledgerOrSuperadminOnly, async (req, res
 });
 
 router.put('/users/:id/reset-password', protect, staffOnly, async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({ success: false, message: 'Admin access required' });
   }
   const { newPassword } = req.body;

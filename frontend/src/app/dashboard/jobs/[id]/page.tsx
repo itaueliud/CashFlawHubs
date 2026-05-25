@@ -86,6 +86,7 @@ export default function JobDetailsPage() {
   const userApplication = data?.userApplication;
   const canManageApplications = Boolean(data?.canManageApplications);
   const managedApplications = data?.applications || [];
+  const isStaff = ['admin', 'superadmin', 'ledger'].includes(user?.role || '');
 
   const applyMutation = useMutation({
     mutationFn: async () => {
@@ -159,7 +160,7 @@ export default function JobDetailsPage() {
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="badge-blue">{job.category === 'Other' && job.categoryOther ? `Other (${job.categoryOther})` : job.category}</span>
-                  <span className="badge-green capitalize">{job.source}</span>
+                  {isStaff && <span className="badge-green capitalize">{job.source}</span>}
                   {job.jobType && <span className="badge-yellow capitalize">{job.jobType}</span>}
                 </div>
                 <h1 className="text-3xl font-black leading-tight">{job.title}</h1>

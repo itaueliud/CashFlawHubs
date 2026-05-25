@@ -411,6 +411,12 @@ exports.expireScrapedJobs = async (req, res) => {
 exports.syncJobs = async () => {
   logger.info('Syncing remote jobs...');
   let synced = 0;
+  const providerStats = {
+    remotive: { synced: 0, status: 'pending' },
+    jobicy: { synced: 0, status: 'pending' },
+    jooble: { synced: 0, status: process.env.JOOBLE_API_KEY ? 'pending' : 'not_configured' },
+    adzuna: { synced: 0, status: (process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY) ? 'pending' : 'not_configured' },
+  };
   const remoteLimit = Math.min(Math.max(Number(process.env.JOBS_SYNC_LIMIT || 5000), 100), 20000);
 
   try {
@@ -448,8 +454,12 @@ exports.syncJobs = async () => {
       if (remotiveOps.length > 0) {
         await Job.bulkWrite(remotiveOps, { ordered: false });
         synced += remotiveOps.length;
+        providerStats.remotive.synced += remotiveOps.length;
       }
+      providerStats.remotive.status = 'ok';
     } catch (remotiveError) {
+      providerStats.remotive.status = 'failed';
+      providerStats.remotive.error = remotiveError.message;
       logger.warn(`Remotive sync skipped: ${remotiveError.message}`);
     }
 
@@ -482,8 +492,12 @@ exports.syncJobs = async () => {
           { upsert: true, new: true }
         );
         synced++;
+        providerStats.jobicy.synced++;
       }
+      providerStats.jobicy.status = 'ok';
     } catch (jobicyError) {
+      providerStats.jobicy.status = 'failed';
+      providerStats.jobicy.error = jobicyError.message;
       logger.warn(`Jobicy sync skipped: ${jobicyError.message}`);
     }
 
@@ -534,8 +548,12 @@ exports.syncJobs = async () => {
             { upsert: true, new: true }
           );
           synced++;
+          providerStats.jooble.synced++;
         }
+        providerStats.jooble.status = 'ok';
       } catch (joobleError) {
+        providerStats.jooble.status = 'failed';
+        providerStats.jooble.error = joobleError.message;
         logger.warn(`Jooble sync skipped: ${joobleError.message}`);
       }
     } else {
@@ -594,9 +612,13 @@ exports.syncJobs = async () => {
               { upsert: true, new: true }
             );
             synced++;
+            providerStats.adzuna.synced++;
           }
         }
+        providerStats.adzuna.status = 'ok';
       } catch (adzunaError) {
+        providerStats.adzuna.status = 'failed';
+        providerStats.adzuna.error = adzunaError.message;
         logger.warn(`Adzuna sync skipped: ${adzunaError.message}`);
       }
     } else {
@@ -608,7 +630,9 @@ exports.syncJobs = async () => {
     await Job.deleteMany({ publishedAt: { $lt: oneYearAgo } });
 
     logger.info(`Job sync complete. Synced ${synced} jobs.`);
+    return { success: true, synced, providers: providerStats };
   } catch (error) {
     logger.error(`syncJobs error: ${error.message}`);
+    return { success: false, synced, providers: providerStats, error: error.message };
   }
 };

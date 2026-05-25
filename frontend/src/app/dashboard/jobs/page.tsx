@@ -35,6 +35,7 @@ export default function JobsPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const { user, setUser } = useAuthStore();
   const queryClient = useQueryClient();
+  const isStaff = ['admin', 'superadmin', 'ledger'].includes(user?.role || '');
 
   const { data, isLoading } = useQuery({
     queryKey: ['jobs', search, category, page],
@@ -54,7 +55,7 @@ export default function JobsPage() {
 
   const jobs = data?.jobs || [];
   const pagination = data?.pagination || {};
-  const sourceCounts = data?.sourceCounts || {};
+  const sourceCounts = isStaff ? (data?.sourceCounts || {}) : {};
   const sourceCount = Object.values(sourceCounts).filter((count: any) => Number(count) > 0).length;
   const tokenPolicy = data?.tokenPolicy;
   const availableCategories: string[] = (catData && catData.length > 0) ? catData : ['Other'];
@@ -98,7 +99,9 @@ export default function JobsPage() {
     setSyncingJobs(true);
     try {
       const response = await api.post('/jobs/sync-now');
-      toast.success(response.data?.message || 'Job sync completed');
+      const adzuna = response.data?.providers?.adzuna;
+      const adzunaText = adzuna ? ` Adzuna: ${adzuna.status}${typeof adzuna.synced === 'number' ? ` (${adzuna.synced})` : ''}.` : '';
+      toast.success(`${response.data?.message || 'Job sync completed'}${adzunaText}`);
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['job-cats'] });
     } catch (error: any) {
@@ -127,10 +130,12 @@ export default function JobsPage() {
                 <div className="text-xs text-slate-400">Visible jobs</div>
                 <div className="text-2xl font-black text-emerald-300">{pagination.total ?? '—'}</div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <div className="text-xs text-slate-400">Sources</div>
-                <div className="text-2xl font-black text-white">{sourceCount || 0}</div>
-              </div>
+              {isStaff && (
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <div className="text-xs text-slate-400">Sources</div>
+                  <div className="text-2xl font-black text-white">{sourceCount || 0}</div>
+                </div>
+              )}
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-xs text-slate-400">Token balance</div>
                 <div className="text-2xl font-black text-white">{user?.tokenBalance || 0}T</div>
@@ -275,7 +280,7 @@ export default function JobsPage() {
               <button onClick={() => setTab('post')} className="btn-primary inline-flex items-center gap-2 lg:shrink-0">
                 <Plus size={16} /> Post Job
               </button>
-              {['admin', 'superadmin', 'ledger'].includes(user?.role || '') && (
+              {isStaff && (
                 <button
                   onClick={onSyncJobs}
                   disabled={syncingJobs}
@@ -319,7 +324,7 @@ export default function JobsPage() {
                           <span className="flex items-center gap-1"><Building2 size={12} />{job.company}</span>
                           <span className="flex items-center gap-1"><Clock size={12} />{new Date(job.publishedAt).toLocaleDateString()}</span>
                           <span className="capitalize">{job.jobType}</span>
-                          <span className="capitalize text-slate-500">{job.source}</span>
+                          {isStaff && <span className="capitalize text-slate-500">{job.source}</span>}
                         </div>
                       </div>
                     </div>

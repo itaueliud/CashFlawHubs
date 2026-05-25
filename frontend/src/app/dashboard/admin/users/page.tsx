@@ -30,7 +30,7 @@ export default function AdminUsersPage() {
   const [bannedFilter, setBannedFilter] = useState<'all' | 'true' | 'false'>('all');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['admin-users', search, bannedFilter],
     queryFn: () => {
       const params = new URLSearchParams();
@@ -42,6 +42,7 @@ export default function AdminUsersPage() {
   });
 
   const users: UserItem[] = data?.users || [];
+  const loadError = (error as any)?.response?.data?.message || (error as any)?.message || 'Unable to load users';
 
   const { data: userLedgerData, isLoading: isLedgerLoading } = useQuery({
     queryKey: ['admin-user-ledger', selectedUserId],
@@ -156,6 +157,10 @@ export default function AdminUsersPage() {
 
       {isLoading ? (
         <div className="card text-sm text-slate-400">Loading users...</div>
+      ) : isError ? (
+        <div className="card border-red-500/20 bg-red-950/20 text-sm text-red-200">
+          {loadError}
+        </div>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {users.map((item) => (
@@ -190,6 +195,25 @@ export default function AdminUsersPage() {
                 </button>
               </div>
 
+              <div className="mt-3 rounded-2xl border border-slate-700 bg-slate-950/60 p-3">
+                <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">User mode</div>
+                <div className="grid grid-cols-2 gap-2 sm:max-w-sm">
+                  {(['real', 'test'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      onClick={() => setUserAccessType(item._id, mode)}
+                      className={`rounded-xl border px-4 py-2.5 text-sm font-semibold capitalize transition ${
+                        (item.userAccessType || 'real') === mode
+                          ? 'border-blue-300 bg-blue-500/20 text-blue-100'
+                          : 'border-slate-600 bg-slate-800/70 text-slate-300 hover:border-slate-400'
+                      }`}
+                    >
+                      {mode} user
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <input
                   className="input max-w-[260px]"
@@ -203,18 +227,6 @@ export default function AdminUsersPage() {
                   className="inline-flex items-center gap-2 rounded-xl border border-yellow-400/30 bg-yellow-500/10 px-4 py-2.5 text-sm font-semibold text-yellow-200 transition hover:border-yellow-300/50"
                 >
                   <KeyRound size={14} /> Set password
-                </button>
-                <button
-                  onClick={() => setUserAccessType(item._id, 'real')}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-500/40 bg-slate-800/70 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-slate-300/60"
-                >
-                  Mark Real
-                </button>
-                <button
-                  onClick={() => setUserAccessType(item._id, 'test')}
-                  className="inline-flex items-center gap-2 rounded-xl border border-indigo-400/30 bg-indigo-500/10 px-4 py-2.5 text-sm font-semibold text-indigo-200 transition hover:border-indigo-300/50"
-                >
-                  Mark Test
                 </button>
               </div>
             </div>
