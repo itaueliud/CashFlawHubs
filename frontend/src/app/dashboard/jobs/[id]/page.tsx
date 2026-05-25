@@ -181,7 +181,7 @@ export default function JobDetailsPage() {
               <div className="space-y-3">
                 <h2 className="font-bold text-lg">Skills</h2>
                 <div className="flex flex-wrap gap-2">
-                  {job.tags.map((tag: string) => (
+                  {(job.tags || []).map((tag: string) => (
                     <span key={tag} className="badge-blue flex items-center gap-1"><Tag size={12} /> {tag}</span>
                   ))}
                 </div>
