@@ -10,7 +10,7 @@ import toast from 'react-hot-toast';
 const EMPTY_FORM = {
   title: '',
   company: '',
-  category: 'Other',
+  category: '',
   jobType: 'contract',
   location: 'Remote',
   salary: '',
@@ -65,6 +65,11 @@ export default function JobsPage() {
   };
 
   const onPostJob = async () => {
+    if (!form.category) {
+      toast.error('Please select a category');
+      return;
+    }
+
     if (form.category === 'Other') {
       const custom = String(form.categoryOther || '').trim();
       if (custom.length < 3 || custom.length > 60) {
@@ -202,6 +207,7 @@ export default function JobsPage() {
             <div>
               <label className="text-sm text-slate-300 mb-1 block">Category</label>
               <select className="input" value={form.category} onChange={(e) => updateField('category', e.target.value)}>
+                <option value="">Select Category</option>
                 {availableCategories.map((option: string) => <option key={option} value={option}>{option}</option>)}
               </select>
             </div>

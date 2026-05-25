@@ -101,8 +101,17 @@ export default function AdminUsersPage() {
 
   const setUserAccessType = async (userId: string, userAccessType: 'real' | 'test') => {
     try {
-      await api.put(`/admin/users/${userId}/access-type`, { userAccessType });
+      const response = await api.put(`/admin/users/${userId}/access-type`, { userAccessType });
       toast.success(`User marked as ${userAccessType}`);
+      queryClient.setQueryData(['admin-users', search, bannedFilter], (current: any) => {
+        if (!current?.users) return current;
+        return {
+          ...current,
+          users: current.users.map((item: UserItem) => (
+            item._id === userId ? { ...item, userAccessType: response.data?.user?.userAccessType || userAccessType } : item
+          )),
+        };
+      });
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       if (selectedUserId === userId) {
         queryClient.invalidateQueries({ queryKey: ['admin-user-ledger', selectedUserId] });

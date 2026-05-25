@@ -52,7 +52,7 @@ const BASE_NAV = [
 const REAL_USER_BLOCKED_ROUTES = ['/dashboard/surveys', '/dashboard/tasks', '/dashboard/ads-network', '/dashboard/offerwalls'];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, logout, hasHydrated } = useAuthStore();
+  const { user, logout, hasHydrated, refreshUser } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname() ?? '';
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -64,7 +64,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!hasHydrated || !user) return;
 
+    refreshUser();
+    const onFocus = () => refreshUser();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [hasHydrated, refreshUser, user?.id]);
+
+  useEffect(() => {
+    if (!hasHydrated || !user) return;
+
     if (user.role === 'user') {
+      if ((user.userAccessType || 'real') === 'test' && pathname.startsWith('/dashboard/coming-soon')) {
+        router.push('/dashboard');
+        return;
+      }
       if ((user.userAccessType || 'real') === 'real' && REAL_USER_BLOCKED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
         const moduleKey = pathname.split('/')[2] || '';
         router.push(`/dashboard/coming-soon?module=${encodeURIComponent(moduleKey)}`);

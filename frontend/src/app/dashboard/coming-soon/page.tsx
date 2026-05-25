@@ -42,7 +42,7 @@ export default function ComingSoonPage() {
             <h1 className="text-2xl font-black text-white">{copy.title}</h1>
             <p className="mt-2 text-sm text-slate-300">{copy.description}</p>
             <p className="mt-2 text-xs text-slate-400">
-              Your account currently has real-user access profile. Admin can enable test-user access for early modules.
+              We will notify you here as soon as this module is available for your account.
             </p>
           </div>
         </div>
