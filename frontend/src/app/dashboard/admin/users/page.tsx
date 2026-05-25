@@ -38,7 +38,7 @@ export default function AdminUsersPage() {
       if (bannedFilter !== 'all') params.set('banned', bannedFilter);
       return api.get(`/admin/users?${params.toString()}`).then((response) => response.data);
     },
-    enabled: user?.role === 'admin',
+    enabled: user?.role === 'admin' || user?.role === 'superadmin',
   });
 
   const users: UserItem[] = data?.users || [];
@@ -111,8 +111,8 @@ export default function AdminUsersPage() {
     }
   };
 
-  if (user?.role !== 'admin') {
-    return <div className="card text-sm text-slate-400">Only admins can manage users.</div>;
+  if (user?.role !== 'admin' && user?.role !== 'superadmin') {
+    return <div className="card text-sm text-slate-400">Only admin or superadmin can manage users.</div>;
   }
 
   return (

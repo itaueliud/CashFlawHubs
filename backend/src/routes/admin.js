@@ -166,7 +166,7 @@ router.get('/stats', protect, adminOnly, async (req, res) => {
 });
 
 router.get('/users', protect, staffOnly, async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({ success: false, message: 'Admin access required' });
   }
   const { page = 1, limit = 50, search = '', role = '', banned = '' } = req.query;
@@ -178,6 +178,8 @@ router.get('/users', protect, staffOnly, async (req, res) => {
     query.$or = [{ managedBy: req.user.id }, { managedBy: null }];
   } else if (role && ['user', 'admin', 'superadmin'].includes(String(role))) {
     query.role = role;
+  } else if (req.user.role === 'superadmin') {
+    query.role = 'user';
   }
 
   if (String(banned) === 'true') query.isBanned = true;
@@ -361,7 +363,7 @@ router.put('/users/:id/reset-password', protect, staffOnly, async (req, res) => 
 });
 
 router.put('/users/:id/access-type', protect, staffOnly, async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({ success: false, message: 'Admin access required' });
   }
 

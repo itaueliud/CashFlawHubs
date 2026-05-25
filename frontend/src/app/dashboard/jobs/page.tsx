@@ -108,7 +108,7 @@ export default function JobsPage() {
             <div className="flex flex-wrap gap-3">
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-xs text-slate-400">Visible jobs</div>
-                <div className="text-2xl font-black text-emerald-300">{jobs.length || '—'}</div>
+                <div className="text-2xl font-black text-emerald-300">{pagination.total ?? '—'}</div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-xs text-slate-400">Sources</div>

@@ -40,7 +40,9 @@ const normalizeJobType = (value, fallback = 'full-time') => {
 // @GET /api/jobs
 exports.getJobs = async (req, res) => {
   try {
-    const { category, search, page = 1, limit = 20 } = req.query;
+    const { category, search } = req.query;
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
     const skip = (page - 1) * limit;
     const now = new Date();
 
@@ -64,7 +66,14 @@ exports.getJobs = async (req, res) => {
         tokenPackages: TOKEN_PACKAGES,
         postingCost: JOB_POSTING_TOKEN_COST,
       },
-      pagination: { total, page: Number(page), pages: Math.ceil(total / limit) },
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.max(Math.ceil(total / limit), 1),
+        hasNextPage: skip + jobs.length < total,
+        hasPrevPage: page > 1,
+      },
     });
   } catch (error) {
     logger.error(`getJobs error: ${error.message}`);
