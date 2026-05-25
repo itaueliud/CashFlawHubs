@@ -8,7 +8,8 @@ const {
 	getJobApplicationsForManagement,
 } = require('../controllers/jobApplicationController');
 const { getJobApplicants } = require('../controllers/jobApplicationController');
-const { protect, requireActivation } = require('../middleware/auth');
+const { protect, requireActivation, staffOnly } = require('../middleware/auth');
+const { syncJobs } = require('../controllers/jobController');
 
 router.get('/', protect, getJobs);
 router.post('/', protect, requireActivation, createJobPosting);
@@ -17,6 +18,10 @@ router.get('/applications/me', protect, getMyJobApplications);
 router.get('/:id/applications', protect, getJobApplicationsForManagement);
 router.get('/:id/applicants', protect, getJobApplicants);
 router.patch('/:id/applications/:applicationId/status', protect, updateJobApplicationStatus);
+router.post('/sync-now', protect, staffOnly, async (req, res) => {
+  await syncJobs();
+  res.json({ success: true, message: 'Job sync completed' });
+});
 router.get('/:id', protect, getJob);
 router.post('/:id/apply', protect, requireActivation, applyToJob);
 

@@ -15,6 +15,7 @@ type JobDetails = {
   title: string;
   company: string;
   category: string;
+  categoryOther?: string | null;
   source: string;
   jobType?: string;
   location?: string;
@@ -157,7 +158,7 @@ export default function JobDetailsPage() {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="badge-blue">{job.category}</span>
+                  <span className="badge-blue">{job.category === 'Other' && job.categoryOther ? `Other (${job.categoryOther})` : job.category}</span>
                   <span className="badge-green capitalize">{job.source}</span>
                   {job.jobType && <span className="badge-yellow capitalize">{job.jobType}</span>}
                 </div>
