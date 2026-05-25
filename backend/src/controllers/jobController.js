@@ -28,6 +28,15 @@ const DEFAULT_JOB_CATEGORIES = [
   'Other',
 ];
 
+const normalizeJobType = (value, fallback = 'full-time') => {
+  if (Array.isArray(value)) {
+    const first = value.find((item) => String(item || '').trim());
+    return first ? String(first).trim().toLowerCase() : fallback;
+  }
+  const normalized = String(value || '').trim();
+  return normalized ? normalized.toLowerCase() : fallback;
+};
+
 // @GET /api/jobs
 exports.getJobs = async (req, res) => {
   try {
@@ -280,7 +289,7 @@ exports.syncJobs = async () => {
             company: job.company_name,
             companyLogo: job.company_logo,
             category: job.category || 'Other',
-            jobType: job.job_type || 'full-time',
+            jobType: normalizeJobType(job.job_type),
             location: 'Remote',
             salary: job.salary || null,
             description: job.description?.slice(0, 2000) || '',
@@ -314,7 +323,7 @@ exports.syncJobs = async () => {
           company: job.companyName,
           companyLogo: job.companyLogo || null,
           category: job.jobIndustry?.[0] || 'Other',
-          jobType: job.jobType || 'full-time',
+          jobType: normalizeJobType(job.jobType),
           location: 'Remote',
           salary: job.annualSalaryMin ? `$${job.annualSalaryMin} - $${job.annualSalaryMax}` : null,
           description: job.jobDescription?.slice(0, 2000) || '',
@@ -363,7 +372,7 @@ exports.syncJobs = async () => {
               company: job.company || 'Unknown company',
               companyLogo: null,
               category: job.category || 'Other',
-              jobType: job.type || 'full-time',
+              jobType: normalizeJobType(job.type),
               location: job.location || 'Remote',
               salary: job.salary || null,
               description: (job.snippet || job.description || '').slice(0, 2000),
