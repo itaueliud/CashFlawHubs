@@ -10,6 +10,7 @@
     "build": "npm run -ws build",
     "dev": "npm run -ws dev",
     "start": "npm run -ws start",
+    "start:all": "node scripts/run-all.cjs",
     "lint": "npm run -ws lint"
   },
   "dependencies": {
