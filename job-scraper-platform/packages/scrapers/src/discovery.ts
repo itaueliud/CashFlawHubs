@@ -27,13 +27,47 @@ const careerHints = [
   /\/work-with-us(\/|$)/i,
 ];
 
+const DISCOVERY_MAX_BYTES = Number(process.env.DISCOVERY_MAX_BYTES || 2_000_000); // ~2MB default
+
+const readTextWithLimit = async (response: Response, limitBytes: number): Promise<string> => {
+  // Avoid OOM on huge sitemaps by capping bytes read.
+  const lenHeader = response.headers.get("content-length");
+  const advertised = lenHeader ? Number(lenHeader) : NaN;
+  if (Number.isFinite(advertised) && advertised > limitBytes) {
+    throw new Error(`response too large (${advertised} bytes)`);
+  }
+
+  const body = response.body;
+  if (!body) return "";
+
+  const reader = body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let total = 0;
+  let text = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    if (value) {
+      total += value.byteLength;
+      if (total > limitBytes) {
+        try { reader.cancel(); } catch {}
+        throw new Error(`response too large (>${limitBytes} bytes)`);
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+  }
+  text += decoder.decode();
+  return text;
+};
+
 const fetchText = async (url: string): Promise<string> => {
   const response = await fetch(url, {
     headers: { "user-agent": "RemoteJobScraperBot/1.0 (+jobs discovery)" },
     signal: AbortSignal.timeout(config.scraperTimeoutMs),
   });
   if (!response.ok) throw new Error(`fetch failed ${response.status} for ${url}`);
-  return response.text();
+  return readTextWithLimit(response, DISCOVERY_MAX_BYTES);
 };
 
 const normalizeUrl = (base: string, href: string): string | null => {
@@ -65,14 +99,19 @@ export const allowedByRobots = (url: string, robots: RobotsInfo): boolean => {
 };
 
 export const discoverFromSitemap = async (sitemapUrl: string): Promise<string[]> => {
-  const xml = await fetchText(sitemapUrl);
-  const $ = cheerio.load(xml, { xmlMode: true });
-  const nested = $("sitemap loc").map((_, el) => $(el).text().trim()).get();
-  if (nested.length) {
-    const childResults = await Promise.allSettled(nested.slice(0, 25).map(discoverFromSitemap));
-    return childResults.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+  try {
+    const xml = await fetchText(sitemapUrl);
+    const $ = cheerio.load(xml, { xmlMode: true });
+    const nested = $("sitemap loc").map((_, el) => $(el).text().trim()).get();
+    if (nested.length) {
+      const childResults = await Promise.allSettled(nested.slice(0, 25).map(discoverFromSitemap));
+      return childResults.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+    }
+    return $("url loc").map((_, el) => $(el).text().trim()).get().slice(0, config.discoveryMaxSitemapUrls);
+  } catch (err) {
+    logger.warn({ sitemapUrl, err }, "sitemap discovery failed");
+    return [];
   }
-  return $("url loc").map((_, el) => $(el).text().trim()).get().slice(0, config.discoveryMaxSitemapUrls);
 };
 
 export const classifyDiscoveredUrl = (url: string, companyHint?: string): DiscoveredUrl | null => {
@@ -119,4 +158,3 @@ export const discoverCareerUrlsForDomain = async (domain: string): Promise<Disco
     .map((url) => classifyDiscoveredUrl(url, new URL(origin).hostname.replace(/^www\./, "")))
     .filter((item): item is DiscoveredUrl => Boolean(item));
 };
-

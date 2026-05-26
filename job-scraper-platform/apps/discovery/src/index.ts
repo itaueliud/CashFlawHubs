@@ -16,14 +16,37 @@ const run = async (): Promise<void> => {
     metrics.discoveryUrls.inc({ adapter: seed.source });
   }
 
-  const discovered = await Promise.allSettled(config.discoverySeedDomains.map(discoverCareerUrlsForDomain));
+  const mapWithConcurrency = async <T, R>(items: T[], concurrency: number, fn: (item: T) => Promise<R>): Promise<R[]> => {
+    const limit = Math.max(1, Math.floor(concurrency));
+    const out: R[] = new Array(items.length);
+    let idx = 0;
+
+    const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (true) {
+        const i = idx++;
+        if (i >= items.length) return;
+        out[i] = await fn(items[i]);
+      }
+    });
+
+    await Promise.all(runners);
+    return out;
+  };
+
+  const discovered = await mapWithConcurrency(config.discoverySeedDomains, config.discoveryConcurrency, async (domain) => {
+    try {
+      return { ok: true as const, items: await discoverCareerUrlsForDomain(domain) };
+    } catch (err) {
+      return { ok: false as const, err, items: [] as any[] };
+    }
+  });
   let count = staticSeeds.length;
   for (const result of discovered) {
-    if (result.status !== "fulfilled") {
-      logger.warn({ err: result.reason }, "domain discovery failed");
+    if (!result.ok) {
+      logger.warn({ err: result.err }, "domain discovery failed");
       continue;
     }
-    for (const item of result.value) {
+    for (const item of result.items) {
       await queues.scrape.add("scrape-url", item, { jobId: `${item.source}:${item.url}` });
       metrics.discoveryUrls.inc({ adapter: item.source });
       count += 1;
