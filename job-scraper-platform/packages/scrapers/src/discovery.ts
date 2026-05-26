@@ -28,6 +28,7 @@ const careerHints = [
 ];
 
 const DISCOVERY_MAX_BYTES = Number(process.env.DISCOVERY_MAX_BYTES || 2_000_000); // ~2MB default
+const DISCOVERY_429_BACKOFF_MS = Number(process.env.DISCOVERY_429_BACKOFF_MS || 5_000);
 
 const readTextWithLimit = async (response: Response, limitBytes: number): Promise<string> => {
   // Avoid OOM on huge sitemaps by capping bytes read.
@@ -66,7 +67,20 @@ const fetchText = async (url: string): Promise<string> => {
     headers: { "user-agent": "RemoteJobScraperBot/1.0 (+jobs discovery)" },
     signal: AbortSignal.timeout(config.scraperTimeoutMs),
   });
-  if (!response.ok) throw new Error(`fetch failed ${response.status} for ${url}`);
+  if (!response.ok) {
+    // Discovery is best-effort. Many sites block bots (403), don't have sitemaps (404),
+    // or rate-limit (429). Treat these as "no data" instead of crashing.
+    if (response.status === 403 || response.status === 404) return "";
+    if (response.status === 429) {
+      const retryAfter = Number(response.headers.get("retry-after") || "");
+      const waitMs = Number.isFinite(retryAfter) && retryAfter > 0
+        ? Math.min(retryAfter * 1000, 60_000)
+        : DISCOVERY_429_BACKOFF_MS;
+      await new Promise((r) => setTimeout(r, waitMs));
+      return "";
+    }
+    throw new Error(`fetch failed ${response.status} for ${url}`);
+  }
   return readTextWithLimit(response, DISCOVERY_MAX_BYTES);
 };
 
