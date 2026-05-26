@@ -1,8 +1,13 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "composite": true,
     "declaration": true,
     "rootDir": "src"
   },
+  "references": [
+    { "path": "../core" },
+    { "path": "../queue" }
+  ],
   "include": ["src/**/*"]
 }

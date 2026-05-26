@@ -1,0 +1,16 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/queue" },
+    { "path": "packages/scrapers" },
+    { "path": "packages/db" },
+    { "path": "packages/enrichment" },
+    { "path": "apps/api" },
+    { "path": "apps/discovery" },
+    { "path": "apps/scraper-worker" },
+    { "path": "apps/enrichment-worker" },
+    { "path": "apps/publisher" }
+  ]
+}
+
