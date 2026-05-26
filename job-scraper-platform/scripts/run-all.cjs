@@ -15,6 +15,28 @@ const DISCOVERY_INTERVAL_MS = Number(process.env.DISCOVERY_INTERVAL_MS || 30 * 6
 const children = new Map();
 let stopping = false;
 
+const parseWorkerRoles = () => {
+  // Low-memory deploy tip:
+  // - Set `WORKER_ROLES=scraper-worker` (or `publisher`, `enrichment-worker`, `discovery`)
+  // - Leave it empty locally to run everything.
+  const raw = String(process.env.WORKER_ROLES || "").trim();
+  if (!raw) return { roles: PROC_SPECS.map((s) => s.name), discovery: true };
+
+  const roles = new Set(
+    raw
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean),
+  );
+
+  const wantsAll = roles.has("all") || roles.has("*");
+  if (wantsAll) return { roles: PROC_SPECS.map((s) => s.name), discovery: true };
+
+  const discovery = roles.has("discovery");
+  const selected = PROC_SPECS.map((s) => s.name).filter((name) => roles.has(name));
+  return { roles: selected, discovery };
+};
+
 const startChild = (spec) => {
   const child = spawn(spec.cmd, spec.args, {
     stdio: "inherit",
@@ -50,12 +72,16 @@ const shutdown = async () => {
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
-for (const spec of PROC_SPECS) startChild(spec);
+const selection = parseWorkerRoles();
+for (const spec of PROC_SPECS) {
+  if (selection.roles.includes(spec.name)) startChild(spec);
+}
 
-// Kickoff immediately, then on interval.
-runDiscoveryOnce()
-  .catch(() => {})
-  .finally(() => {
-    setInterval(() => { void runDiscoveryOnce(); }, DISCOVERY_INTERVAL_MS).unref();
-  });
-
+if (selection.discovery) {
+  // Kickoff immediately, then on interval.
+  runDiscoveryOnce()
+    .catch(() => {})
+    .finally(() => {
+      setInterval(() => { void runDiscoveryOnce(); }, DISCOVERY_INTERVAL_MS).unref();
+    });
+}
