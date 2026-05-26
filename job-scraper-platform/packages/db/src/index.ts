@@ -7,6 +7,11 @@ const jobs = db.collection("jobs");
 const failedJobs = db.collection("failed_jobs");
 let initialized = false;
 
+const isIndexOptionsConflict = (e: unknown): boolean => {
+  const anyErr = e as { code?: number; codeName?: string } | null;
+  return anyErr?.code === 85 || anyErr?.codeName === "IndexOptionsConflict";
+};
+
 const ensureIndexes = async (): Promise<void> => {
   if (initialized) return;
   // Some historical/invalid rows may have `hash: null`. A partial unique index
@@ -22,7 +27,12 @@ const ensureIndexes = async (): Promise<void> => {
   await jobs.createIndex({ is_active: 1, last_seen: -1 });
   await jobs.createIndex({ company: 1, title: 1 });
   await jobs.createIndex({ remote: 1, posted_at: -1 });
-  await jobs.createIndex({ title: "text", description: "text" });
+  // Keep text index compatible with existing deployments (company may already be included).
+  try {
+    await jobs.createIndex({ title: "text", company: "text", description: "text" });
+  } catch (e) {
+    if (!isIndexOptionsConflict(e)) throw e;
+  }
   await failedJobs.createIndex({ failed_at: -1 });
   initialized = true;
 };
