@@ -5,6 +5,7 @@
     "moduleResolution": "node16",
     "strict": true,
     "esModuleInterop": true,
+    "disableSourceOfProjectReferenceRedirect": true,
     "skipLibCheck": true,
     "paths": {
       "@platform/core": ["./packages/core/dist/index.d.ts"],
