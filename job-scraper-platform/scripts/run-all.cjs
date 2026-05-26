@@ -22,6 +22,15 @@ const parseWorkerRoles = () => {
   const raw = String(process.env.WORKER_ROLES || "").trim();
   if (!raw) return { roles: PROC_SPECS.map((s) => s.name), discovery: true };
 
+  if (raw.toLowerCase().startsWith("cycle:")) {
+    const list = raw.slice("cycle:".length);
+    const roles = list
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
+    return { cycle: true, roles, discovery: false };
+  }
+
   const roles = new Set(
     raw
       .split(",")
@@ -52,6 +61,14 @@ const startChild = (spec) => {
   });
 };
 
+const stopChild = (name) => {
+  const child = children.get(name);
+  if (!child) return;
+  try { child.kill("SIGTERM"); } catch {}
+};
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 const runDiscoveryOnce = () =>
   new Promise((resolve) => {
     const child = spawn(DISCOVERY_CMD.cmd, DISCOVERY_CMD.args, { stdio: "inherit", env: process.env });
@@ -73,8 +90,42 @@ process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
 const selection = parseWorkerRoles();
-for (const spec of PROC_SPECS) {
-  if (selection.roles.includes(spec.name)) startChild(spec);
+
+const SPEC_BY_NAME = new Map(PROC_SPECS.map((s) => [s.name, s]));
+
+if (selection.cycle) {
+  const minutes = Number(process.env.WORKER_CYCLE_MINUTES || 10);
+  const phaseMs = Math.max(1, minutes) * 60_000;
+
+  const cycleRoles = selection.roles
+    .map((name) => name.trim())
+    .filter((name) => SPEC_BY_NAME.has(name));
+
+  if (cycleRoles.length === 0) {
+    console.error("[run-all] WORKER_ROLES cycle has no valid roles; exiting.");
+    process.exit(1);
+  }
+
+  (async () => {
+    // Never run multiple roles at the same time (keeps memory low).
+    while (!stopping) {
+      for (const roleName of cycleRoles) {
+        if (stopping) break;
+        const spec = SPEC_BY_NAME.get(roleName);
+        console.error(`[run-all] cycle starting ${roleName} for ${minutes}m...`);
+        startChild(spec);
+        await sleep(phaseMs);
+        console.error(`[run-all] cycle stopping ${roleName}...`);
+        stopChild(roleName);
+        // Give Node a moment to exit and release resources.
+        await sleep(2000);
+      }
+    }
+  })().catch(() => process.exit(1));
+} else {
+  for (const spec of PROC_SPECS) {
+    if (selection.roles.includes(spec.name)) startChild(spec);
+  }
 }
 
 if (selection.discovery) {
