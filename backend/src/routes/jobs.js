@@ -28,12 +28,20 @@ router.get('/:id/applications', protect, getJobApplicationsForManagement);
 router.get('/:id/applicants', protect, getJobApplicants);
 router.patch('/:id/applications/:applicationId/status', protect, updateJobApplicationStatus);
 router.post('/sync-now', protect, staffOnly, async (req, res) => {
-  const result = await syncJobs();
-  res.json({
-    success: result?.success !== false,
-    message: `Job sync completed. Synced ${result?.synced || 0} jobs.`,
-    ...result,
-  });
+  try {
+    const result = await syncJobs();
+    res.json({
+      success: result?.success !== false,
+      message: `Job sync completed. Synced ${result?.synced || 0} jobs.`,
+      ...result,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Job sync failed',
+      error: error?.message || String(error),
+    });
+  }
 });
 router.get('/:id', protect, getJob);
 router.post('/:id/apply', protect, requireActivation, applyToJob);

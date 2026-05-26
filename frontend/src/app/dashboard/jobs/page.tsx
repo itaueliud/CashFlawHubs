@@ -103,7 +103,8 @@ export default function JobsPage() {
   const onSyncJobs = async () => {
     setSyncingJobs(true);
     try {
-      const response = await api.post('/jobs/sync-now');
+      // Job sync can take longer than typical API calls (multiple providers + DB writes).
+      const response = await api.post('/jobs/sync-now', {}, { timeout: 120000 });
       const adzuna = response.data?.providers?.adzuna;
       const adzunaText = adzuna ? ` Adzuna: ${adzuna.status}${typeof adzuna.synced === 'number' ? ` (${adzuna.synced})` : ''}.` : '';
       toast.success(`${response.data?.message || 'Job sync completed'}${adzunaText}`);
