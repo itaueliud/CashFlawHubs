@@ -1108,9 +1108,15 @@ exports.syncJobs = async () => {
         const careerjetKeywords = process.env.CAREERJET_KEYWORDS || 'remote software engineer';
         const careerjetLocation = process.env.CAREERJET_LOCATION || '';
         const careerjetMaxPages = Math.min(Math.max(Number(process.env.CAREERJET_MAX_PAGES || 3), 1), 15);
-        const careerjetPageSize = Math.min(Math.max(Number(process.env.CAREERJET_PAGE_SIZE || 20), 1), 50);
+        const careerjetPageSize = Math.min(Math.max(Number(process.env.CAREERJET_PAGE_SIZE || 20), 1), 100);
+        const careerjetUserIp = String(process.env.CAREERJET_USER_IP || '').trim();
+        const careerjetUserAgent = String(process.env.CAREERJET_USER_AGENT || 'CashFlowHubsBot/1.0').trim();
         const auth = Buffer.from(`${process.env.CAREERJET_API_KEY}:`).toString('base64');
         let seen = 0;
+
+        if (!careerjetUserIp) {
+          throw new Error('CAREERJET_USER_IP is required by Careerjet API');
+        }
 
         for (let page = 1; page <= careerjetMaxPages && seen < remoteLimit; page++) {
           const careerjetRes = await axios.get(careerjetApiUrl, {
@@ -1123,7 +1129,11 @@ exports.syncJobs = async () => {
               keywords: careerjetKeywords,
               location: careerjetLocation,
               page,
-              pagesize: careerjetPageSize,
+              page_size: careerjetPageSize,
+              user_ip: careerjetUserIp,
+              user_agent: careerjetUserAgent,
+              sort: 'date',
+              fragment_size: 400,
             },
           });
 

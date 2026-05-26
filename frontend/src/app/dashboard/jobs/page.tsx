@@ -107,7 +107,11 @@ export default function JobsPage() {
       const response = await api.post('/jobs/sync-now', {}, { timeout: 120000 });
       const adzuna = response.data?.providers?.adzuna;
       const adzunaText = adzuna ? ` Adzuna: ${adzuna.status}${typeof adzuna.synced === 'number' ? ` (${adzuna.synced})` : ''}.` : '';
-      toast.success(`${response.data?.message || 'Job sync completed'}${adzunaText}`);
+      const jsearch = response.data?.providers?.jsearch;
+      const jsearchText = jsearch ? ` JSearch: ${jsearch.status}${typeof jsearch.synced === 'number' ? ` (${jsearch.synced})` : ''}.` : '';
+      const careerjet = response.data?.providers?.careerjet;
+      const careerjetText = careerjet ? ` Careerjet: ${careerjet.status}${typeof careerjet.synced === 'number' ? ` (${careerjet.synced})` : ''}.` : '';
+      toast.success(`${response.data?.message || 'Job sync completed'}${adzunaText}${jsearchText}${careerjetText}`);
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['job-cats'] });
     } catch (error: any) {
