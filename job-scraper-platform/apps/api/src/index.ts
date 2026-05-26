@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import { config, logger, metrics, startTelemetry } from "@platform/core";
 import { searchActiveJobs } from "@platform/db";
 import { queues } from "@platform/queue";
+import { discoverCareerUrlsForDomain } from "@platform/scrapers";
 
 startTelemetry();
 const app = Fastify({ logger: false });
@@ -32,9 +33,68 @@ app.get("/jobs", async (req) => {
   return searchActiveJobs(q);
 });
 
-app.post("/trigger/discovery", async () => {
-  await queues.discovery.add("kickoff", { triggeredAt: Date.now() });
-  return { ok: true };
+const staticSeeds = [
+  { source: "greenhouse", url: "https://boards.greenhouse.io/embed/job_board?for=airbyte", companyHint: "Airbyte" },
+  { source: "lever", url: "https://jobs.lever.co/segment", companyHint: "Segment" },
+  { source: "ashby", url: "https://jobs.ashbyhq.com/notion", companyHint: "Notion" },
+] as const;
+
+const requireApiKey = (req: { headers: Record<string, unknown> }): void => {
+  const key = (req.headers["x-api-key"] as string | undefined) ?? "";
+  if (!key || key !== config.websiteApiKey) {
+    const err = new Error("unauthorized");
+    (err as any).statusCode = 401;
+    throw err;
+  }
+};
+
+const mapWithConcurrency = async <T, R>(items: T[], concurrency: number, fn: (item: T) => Promise<R>): Promise<R[]> => {
+  const limit = Math.max(1, Math.floor(concurrency));
+  const out: R[] = new Array(items.length);
+  let idx = 0;
+
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const i = idx++;
+      if (i >= items.length) return;
+      out[i] = await fn(items[i]);
+    }
+  });
+
+  await Promise.all(runners);
+  return out;
+};
+
+app.post("/trigger/discovery", async (req) => {
+  requireApiKey(req);
+
+  let count = 0;
+
+  for (const seed of staticSeeds) {
+    await queues.scrape.add("scrape-url", seed, { jobId: `${seed.source}:${seed.url}` });
+    metrics.discoveryUrls.inc({ adapter: seed.source });
+    count += 1;
+  }
+
+  const domains = config.discoverySeedDomains;
+  const results = await mapWithConcurrency(domains, config.discoveryConcurrency, async (domain) => {
+    try {
+      return { ok: true as const, items: await discoverCareerUrlsForDomain(domain) };
+    } catch (err) {
+      logger.warn({ err, domain }, "domain discovery failed");
+      return { ok: false as const, items: [] as any[] };
+    }
+  });
+
+  for (const r of results) {
+    for (const item of r.items) {
+      await queues.scrape.add("scrape-url", item, { jobId: `${item.source}:${item.url}` });
+      metrics.discoveryUrls.inc({ adapter: item.source });
+      count += 1;
+    }
+  }
+
+  return { ok: true, queued: count };
 });
 
 app.listen({ port: config.apiPort, host: "0.0.0.0" })
