@@ -2,8 +2,9 @@ import { config, logger, metrics, startTelemetry } from "@platform/core";
 import { storeFailedJob, upsertJob } from "@platform/db";
 import { queues, Worker } from "@platform/queue";
 import { scrapeUrl } from "@platform/scrapers";
+import type { Job } from "bullmq";
 
-const worker = new Worker("scrape", async (job) => {
+const worker = new Worker("scrape", async (job: Job) => {
   const payload = job.data as { source: string; url: string; companyHint?: string };
   try {
     const jobs = await scrapeUrl(payload);
@@ -24,7 +25,7 @@ const worker = new Worker("scrape", async (job) => {
   limiter: { max: config.scraperGlobalRps, duration: 1000 },
 });
 
-worker.on("failed", async (job, err) => {
+worker.on("failed", async (job: Job | undefined, err: Error) => {
   logger.error({ jobId: job?.id, err }, "scrape job failed");
   if ((job?.attemptsMade ?? 0) >= config.scraperRetryAttempts) {
     await queues.dlq.add("scrape-dlq", { original: job?.data, error: err.message });

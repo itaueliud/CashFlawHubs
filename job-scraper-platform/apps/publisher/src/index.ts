@@ -1,8 +1,9 @@
 import { config, logger, metrics, startTelemetry } from "@platform/core";
 import { getJobById, markExpiredJobs } from "@platform/db";
 import { queues, Worker } from "@platform/queue";
+import type { Job } from "bullmq";
 
-const worker = new Worker("publish", async (job) => {
+const worker = new Worker("publish", async (job: Job) => {
   const { dbId } = job.data as { dbId: string };
   const row = await getJobById(dbId);
   if (!row) return;
@@ -32,7 +33,7 @@ setInterval(async () => {
   }
 }, 60_000);
 
-worker.on("failed", (job, err) => logger.error({ jobId: job?.id, err }, "publish failed"));
+worker.on("failed", (job: Job | undefined, err: Error) => logger.error({ jobId: job?.id, err }, "publish failed"));
 startTelemetry();
 logger.info("publisher worker started");
 
