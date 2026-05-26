@@ -7,7 +7,9 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "tsc -b",
+    "build": "npm run build:packages && npm run build:apps",
+    "build:packages": "npm --workspace packages/core run build && npm --workspace packages/queue run build && npm --workspace packages/scrapers run build && npm --workspace packages/db run build && npm --workspace packages/enrichment run build",
+    "build:apps": "npm --workspace apps/api run build && npm --workspace apps/discovery run build && npm --workspace apps/scraper-worker run build && npm --workspace apps/enrichment-worker run build && npm --workspace apps/publisher run build",
     "dev": "npm run -ws dev",
     "start": "npm run -ws start",
     "start:all": "node scripts/run-all.cjs",
