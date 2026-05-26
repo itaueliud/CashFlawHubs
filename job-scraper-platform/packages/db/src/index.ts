@@ -14,6 +14,13 @@ const isIndexOptionsConflict = (e: unknown): boolean => {
 
 const ensureIndexes = async (): Promise<void> => {
   if (initialized) return;
+
+  const existing = await jobs.indexes().catch(() => [] as any[]);
+  const hasTextIndex = existing.some((idx) => {
+    const key = (idx as any)?.key;
+    return key && typeof key === "object" && ("_fts" in key || "_ftsx" in key);
+  });
+
   // Some historical/invalid rows may have `hash: null`. A partial unique index
   // avoids startup crashes while still enforcing uniqueness for real hashes.
   await jobs.createIndex(
@@ -27,11 +34,13 @@ const ensureIndexes = async (): Promise<void> => {
   await jobs.createIndex({ is_active: 1, last_seen: -1 });
   await jobs.createIndex({ company: 1, title: 1 });
   await jobs.createIndex({ remote: 1, posted_at: -1 });
-  // Keep text index compatible with existing deployments (company may already be included).
-  try {
-    await jobs.createIndex({ title: "text", company: "text", description: "text" });
-  } catch (e) {
-    if (!isIndexOptionsConflict(e)) throw e;
+  // Don't crash if a different text index already exists (common when iterating on schema).
+  if (!hasTextIndex) {
+    try {
+      await jobs.createIndex({ title: "text", company: "text", description: "text" }, { name: "jobs_text_search" });
+    } catch (e) {
+      if (!isIndexOptionsConflict(e)) throw e;
+    }
   }
   await failedJobs.createIndex({ failed_at: -1 });
   initialized = true;
