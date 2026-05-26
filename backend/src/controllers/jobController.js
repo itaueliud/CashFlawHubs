@@ -107,6 +107,154 @@ const fetchWWRJobs = async () => {
   return normalizedJobs;
 };
 
+const THEMUSE_BASE_URL = 'https://www.themuse.com';
+const THEMUSE_JOB_CATEGORIES = [
+  'software_engineering',
+  'computer_it',
+  'data_analytics',
+  'design_ux',
+  'business_operations',
+  'customer_service',
+  'project_management',
+  'sales',
+  'advertising_marketing',
+  'human_resources_recruitment',
+];
+const THEMUSE_CATEGORY_MAP = {
+  account_management: 'Sales',
+  accounting_finance: 'Finance',
+  administration_office: 'Operations',
+  advertising_marketing: 'Marketing',
+  arts: 'Other',
+  business_operations: 'Operations',
+  computer_it: 'Software Development',
+  customer_service: 'Customer Support',
+  data_analytics: 'Data Science',
+  design_ux: 'Design',
+  education: 'Other',
+  healthcare: 'Other',
+  human_resources_recruitment: 'Human Resources',
+  management: 'Operations',
+  media_pr_communications: 'Marketing',
+  product_management: 'Project Management',
+  project_management: 'Project Management',
+  sales: 'Sales',
+  software_engineering: 'Software Development',
+  writing_editing: 'Writing',
+};
+
+const extractTheMuseJobLinks = (html) => {
+  const urls = new Set();
+  const regex = /href=["']([^"']*\/jobs\/[^"']+)["']/gi;
+
+  for (const match of html.matchAll(regex)) {
+    const href = String(match[1] || '').trim();
+    if (!href) continue;
+
+    const normalizedUrl = href.startsWith('http')
+      ? href
+      : `${THEMUSE_BASE_URL}${href.startsWith('/') ? href : `/${href}`}`;
+
+    urls.add(normalizedUrl.replace(/\/+$/, ''));
+  }
+
+  return [...urls];
+};
+
+const parseTheMuseJobPosting = (html) => {
+  const match = html.match(/<script[^>]*id=["']job-posting-jsonld["'][^>]*>([\s\S]*?)<\/script>/i);
+  if (!match) return null;
+
+  try {
+    return JSON.parse(match[1]);
+  } catch (error) {
+    try {
+      const normalized = match[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+      return JSON.parse(normalized);
+    } catch (retryError) {
+      logger.warn(`Failed to parse The Muse job posting JSON-LD: ${retryError.message}`);
+      return null;
+    }
+  }
+};
+
+const normalizeTheMuseCategory = (slug) => THEMUSE_CATEGORY_MAP[String(slug || '').trim()] || 'Other';
+
+const isTheMuseRemoteJob = (jobData) => {
+  if (!jobData) return false;
+  if (jobData.jobLocationType === 'TELECOMMUTE') return true;
+
+  const locationText = `${jobData.jobLocationType || ''} ${jobData.jobLocation || ''} ${jobData.description || ''}`.toLowerCase();
+  return /(remote|telecommute|work from home|flexible)/.test(locationText);
+};
+
+const fetchTheMuseJobs = async (remoteLimit = 500) => {
+  const discoveredUrls = new Set();
+  const categoryPageUrls = [];
+
+  for (const categorySlug of THEMUSE_JOB_CATEGORIES) {
+    for (let page = 1; page <= 2; page++) {
+      const url = page === 1
+        ? `${THEMUSE_BASE_URL}/search/category/${categorySlug}/`
+        : `${THEMUSE_BASE_URL}/search/category/${categorySlug}/?page=${page}`;
+      categoryPageUrls.push({ categorySlug, url });
+    }
+  }
+
+  for (const { categorySlug, url } of categoryPageUrls) {
+    try {
+      const pageRes = await axios.get(url, { timeout: 10000, headers: { 'User-Agent': 'Mozilla/5.0' } });
+      const links = extractTheMuseJobLinks(String(pageRes.data || ''));
+      for (const jobUrl of links) {
+        discoveredUrls.add(jobUrl);
+      }
+    } catch (error) {
+      logger.warn(`The Muse category page sync failed for ${categorySlug}: ${error.message}`);
+    }
+  }
+
+  const jobs = [];
+  for (const jobUrl of [...discoveredUrls]) {
+    if (jobs.length >= remoteLimit) break;
+
+    try {
+      const detailRes = await axios.get(jobUrl, { timeout: 10000, headers: { 'User-Agent': 'Mozilla/5.0' } });
+      const jobData = parseTheMuseJobPosting(String(detailRes.data || ''));
+
+      if (!jobData || !isTheMuseRemoteJob(jobData)) continue;
+
+      const title = String(jobData.title || '').trim();
+      const company = String(jobData.hiringOrganization?.name || '').trim();
+      const applicationUrl = String(jobData.url || jobUrl).trim();
+      const description = stripHtml(jobData.description || '').slice(0, 4000);
+
+      if (!title || !company || !description) continue;
+
+      const externalId = `themuse-${String(jobData.identifier?.value || jobUrl).replace(/^https?:\/\//i, '').replace(/\/+$/, '').replace(/[^a-z0-9]+/gi, '-')}`;
+      jobs.push({
+        externalId,
+        source: 'themuse',
+        title,
+        company,
+        companyLogo: jobData.hiringOrganization?.logo || null,
+        category: normalizeTheMuseCategory(jobData.category || jobData.categorySlug || 'software_engineering'),
+        jobType: normalizeJobType(Array.isArray(jobData.employmentType) ? jobData.employmentType[0] : jobData.employmentType, 'full-time'),
+        location: 'Remote',
+        salary: null,
+        description,
+        tags: ['themuse', normalizeTheMuseCategory(jobData.category || jobData.categorySlug || 'software_engineering').toLowerCase()],
+        applicationUrl,
+        publishedAt: jobData.datePosted ? new Date(jobData.datePosted) : new Date(),
+        isActive: true,
+      });
+    } catch (error) {
+      logger.warn(`The Muse detail sync failed for ${jobUrl}: ${error.message}`);
+    }
+  }
+
+  return jobs;
+};
+
 const formatScrapedSalary = (job) => {
   const min = Number(job.salary_min ?? job.salaryMin) || null;
   const max = Number(job.salary_max ?? job.salaryMax) || null;
@@ -154,6 +302,46 @@ const inferArbeitnowCategory = (job = {}) => {
   if (/(marketing|content|seo|growth|social|copy|brand)/.test(text)) return 'Marketing';
   if (/(support|customer|helpdesk|sales|account|business development)/.test(text)) return 'Customer Support';
   return 'Other';
+};
+
+const inferJSearchCategory = (job = {}) => {
+  const text = `${job.job_title || ''} ${job.job_description || ''} ${job.job_employment_type || ''} ${job.job_job_title || ''}`.toLowerCase();
+  if (/(react|node|python|javascript|typescript|java|go|php|developer|engineer|software|frontend|backend)/.test(text)) return 'Software Development';
+  if (/(devops|cloud|aws|azure|gcp|kubernetes|sre)/.test(text)) return 'DevOps & Cloud';
+  if (/(data scientist|machine learning|analytics|data engineer|ai|ml)/.test(text)) return 'Data Science';
+  if (/(designer|ui|ux|figma|product design)/.test(text)) return 'Design';
+  if (/(marketing|seo|content|growth)/.test(text)) return 'Marketing';
+  if (/(support|customer success|helpdesk)/.test(text)) return 'Customer Support';
+  if (/(sales|account executive|business development)/.test(text)) return 'Sales';
+  return 'Other';
+};
+
+const inferCareerjetCategory = (job = {}) => {
+  const text = `${job.title || ''} ${job.description || ''}`.toLowerCase();
+  if (/(react|node|python|javascript|typescript|java|go|php|developer|engineer|software|frontend|backend)/.test(text)) return 'Software Development';
+  if (/(devops|cloud|aws|azure|gcp|kubernetes|sre)/.test(text)) return 'DevOps & Cloud';
+  if (/(data scientist|machine learning|analytics|data engineer|ai|ml)/.test(text)) return 'Data Science';
+  if (/(designer|ui|ux|figma|product design)/.test(text)) return 'Design';
+  if (/(marketing|seo|content|growth)/.test(text)) return 'Marketing';
+  if (/(support|customer success|helpdesk)/.test(text)) return 'Customer Support';
+  if (/(sales|account executive|business development)/.test(text)) return 'Sales';
+  return 'Other';
+};
+
+const formatJSearchSalary = (job = {}) => {
+  const min = Number(job.job_min_salary) || null;
+  const max = Number(job.job_max_salary) || null;
+  const currency = String(job.job_salary_currency || '').trim();
+  const period = String(job.job_salary_period || '').trim();
+  const suffix = period ? `/${period}` : '';
+
+  if (min && max) return `${currency ? `${currency} ` : ''}${Math.round(min)} - ${Math.round(max)}${suffix}`.trim();
+  if (min) return `${currency ? `${currency} ` : ''}${Math.round(min)}+${suffix}`.trim();
+  if (max) return `Up to ${currency ? `${currency} ` : ''}${Math.round(max)}${suffix}`.trim();
+
+  const raw = job.job_salary;
+  if (typeof raw === 'string' && raw.trim()) return raw.trim().slice(0, 120);
+  return null;
 };
 
 const inferScrapedCategory = (job) => {
@@ -211,14 +399,17 @@ exports.getJobs = async (req, res) => {
                 $switch: {
                   branches: [
                     { case: { $eq: ['$source', 'scraper'] }, then: 6 },
-                    { case: { $eq: ['$source', 'weworkremotely'] }, then: 5 },
-                    { case: { $eq: ['$source', 'remoteok'] }, then: 4 },
-                    { case: { $eq: ['$source', 'remotive'] }, then: 3 },
-                    { case: { $eq: ['$source', 'jobicy'] }, then: 2 },
-                    { case: { $eq: ['$source', 'jooble'] }, then: 1 },
-                    { case: { $eq: ['$source', 'adzuna'] }, then: 0 },
+                    { case: { $eq: ['$source', 'themuse'] }, then: 5 },
+                    { case: { $eq: ['$source', 'weworkremotely'] }, then: 4 },
+                    { case: { $eq: ['$source', 'jsearch'] }, then: 3 },
+                    { case: { $eq: ['$source', 'careerjet'] }, then: 2 },
+                    { case: { $eq: ['$source', 'remoteok'] }, then: 1 },
+                    { case: { $eq: ['$source', 'remotive'] }, then: 0 },
+                    { case: { $eq: ['$source', 'jobicy'] }, then: -1 },
+                    { case: { $eq: ['$source', 'jooble'] }, then: 0 },
+                    { case: { $eq: ['$source', 'adzuna'] }, then: -2 },
                   ],
-                  default: -1,
+                  default: -3,
                 },
               },
             },
@@ -550,16 +741,19 @@ exports.expireScrapedJobs = async (req, res) => {
 exports.syncJobs = async () => {
   logger.info('Syncing remote jobs...');
   let synced = 0;
+  const remoteLimit = Math.min(Math.max(Number(process.env.REMOTE_JOB_SYNC_LIMIT || 500), 10), 5000);
   const providerStats = {
     remotive: { synced: 0, status: 'pending' },
     jobicy: { synced: 0, status: 'pending' },
     remoteok: { synced: 0, status: 'pending' },
     arbeitnow: { synced: 0, status: 'pending' },
     weworkremotely: { synced: 0, status: 'pending' },
-    jooble: { synced: 0, status: process.env.JOOBLE_API_KEY ? 'pending' : 'not_configured' },
-    adzuna: { synced: 0, status: (process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY) ? 'pending' : 'not_configured' },
+    themuse: { synced: 0, status: 'pending' },
+    jsearch: { synced: 0, status: 'pending' },
+    careerjet: { synced: 0, status: 'pending' },
+    jooble: { synced: 0, status: 'pending' },
+    adzuna: { synced: 0, status: 'pending' },
   };
-  const remoteLimit = Math.min(Math.max(Number(process.env.JOBS_SYNC_LIMIT || 5000), 100), 20000);
 
   try {
     // Remotive
@@ -791,6 +985,208 @@ exports.syncJobs = async () => {
       logger.warn(`WWR sync skipped: ${wwrError.message}`);
     }
 
+    // The Muse
+    try {
+      const museJobs = await fetchTheMuseJobs(remoteLimit);
+      for (const job of museJobs) {
+        await Job.findOneAndUpdate(
+          { externalId: job.externalId },
+          {
+            externalId: job.externalId,
+            source: job.source,
+            title: job.title,
+            company: job.company,
+            companyLogo: job.companyLogo,
+            category: job.category,
+            jobType: job.jobType,
+            location: job.location,
+            salary: job.salary,
+            description: job.description,
+            tags: job.tags,
+            applicationUrl: job.applicationUrl,
+            publishedAt: job.publishedAt,
+            isActive: true,
+          },
+          { upsert: true, new: true }
+        );
+        synced++;
+        providerStats.themuse.synced++;
+      }
+      providerStats.themuse.status = 'ok';
+    } catch (themuseError) {
+      providerStats.themuse.status = 'failed';
+      providerStats.themuse.error = themuseError.message;
+      logger.warn(`The Muse sync skipped: ${themuseError.message}`);
+    }
+
+    // JSearch via RapidAPI (optional, enabled when RAPIDAPI_KEY is configured)
+    if (process.env.RAPIDAPI_KEY) {
+      try {
+        const jsearchApiUrl = process.env.JSEARCH_API_URL || 'https://jsearch.p.rapidapi.com/search';
+        const jsearchQuery = process.env.JSEARCH_QUERY || 'remote software engineer';
+        const jsearchMaxPages = Math.min(Math.max(Number(process.env.JSEARCH_MAX_PAGES || 3), 1), 10);
+        const jsearchPageSize = Math.min(Math.max(Number(process.env.JSEARCH_PAGE_SIZE || 20), 1), 50);
+        let seen = 0;
+
+        for (let page = 1; page <= jsearchMaxPages && seen < remoteLimit; page++) {
+          const jsearchRes = await axios.get(jsearchApiUrl, {
+            timeout: 12000,
+            headers: {
+              'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
+              'X-RapidAPI-Host': process.env.JSEARCH_API_HOST || 'jsearch.p.rapidapi.com',
+            },
+            params: {
+              query: jsearchQuery,
+              page: String(page),
+              num_pages: '1',
+              remote_jobs_only: 'true',
+              date_posted: process.env.JSEARCH_DATE_POSTED || 'all',
+            },
+          });
+
+          const jobs = Array.isArray(jsearchRes.data?.data) ? jsearchRes.data.data : [];
+          if (jobs.length === 0) break;
+
+          const ops = [];
+          for (const job of jobs.slice(0, jsearchPageSize)) {
+            if (seen >= remoteLimit) break;
+
+            const applicationUrl = String(job.job_apply_link || job.job_google_link || '').trim();
+            const externalIdRaw = String(job.job_id || job.job_offer_expiration_datetime_utc || applicationUrl).trim();
+            if (!applicationUrl || !externalIdRaw) continue;
+
+            ops.push({
+              updateOne: {
+                filter: { externalId: `jsearch-${externalIdRaw}` },
+                update: {
+                  $set: {
+                    externalId: `jsearch-${externalIdRaw}`,
+                    source: 'jsearch',
+                    title: String(job.job_title || 'Remote role').trim(),
+                    company: String(job.employer_name || 'Unknown company').trim(),
+                    companyLogo: job.employer_logo || null,
+                    category: inferJSearchCategory(job),
+                    categoryOther: null,
+                    jobType: normalizeJobType(job.job_employment_type, 'full-time'),
+                    location: 'Remote',
+                    salary: formatJSearchSalary(job),
+                    description: stripHtml(job.job_description || '').slice(0, 4000),
+                    tags: ['jsearch', ...(Array.isArray(job.job_required_skills) ? job.job_required_skills.slice(0, 10).map((s) => String(s).trim()).filter(Boolean) : [])],
+                    applicationUrl,
+                    publishedAt: job.job_posted_at_datetime_utc ? new Date(job.job_posted_at_datetime_utc) : new Date(),
+                    isActive: true,
+                  },
+                },
+                upsert: true,
+              },
+            });
+            seen += 1;
+          }
+
+          if (ops.length > 0) {
+            await Job.bulkWrite(ops, { ordered: false });
+            synced += ops.length;
+            providerStats.jsearch.synced += ops.length;
+          }
+        }
+        providerStats.jsearch.status = 'ok';
+      } catch (jsearchError) {
+        providerStats.jsearch.status = 'failed';
+        providerStats.jsearch.error = jsearchError.message;
+        logger.warn(`JSearch sync skipped: ${jsearchError.message}`);
+      }
+    } else {
+      providerStats.jsearch.status = 'skipped';
+      logger.info('JSearch sync skipped: RAPIDAPI_KEY not configured');
+    }
+
+    // Careerjet (optional, enabled when CAREERJET_API_KEY is configured)
+    if (process.env.CAREERJET_API_KEY) {
+      try {
+        const careerjetApiUrl = process.env.CAREERJET_API_URL || 'https://search.api.careerjet.net/v4/query';
+        const careerjetLocale = process.env.CAREERJET_LOCALE_CODE || 'en_US';
+        const careerjetKeywords = process.env.CAREERJET_KEYWORDS || 'remote software engineer';
+        const careerjetLocation = process.env.CAREERJET_LOCATION || '';
+        const careerjetMaxPages = Math.min(Math.max(Number(process.env.CAREERJET_MAX_PAGES || 3), 1), 15);
+        const careerjetPageSize = Math.min(Math.max(Number(process.env.CAREERJET_PAGE_SIZE || 20), 1), 50);
+        const auth = Buffer.from(`${process.env.CAREERJET_API_KEY}:`).toString('base64');
+        let seen = 0;
+
+        for (let page = 1; page <= careerjetMaxPages && seen < remoteLimit; page++) {
+          const careerjetRes = await axios.get(careerjetApiUrl, {
+            timeout: 12000,
+            headers: {
+              Authorization: `Basic ${auth}`,
+            },
+            params: {
+              locale_code: careerjetLocale,
+              keywords: careerjetKeywords,
+              location: careerjetLocation,
+              page,
+              pagesize: careerjetPageSize,
+            },
+          });
+
+          const jobs = Array.isArray(careerjetRes.data?.jobs) ? careerjetRes.data.jobs : [];
+          if (jobs.length === 0) break;
+
+          const ops = [];
+          for (const job of jobs) {
+            if (seen >= remoteLimit) break;
+
+            const remoteText = `${job.locations || ''} ${job.title || ''} ${job.description || ''}`.toLowerCase();
+            const isRemote = /\bremote\b|work from home|telecommute/.test(remoteText);
+            if (!isRemote) continue;
+
+            const applicationUrl = String(job.url || '').trim();
+            const externalIdRaw = String(job.id || `${job.url || ''}-${job.title || ''}-${job.company || ''}`).trim();
+            if (!applicationUrl || !externalIdRaw) continue;
+
+            ops.push({
+              updateOne: {
+                filter: { externalId: `careerjet-${externalIdRaw}` },
+                update: {
+                  $set: {
+                    externalId: `careerjet-${externalIdRaw}`,
+                    source: 'careerjet',
+                    title: String(job.title || 'Remote role').trim(),
+                    company: String(job.company || 'Unknown company').trim(),
+                    companyLogo: null,
+                    category: inferCareerjetCategory(job),
+                    categoryOther: null,
+                    jobType: normalizeJobType(job.contract_type || 'full-time', 'full-time'),
+                    location: 'Remote',
+                    salary: null,
+                    description: stripHtml(job.description || '').slice(0, 4000),
+                    tags: ['careerjet', careerjetLocale],
+                    applicationUrl,
+                    publishedAt: job.date ? new Date(job.date) : new Date(),
+                    isActive: true,
+                  },
+                },
+                upsert: true,
+              },
+            });
+            seen += 1;
+          }
+
+          if (ops.length > 0) {
+            await Job.bulkWrite(ops, { ordered: false });
+            synced += ops.length;
+            providerStats.careerjet.synced += ops.length;
+          }
+        }
+        providerStats.careerjet.status = 'ok';
+      } catch (careerjetError) {
+        providerStats.careerjet.status = 'failed';
+        providerStats.careerjet.error = careerjetError.message;
+        logger.warn(`Careerjet sync skipped: ${careerjetError.message}`);
+      }
+    } else {
+      providerStats.careerjet.status = 'skipped';
+      logger.info('Careerjet sync skipped: CAREERJET_API_KEY not configured');
+    }
+
     // Jooble (optional, enabled when JOOBLE_API_KEY is configured)
     if (process.env.JOOBLE_API_KEY) {
       try {
@@ -847,6 +1243,7 @@ exports.syncJobs = async () => {
         logger.warn(`Jooble sync skipped: ${joobleError.message}`);
       }
     } else {
+      providerStats.jooble.status = 'skipped';
       logger.info('Jooble sync skipped: JOOBLE_API_KEY not configured');
     }
 
@@ -916,6 +1313,7 @@ exports.syncJobs = async () => {
         logger.warn(`Adzuna sync skipped: ${adzunaError.message}`);
       }
     } else {
+      providerStats.adzuna.status = 'skipped';
       logger.info('Adzuna sync skipped: ADZUNA_APP_ID or ADZUNA_APP_KEY not configured');
     }
 

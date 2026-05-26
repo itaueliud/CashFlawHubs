@@ -29,6 +29,22 @@ const CATEGORY_PROVIDERS = {
         badge: 'Live API',
       },
       {
+        key: 'jsearch',
+        name: 'JSearch',
+        description: 'RapidAPI-powered global job aggregation with remote-only filters.',
+        integrationType: 'api',
+        access: 'internal_feed',
+        badge: 'Live API',
+      },
+      {
+        key: 'careerjet',
+        name: 'Careerjet',
+        description: 'Classic global aggregator API with broad international coverage.',
+        integrationType: 'api',
+        access: 'internal_feed',
+        badge: 'Live API',
+      },
+      {
         key: 'adzuna',
         name: 'Adzuna',
         description: 'Additional external jobs for expansion when API keys are added.',
