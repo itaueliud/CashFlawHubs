@@ -210,6 +210,7 @@ exports.getJobs = async (req, res) => {
               sourcePriority: {
                 $switch: {
                   branches: [
+                    { case: { $eq: ['$source', 'scraper'] }, then: 6 },
                     { case: { $eq: ['$source', 'weworkremotely'] }, then: 5 },
                     { case: { $eq: ['$source', 'remoteok'] }, then: 4 },
                     { case: { $eq: ['$source', 'remotive'] }, then: 3 },
@@ -238,6 +239,22 @@ exports.getJobs = async (req, res) => {
       { $sort: { count: -1 } },
     ]);
 
+    const isStaff = ['admin', 'superadmin', 'ledger'].includes(req.user?.role || '');
+    const scraperStats = isStaff
+      ? await Job.aggregate([
+          { $match: { source: 'scraper' } },
+          {
+            $group: {
+              _id: '$source',
+              total: { $sum: 1 },
+              active: { $sum: { $cond: ['$isActive', 1, 0] } },
+              latestPublishedAt: { $max: '$publishedAt' },
+              latestUpdatedAt: { $max: '$updatedAt' },
+            },
+          },
+        ])
+      : [];
+
     res.json({
       success: true,
       jobs,
@@ -245,6 +262,7 @@ exports.getJobs = async (req, res) => {
         acc[item._id || 'unknown'] = item.count;
         return acc;
       }, {}),
+      scraperStats: isStaff ? (scraperStats[0] || { total: 0, active: 0, latestPublishedAt: null, latestUpdatedAt: null }) : undefined,
       tokenPolicy: {
         applicationTiers: JOB_APPLICATION_TOKEN_TIERS,
         tokenPackages: TOKEN_PACKAGES,
