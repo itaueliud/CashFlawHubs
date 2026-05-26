@@ -14,6 +14,9 @@ const DISCOVERY_INTERVAL_MS = Number(process.env.DISCOVERY_INTERVAL_MS || 30 * 6
 
 const children = new Map();
 let stopping = false;
+let cycleMode = false;
+let currentCycleRole = null;
+const expectedExits = new Set();
 
 const parseWorkerRoles = () => {
   // Low-memory deploy tip:
@@ -56,6 +59,14 @@ const startChild = (spec) => {
   child.on("exit", (code, signal) => {
     children.delete(spec.name);
     if (stopping) return;
+    if (expectedExits.has(spec.name)) {
+      expectedExits.delete(spec.name);
+      return;
+    }
+    if (cycleMode && currentCycleRole && spec.name !== currentCycleRole) {
+      // In cycle mode we never want "background" restarts for roles that are not active.
+      return;
+    }
     console.error(`[run-all] ${spec.name} exited (code=${code}, signal=${signal}). Restarting in 2s...`);
     setTimeout(() => startChild(spec), 2000);
   });
@@ -64,6 +75,7 @@ const startChild = (spec) => {
 const stopChild = (name) => {
   const child = children.get(name);
   if (!child) return;
+  expectedExits.add(name);
   try { child.kill("SIGTERM"); } catch {}
 };
 
@@ -94,12 +106,11 @@ const selection = parseWorkerRoles();
 const SPEC_BY_NAME = new Map(PROC_SPECS.map((s) => [s.name, s]));
 
 if (selection.cycle) {
+  cycleMode = true;
   const minutes = Number(process.env.WORKER_CYCLE_MINUTES || 10);
   const phaseMs = Math.max(1, minutes) * 60_000;
 
-  const cycleRoles = selection.roles
-    .map((name) => name.trim())
-    .filter((name) => SPEC_BY_NAME.has(name));
+  const cycleRoles = selection.roles.map((name) => name.trim()).filter(Boolean);
 
   if (cycleRoles.length === 0) {
     console.error("[run-all] WORKER_ROLES cycle has no valid roles; exiting.");
@@ -111,12 +122,30 @@ if (selection.cycle) {
     while (!stopping) {
       for (const roleName of cycleRoles) {
         if (stopping) break;
+        currentCycleRole = roleName;
+
+        if (roleName === "discovery") {
+          console.error("[run-all] cycle running discovery once...");
+          await runDiscoveryOnce().catch(() => {});
+          currentCycleRole = null;
+          await sleep(2000);
+          continue;
+        }
+
         const spec = SPEC_BY_NAME.get(roleName);
+        if (!spec) {
+          console.error(`[run-all] cycle role '${roleName}' is unknown; skipping.`);
+          currentCycleRole = null;
+          await sleep(1000);
+          continue;
+        }
+
         console.error(`[run-all] cycle starting ${roleName} for ${minutes}m...`);
         startChild(spec);
         await sleep(phaseMs);
         console.error(`[run-all] cycle stopping ${roleName}...`);
         stopChild(roleName);
+        currentCycleRole = null;
         // Give Node a moment to exit and release resources.
         await sleep(2000);
       }
