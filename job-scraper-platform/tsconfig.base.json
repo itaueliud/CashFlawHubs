@@ -12,7 +12,7 @@
       "@platform/enrichment": ["./packages/enrichment/src/index.ts"],
       "@platform/scrapers": ["./packages/scrapers/src/index.ts"]
     },
-    "types": ["node"],
+    "types": ["node", "opossum"],
     "typeRoots": ["./types", "./node_modules/@types"]
   }
 }
