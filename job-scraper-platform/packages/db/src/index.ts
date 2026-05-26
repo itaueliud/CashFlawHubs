@@ -121,6 +121,16 @@ export const getJobById = async (dbId: string): Promise<Record<string, unknown> 
   return jobs.findOne({ _id: normalizeId(dbId) });
 };
 
+export const listJobsForPublish = async (limit = 25, hoursBack = 24): Promise<Record<string, unknown>[]> => {
+  await initPromise;
+  const cutoff = new Date(Date.now() - Math.max(1, hoursBack) * 60 * 60 * 1000);
+  return jobs
+    .find({ is_active: true, updated_at: { $gte: cutoff } })
+    .sort({ updated_at: -1 })
+    .limit(Math.min(Math.max(Number(limit) || 25, 1), 200))
+    .toArray();
+};
+
 export const searchActiveJobs = async (q: string): Promise<Record<string, unknown>[]> => {
   await initPromise;
   const query = q.trim()
