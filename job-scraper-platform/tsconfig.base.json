@@ -8,6 +8,13 @@
     "skipLibCheck": true,
     "outDir": "dist",
     "baseUrl": ".",
+    "paths": {
+      "@platform/core": ["packages/core/dist/index.d.ts"],
+      "@platform/db": ["packages/db/dist/index.d.ts"],
+      "@platform/enrichment": ["packages/enrichment/dist/index.d.ts"],
+      "@platform/queue": ["packages/queue/dist/index.d.ts"],
+      "@platform/scrapers": ["packages/scrapers/dist/index.d.ts"]
+    },
     "typeRoots": ["./types", "./node_modules/@types"],
     "ignoreDeprecations": "6.0"
   }
