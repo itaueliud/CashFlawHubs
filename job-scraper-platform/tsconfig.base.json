@@ -7,10 +7,11 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "paths": {
-      "@platform/core": ["./packages/core/src/index.ts"],
-      "@platform/db": ["./packages/db/src/index.ts"],
-      "@platform/enrichment": ["./packages/enrichment/src/index.ts"],
-      "@platform/scrapers": ["./packages/scrapers/src/index.ts"]
+      "@platform/core": ["./packages/core/dist/index.d.ts"],
+      "@platform/db": ["./packages/db/dist/index.d.ts"],
+      "@platform/enrichment": ["./packages/enrichment/dist/index.d.ts"],
+      "@platform/queue": ["./packages/queue/dist/index.d.ts"],
+      "@platform/scrapers": ["./packages/scrapers/dist/index.d.ts"]
     },
     "types": ["node", "opossum"],
     "typeRoots": ["./types", "./node_modules/@types"]

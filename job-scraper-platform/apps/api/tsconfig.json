@@ -10,7 +10,8 @@
   "references": [
     { "path": "../../packages/core" },
     { "path": "../../packages/db" },
-    { "path": "../../packages/queue" }
+    { "path": "../../packages/queue" },
+    { "path": "../../packages/scrapers" }
   ],
   "include": ["src/**/*"]
 }
