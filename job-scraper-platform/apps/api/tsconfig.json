@@ -3,7 +3,8 @@
   "compilerOptions": {
     "composite": true,
     "declaration": true,
-    "rootDir": "src"
+    "rootDir": "src",
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
   "references": [
     { "path": "../../packages/core" },
