@@ -13,7 +13,7 @@ npx playwright install chromium
 copy .env.example .env
 ```
 
-For local services, use managed/cloud Redis and Postgres, or install them on Windows:
+For local services, use managed/cloud Redis and MongoDB, or install them on Windows:
 
 ```powershell
 npm --workspace apps/api run dev
@@ -29,7 +29,7 @@ Each command can run in a separate PowerShell tab.
 
 Use managed infrastructure:
 
-- Postgres: Render Postgres, Neon, Supabase, Railway, AWS RDS
+- MongoDB: MongoDB Atlas, Render Mongo-compatible external provider, Railway, AWS DocumentDB
 - Redis: Render Redis, Upstash Redis, Railway Redis, AWS ElastiCache
 - Node services: Render workers, Railway services, Fly.io machines, VPS with PM2
 
@@ -60,7 +60,7 @@ npm --workspace apps/api run start
 Set these in your hosting dashboard:
 
 ```env
-DATABASE_URL=postgresql://...
+MONGODB_URI=mongodb+srv://...
 REDIS_URL=redis://...
 WEBSITE_API_BASE_URL=https://your-site.com/api
 WEBSITE_API_KEY=strong-secret
@@ -94,10 +94,9 @@ Create a cron entry for discovery:
 ## How It Functions Live
 
 Discovery runs on a schedule and queues career URLs in Redis.
-Scraper workers pull from Redis, scrape pages, dedupe into Postgres, and queue enrichment.
+Scraper workers pull from Redis, scrape pages, dedupe into MongoDB, and queue enrichment.
 Enrichment workers call OpenAI only when cache misses and the circuit breaker is closed.
 Publisher workers push jobs to your website API.
 The API exposes `/health`, `/metrics`, `/queues`, and searchable `/jobs`.
 
 To scale, increase worker process count or service replicas. The queue absorbs spikes, so the website API does not need to wait for scraping.
-

@@ -9,10 +9,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DATABASE_URL
-        fromDatabase:
-          name: job-scraper-postgres
-          property: connectionString
+      - key: MONGODB_URI
+        sync: false
       - key: REDIS_URL
         fromService:
           type: keyvalue
@@ -28,10 +26,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DATABASE_URL
-        fromDatabase:
-          name: job-scraper-postgres
-          property: connectionString
+      - key: MONGODB_URI
+        sync: false
       - key: REDIS_URL
         fromService:
           type: keyvalue
@@ -45,10 +41,8 @@ services:
     buildCommand: npm install && npm run build
     startCommand: npm --workspace apps/enrichment-worker run start
     envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: job-scraper-postgres
-          property: connectionString
+      - key: MONGODB_URI
+        sync: false
       - key: REDIS_URL
         fromService:
           type: keyvalue
@@ -64,10 +58,8 @@ services:
     buildCommand: npm install && npm run build
     startCommand: npm --workspace apps/publisher run start
     envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: job-scraper-postgres
-          property: connectionString
+      - key: MONGODB_URI
+        sync: false
       - key: REDIS_URL
         fromService:
           type: keyvalue
@@ -98,8 +90,3 @@ services:
     name: job-scraper-redis
     plan: starter
     ipAllowList: []
-
-databases:
-  - name: job-scraper-postgres
-    databaseName: jobs
-    user: jobs

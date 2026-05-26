@@ -12,6 +12,7 @@ const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
 const connectRedis = require('./config/redis');
 const logger = require('./utils/logger');
+const { syncJobs } = require('./controllers/jobController');
 const { startJobScheduler } = require('./services/jobScheduler');
 const { startQueueWorker } = require('./services/queueWorker');
 const { initSocket } = require('./services/socketService');
@@ -184,6 +185,9 @@ server.listen(PORT, () => {
   logger.info(`CashFlawHubs server running on port ${PORT} [${process.env.NODE_ENV}]`);
   startJobScheduler();
   startQueueWorker();
+  void syncJobs().catch((error) => {
+    logger.error(`Initial job sync failed: ${error.message}`);
+  });
 });
 
 module.exports = app;

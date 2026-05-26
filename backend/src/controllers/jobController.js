@@ -1,10 +1,12 @@
 const axios = require('axios');
+const Parser = require('rss-parser');
 const Job = require('../models/Job');
 const JobApplication = require('../models/JobApplication');
 const Transaction = require('../models/Transaction');
 const { getRedis } = require('../config/redis');
 const logger = require('../utils/logger');
 const { JOB_APPLICATION_TOKEN_TIERS, TOKEN_PACKAGES, JOB_POSTING_TOKEN_COST, getApplicationTokenCost } = require('../config/monetization');
+const rssParser = new Parser();
 const DEFAULT_JOB_CATEGORIES = [
   'Software Development',
   'Product Management',
@@ -52,6 +54,59 @@ const formatAdzunaSalary = (job) => {
   return null;
 };
 
+const WWR_FEEDS = [
+  { url: 'https://weworkremotely.com/categories/remote-programming-jobs.rss', category: 'Software Development' },
+  { url: 'https://weworkremotely.com/categories/remote-design-jobs.rss', category: 'Design' },
+  { url: 'https://weworkremotely.com/categories/remote-marketing-jobs.rss', category: 'Marketing' },
+  { url: 'https://weworkremotely.com/remote-jobs.rss', category: 'Other' },
+];
+
+const createWWRExternalId = (job) => {
+  const raw = String(job.link || job.guid || `${job.title || 'wwr'}-${job.creator || 'company'}-${job.pubDate || Date.now()}`)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-');
+  return `weworkremotely-${raw.replace(/^-+|-+$/g, '') || 'job'}`;
+};
+
+const normalizeWWRItem = (job, category = 'Other') => {
+  const applicationUrl = String(job.link || job.guid || '').trim();
+  if (!applicationUrl || !job.title) return null;
+
+  return {
+    externalId: createWWRExternalId(job),
+    title: String(job.title).trim(),
+    company: String(job.creator || job.author || 'Unknown company').trim() || 'Unknown company',
+    category,
+    description: stripHtml(job.contentSnippet || job.content || '').slice(0, 4000),
+    applicationUrl,
+    publishedAt: job.pubDate ? new Date(job.pubDate) : new Date(),
+    tags: ['weworkremotely', category.toLowerCase()],
+  };
+};
+
+const fetchWWRJobs = async () => {
+  const feedResults = await Promise.allSettled(
+    WWR_FEEDS.map(async (feed) => {
+      const feedData = await rssParser.parseURL(feed.url);
+      return (feedData.items || [])
+        .map((item) => normalizeWWRItem(item, feed.category))
+        .filter(Boolean);
+    })
+  );
+
+  const normalizedJobs = [];
+  for (const result of feedResults) {
+    if (result.status !== 'fulfilled') {
+      logger.warn(`WWR RSS feed sync failed: ${result.reason?.message || 'unknown error'}`);
+      continue;
+    }
+    normalizedJobs.push(...result.value);
+  }
+
+  return normalizedJobs;
+};
+
 const formatScrapedSalary = (job) => {
   const min = Number(job.salary_min ?? job.salaryMin) || null;
   const max = Number(job.salary_max ?? job.salaryMax) || null;
@@ -60,6 +115,45 @@ const formatScrapedSalary = (job) => {
   if (min) return `${currency} ${min}+`.trim();
   if (max) return `Up to ${currency} ${max}`.trim();
   return null;
+};
+
+const stripHtml = (value) => String(value || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+
+const normalizeRemoteLocation = (location) => {
+  const value = String(location || '').trim();
+  if (!value) return 'Remote';
+  if (/remote/i.test(value)) return 'Remote';
+  return value;
+};
+
+const inferRemoteOkCategory = (tags = []) => {
+  const text = tags.map((tag) => String(tag).toLowerCase()).join(' ');
+  if (/(react|node|python|javascript|typescript|java|go|php|developer|engineer|software|backend|frontend|devops|cloud|data|ai|ml|sre|sysadmin)/.test(text)) return 'Software Development';
+  if (/(design|figma|ui|ux|graphic|product design|illustrator|brand)/.test(text)) return 'Design';
+  if (/(marketing|content|seo|growth|social|copy|brand)/.test(text)) return 'Marketing';
+  if (/(support|customer|helpdesk|sales|account|business development)/.test(text)) return 'Customer Support';
+  return 'Other';
+};
+
+const formatRemoteOkSalary = (job) => {
+  const min = Number(job.salary_min);
+  const max = Number(job.salary_max);
+  if (!min && !max) return null;
+  if (min && max && min !== max) return `$${Math.round(min)} - $${Math.round(max)}`;
+  if (min) return `$${Math.round(min)}+`;
+  if (max) return `Up to $${Math.round(max)}`;
+  return null;
+};
+
+const inferArbeitnowCategory = (job = {}) => {
+  const tags = Array.isArray(job.tags) ? job.tags.map((tag) => String(tag).toLowerCase()) : [];
+  const text = `${job.title || ''} ${job.description || ''} ${tags.join(' ')}`.toLowerCase();
+
+  if (/(react|node|python|javascript|typescript|java|go|php|developer|engineer|software|backend|frontend|devops|cloud|data|ai|ml|sre|sysadmin)/.test(text)) return 'Software Development';
+  if (/(design|figma|ui|ux|graphic|product design|illustrator|brand)/.test(text)) return 'Design';
+  if (/(marketing|content|seo|growth|social|copy|brand)/.test(text)) return 'Marketing';
+  if (/(support|customer|helpdesk|sales|account|business development)/.test(text)) return 'Customer Support';
+  return 'Other';
 };
 
 const inferScrapedCategory = (job) => {
@@ -107,8 +201,35 @@ exports.getJobs = async (req, res) => {
     if (category) query.category = category;
     if (search) query.$text = { $search: search };
 
+    const shouldPrioritizeRemoteSources = !category && !search;
+    const jobsPromise = shouldPrioritizeRemoteSources
+      ? Job.aggregate([
+          { $match: query },
+          {
+            $addFields: {
+              sourcePriority: {
+                $switch: {
+                  branches: [
+                    { case: { $eq: ['$source', 'weworkremotely'] }, then: 5 },
+                    { case: { $eq: ['$source', 'remoteok'] }, then: 4 },
+                    { case: { $eq: ['$source', 'remotive'] }, then: 3 },
+                    { case: { $eq: ['$source', 'jobicy'] }, then: 2 },
+                    { case: { $eq: ['$source', 'jooble'] }, then: 1 },
+                    { case: { $eq: ['$source', 'adzuna'] }, then: 0 },
+                  ],
+                  default: -1,
+                },
+              },
+            },
+          },
+          { $sort: { sourcePriority: -1, publishedAt: -1 } },
+          { $skip: skip },
+          { $limit: Number(limit) },
+        ])
+      : Job.find(query).sort({ publishedAt: -1 }).skip(skip).limit(Number(limit));
+
     const [jobs, total] = await Promise.all([
-      Job.find(query).sort({ publishedAt: -1 }).skip(skip).limit(Number(limit)),
+      jobsPromise,
       Job.countDocuments(query),
     ]);
     const sourceCounts = await Job.aggregate([
@@ -414,6 +535,9 @@ exports.syncJobs = async () => {
   const providerStats = {
     remotive: { synced: 0, status: 'pending' },
     jobicy: { synced: 0, status: 'pending' },
+    remoteok: { synced: 0, status: 'pending' },
+    arbeitnow: { synced: 0, status: 'pending' },
+    weworkremotely: { synced: 0, status: 'pending' },
     jooble: { synced: 0, status: process.env.JOOBLE_API_KEY ? 'pending' : 'not_configured' },
     adzuna: { synced: 0, status: (process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY) ? 'pending' : 'not_configured' },
   };
@@ -501,6 +625,129 @@ exports.syncJobs = async () => {
       logger.warn(`Jobicy sync skipped: ${jobicyError.message}`);
     }
 
+    // Remote OK
+    try {
+      const remoteOkRes = await axios.get('https://remoteok.com/api', {
+        timeout: 10000,
+      });
+      const remoteOkJobs = Array.isArray(remoteOkRes.data) ? remoteOkRes.data.slice(1) : [];
+
+      for (const job of remoteOkJobs.slice(0, remoteLimit)) {
+        const applicationUrl = String(job.apply_url || job.url || '').trim();
+        if (!applicationUrl || !job.id) continue;
+
+        const title = String(job.position || 'Remote role').trim();
+        const company = String(job.company || 'Unknown company').trim();
+        const remoteTags = Array.isArray(job.tags) ? job.tags.map((tag) => String(tag).trim()).filter(Boolean) : [];
+        const location = normalizeRemoteLocation(job.location);
+        const description = stripHtml(job.description || '').slice(0, 4000);
+
+        await Job.findOneAndUpdate(
+          { externalId: `remoteok-${job.id}` },
+          {
+            externalId: `remoteok-${job.id}`,
+            source: 'remoteok',
+            title,
+            company,
+            companyLogo: job.company_logo || job.logo || null,
+            category: inferRemoteOkCategory(remoteTags),
+            jobType: normalizeJobType(job.type || 'full-time'),
+            location,
+            salary: formatRemoteOkSalary(job),
+            description,
+            tags: remoteTags,
+            applicationUrl,
+            publishedAt: job.date ? new Date(job.date) : new Date(job.epoch * 1000 || Date.now()),
+            isActive: true,
+          },
+          { upsert: true, new: true }
+        );
+        synced++;
+        providerStats.remoteok.synced++;
+      }
+      providerStats.remoteok.status = 'ok';
+    } catch (remoteOkError) {
+      providerStats.remoteok.status = 'failed';
+      providerStats.remoteok.error = remoteOkError.message;
+      logger.warn(`RemoteOK sync skipped: ${remoteOkError.message}`);
+    }
+
+    // Arbeitnow
+    try {
+      const arbeitnowRes = await axios.get(process.env.ARBEITNOW_API_URL || 'https://www.arbeitnow.com/api/job-board-api', {
+        timeout: 10000,
+      });
+      const arbeitnowJobs = Array.isArray(arbeitnowRes.data?.data) ? arbeitnowRes.data.data : [];
+
+      for (const job of arbeitnowJobs.filter((item) => item?.remote === true).slice(0, remoteLimit)) {
+        const applicationUrl = String(job.url || '').trim();
+        const slug = String(job.slug || '').trim();
+        if (!applicationUrl || !slug) continue;
+
+        await Job.findOneAndUpdate(
+          { externalId: `arbeitnow-${slug}` },
+          {
+            externalId: `arbeitnow-${slug}`,
+            source: 'arbeitnow',
+            title: String(job.title || 'Remote role').trim(),
+            company: String(job.company_name || 'Unknown company').trim(),
+            companyLogo: null,
+            category: inferArbeitnowCategory(job),
+            jobType: normalizeJobType(job.job_types || ['full-time']),
+            location: normalizeRemoteLocation(job.location),
+            salary: null,
+            description: stripHtml(job.description || '').slice(0, 4000),
+            tags: Array.isArray(job.tags) ? job.tags.map((tag) => String(tag).trim()).filter(Boolean) : [],
+            applicationUrl,
+            publishedAt: job.created_at ? new Date(job.created_at) : new Date(),
+            isActive: true,
+          },
+          { upsert: true, new: true }
+        );
+        synced++;
+        providerStats.arbeitnow.synced++;
+      }
+      providerStats.arbeitnow.status = 'ok';
+    } catch (arbeitnowError) {
+      providerStats.arbeitnow.status = 'failed';
+      providerStats.arbeitnow.error = arbeitnowError.message;
+      logger.warn(`Arbeitnow sync skipped: ${arbeitnowError.message}`);
+    }
+
+    // We Work Remotely (RSS)
+    try {
+      const wwrJobs = await fetchWWRJobs();
+      for (const job of wwrJobs.slice(0, remoteLimit)) {
+        await Job.findOneAndUpdate(
+          { externalId: job.externalId },
+          {
+            externalId: job.externalId,
+            source: 'weworkremotely',
+            title: job.title,
+            company: job.company,
+            companyLogo: null,
+            category: job.category,
+            jobType: 'full-time',
+            location: 'Remote',
+            salary: null,
+            description: job.description,
+            tags: job.tags,
+            applicationUrl: job.applicationUrl,
+            publishedAt: job.publishedAt,
+            isActive: true,
+          },
+          { upsert: true, new: true }
+        );
+        synced++;
+        providerStats.weworkremotely.synced++;
+      }
+      providerStats.weworkremotely.status = 'ok';
+    } catch (wwrError) {
+      providerStats.weworkremotely.status = 'failed';
+      providerStats.weworkremotely.error = wwrError.message;
+      logger.warn(`WWR sync skipped: ${wwrError.message}`);
+    }
+
     // Jooble (optional, enabled when JOOBLE_API_KEY is configured)
     if (process.env.JOOBLE_API_KEY) {
       try {
@@ -571,19 +818,23 @@ exports.syncJobs = async () => {
         const adzunaMaxDaysOld = Math.min(Math.max(Number(process.env.ADZUNA_MAX_DAYS_OLD || 30), 1), 90);
         const adzunaBaseUrl = process.env.ADZUNA_API_URL || 'https://api.adzuna.com/v1/api/jobs';
 
+        const adzunaParams = {
+          app_id: process.env.ADZUNA_APP_ID,
+          app_key: process.env.ADZUNA_APP_KEY,
+          results_per_page: adzunaResultsPerPage,
+          what: adzunaKeywords,
+          max_days_old: adzunaMaxDaysOld,
+          sort_by: 'date',
+        };
+
+        if (adzunaLocation) {
+          adzunaParams.where = adzunaLocation;
+        }
+
         for (let page = 1; page <= adzunaPages; page++) {
           const adzunaRes = await axios.get(`${adzunaBaseUrl.replace(/\/+$/, '')}/${adzunaCountry}/search/${page}`, {
             timeout: 12000,
-            params: {
-              app_id: process.env.ADZUNA_APP_ID,
-              app_key: process.env.ADZUNA_APP_KEY,
-              results_per_page: adzunaResultsPerPage,
-              what: adzunaKeywords,
-              where: adzunaLocation,
-              max_days_old: adzunaMaxDaysOld,
-              sort_by: 'date',
-              content_type: 'application/json',
-            },
+            params: adzunaParams,
           });
 
           const adzunaJobs = adzunaRes.data?.results || [];

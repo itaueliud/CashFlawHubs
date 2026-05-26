@@ -8,7 +8,7 @@
 - `api`: health, metrics, job query endpoints.
 - Shared packages:
   - `core`: config, logging, deterministic hash, helpers.
-  - `db`: repository-style Postgres access and dedupe upsert.
+  - `db`: repository-style MongoDB access and dedupe upsert.
   - `queue`: Redis/BullMQ queues, retry/backoff defaults, DLQ.
   - `scrapers`: scraping engines and parser glue.
   - `enrichment`: enrichment module with AI hook.
@@ -24,7 +24,6 @@
 - `packages/queue`
 - `packages/scrapers`
 - `packages/enrichment`
-- `infra/postgres`
 - `infra/docker`
 - `docker-compose.yml`
 
@@ -34,12 +33,12 @@
 3. Update `.env` values (DB/Redis/API keys/proxies).
 4. Run: `docker compose up --build`
 
-For Windows without Docker, use `docs/WINDOWS-TO-LIVE.md`. The live setup should use managed Postgres + Redis and separate Node services/workers.
+For Windows without Docker, use `docs/WINDOWS-TO-LIVE.md`. The live setup should use managed MongoDB + Redis and separate Node services/workers.
 
 ## Production Workflow
 1. Discovery pushes URLs to `scrape` queue.
 2. Scraper workers fetch + parse jobs and normalize schema.
-3. Dedup via deterministic hash + Postgres upsert (`ON CONFLICT hash`).
+3. Dedup via deterministic hash + MongoDB upsert (`hash` unique index).
 4. Enrichment worker adds tech/seniority/tags.
 5. Publisher service pushes create/update events to site API.
 6. Expiry job marks stale rows inactive and triggers delete/archive sync.
@@ -48,7 +47,7 @@ For Windows without Docker, use `docs/WINDOWS-TO-LIVE.md`. The live setup should
 ## Scaling Strategy
 - Horizontal scale by increasing replicas for `scraper-worker`, `enrichment-worker`, `publisher`.
 - Partition queues by source or geography when load grows.
-- Use dedicated Redis cluster and Postgres read replicas.
+- Use dedicated Redis cluster and a managed MongoDB deployment.
 - Use browser pools (Playwright context reuse) for heavy JS targets.
 - Keep Cheerio path default and Playwright fallback only.
 

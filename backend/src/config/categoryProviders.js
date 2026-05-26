@@ -21,6 +21,14 @@ const CATEGORY_PROVIDERS = {
         badge: 'Live API',
       },
       {
+        key: 'arbeitnow',
+        name: 'Arbeitnow',
+        description: 'Simple public API for remote-friendly jobs with clean JSON output.',
+        integrationType: 'api',
+        access: 'internal_feed',
+        badge: 'Live API',
+      },
+      {
         key: 'adzuna',
         name: 'Adzuna',
         description: 'Additional external jobs for expansion when API keys are added.',

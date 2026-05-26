@@ -1,6 +1,6 @@
 import Fastify from "fastify";
 import { config, logger, metrics, startTelemetry } from "@platform/core";
-import { pool } from "@platform/db";
+import { searchActiveJobs } from "@platform/db";
 import { queues } from "@platform/queue";
 
 startTelemetry();
@@ -29,15 +29,7 @@ app.get("/queues", async () => ({
 
 app.get("/jobs", async (req) => {
   const q = (req.query as { q?: string }).q ?? "";
-  const { rows } = await pool.query(
-    `SELECT id, company, title, location, remote, tags, posted_at, is_active
-     FROM jobs
-     WHERE is_active = TRUE AND (to_tsvector('english', title || ' ' || description) @@ plainto_tsquery('english', $1) OR $1 = '')
-     ORDER BY posted_at DESC NULLS LAST
-     LIMIT 100`,
-    [q],
-  );
-  return rows;
+  return searchActiveJobs(q);
 });
 
 app.post("/trigger/discovery", async () => {
