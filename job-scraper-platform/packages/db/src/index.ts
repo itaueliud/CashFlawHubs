@@ -9,7 +9,16 @@ let initialized = false;
 
 const ensureIndexes = async (): Promise<void> => {
   if (initialized) return;
-  await jobs.createIndex({ hash: 1 }, { unique: true });
+  // Some historical/invalid rows may have `hash: null`. A partial unique index
+  // avoids startup crashes while still enforcing uniqueness for real hashes.
+  await jobs.createIndex(
+    { hash: 1 },
+    {
+      unique: true,
+      name: "hash_1_unique",
+      partialFilterExpression: { hash: { $type: "string" } },
+    },
+  );
   await jobs.createIndex({ is_active: 1, last_seen: -1 });
   await jobs.createIndex({ company: 1, title: 1 });
   await jobs.createIndex({ remote: 1, posted_at: -1 });
@@ -30,6 +39,9 @@ const normalizeId = (id: string): ObjectId => new ObjectId(id);
 
 export const upsertJob = async (job: NormalizedJob): Promise<string> => {
   await initPromise;
+  if (typeof (job as any).hash !== "string" || !(job as any).hash.trim()) {
+    throw new Error("job.hash is required (non-empty string)");
+  }
   const now = new Date();
   const result = await jobs.findOneAndUpdate(
     { hash: job.hash },
