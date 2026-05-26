@@ -692,38 +692,63 @@ exports.syncJobs = async () => {
 
     // Arbeitnow
     try {
-      const arbeitnowRes = await axios.get(process.env.ARBEITNOW_API_URL || 'https://www.arbeitnow.com/api/job-board-api', {
-        timeout: 10000,
-      });
-      const arbeitnowJobs = Array.isArray(arbeitnowRes.data?.data) ? arbeitnowRes.data.data : [];
+      const arbeitnowBaseUrl = (process.env.ARBEITNOW_API_URL || 'https://www.arbeitnow.com/api/job-board-api').replace(/\/+$/, '');
+      const arbeitnowMaxPages = Math.min(Math.max(Number(process.env.ARBEITNOW_MAX_PAGES || 10), 1), 30);
 
-      for (const job of arbeitnowJobs.filter((item) => item?.remote === true).slice(0, remoteLimit)) {
-        const applicationUrl = String(job.url || '').trim();
-        const slug = String(job.slug || '').trim();
-        if (!applicationUrl || !slug) continue;
+      let page = 1;
+      let seen = 0;
+      while (page <= arbeitnowMaxPages && seen < remoteLimit) {
+        const arbeitnowRes = await axios.get(arbeitnowBaseUrl, { timeout: 12000, params: { page } });
+        const pageJobs = Array.isArray(arbeitnowRes.data?.data) ? arbeitnowRes.data.data : [];
+        if (pageJobs.length === 0) break;
 
-        await Job.findOneAndUpdate(
-          { externalId: `arbeitnow-${slug}` },
-          {
-            externalId: `arbeitnow-${slug}`,
-            source: 'arbeitnow',
-            title: String(job.title || 'Remote role').trim(),
-            company: String(job.company_name || 'Unknown company').trim(),
-            companyLogo: null,
-            category: inferArbeitnowCategory(job),
-            jobType: normalizeJobType(job.job_types || ['full-time']),
-            location: normalizeRemoteLocation(job.location),
-            salary: null,
-            description: stripHtml(job.description || '').slice(0, 4000),
-            tags: Array.isArray(job.tags) ? job.tags.map((tag) => String(tag).trim()).filter(Boolean) : [],
-            applicationUrl,
-            publishedAt: job.created_at ? new Date(job.created_at) : new Date(),
-            isActive: true,
-          },
-          { upsert: true, new: true }
-        );
-        synced++;
-        providerStats.arbeitnow.synced++;
+        const ops = [];
+        for (const job of pageJobs) {
+          if (job?.remote !== true) continue;
+          if (seen >= remoteLimit) break;
+
+          const applicationUrl = String(job.url || '').trim();
+          const slug = String(job.slug || '').trim();
+          if (!applicationUrl || !slug) continue;
+
+          ops.push({
+            updateOne: {
+              filter: { externalId: `arbeitnow-${slug}` },
+              update: {
+                $set: {
+                  externalId: `arbeitnow-${slug}`,
+                  source: 'arbeitnow',
+                  title: String(job.title || 'Remote role').trim(),
+                  company: String(job.company_name || 'Unknown company').trim(),
+                  companyLogo: null,
+                  category: inferArbeitnowCategory(job),
+                  categoryOther: null,
+                  jobType: normalizeJobType(job.job_types || ['full-time']),
+                  location: normalizeRemoteLocation(job.location),
+                  salary: null,
+                  description: stripHtml(job.description || '').slice(0, 4000),
+                  tags: Array.isArray(job.tags) ? job.tags.map((tag) => String(tag).trim()).filter(Boolean) : [],
+                  applicationUrl,
+                  publishedAt: job.created_at ? new Date(job.created_at) : new Date(),
+                  isActive: true,
+                },
+              },
+              upsert: true,
+            },
+          });
+          seen += 1;
+        }
+
+        if (ops.length > 0) {
+          await Job.bulkWrite(ops, { ordered: false });
+          synced += ops.length;
+          providerStats.arbeitnow.synced += ops.length;
+        }
+
+        // Stop early if the API indicates there's no next page.
+        const next = arbeitnowRes.data?.links?.next;
+        if (!next) break;
+        page += 1;
       }
       providerStats.arbeitnow.status = 'ok';
     } catch (arbeitnowError) {
