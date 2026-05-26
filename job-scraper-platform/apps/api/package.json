@@ -5,8 +5,8 @@
   "types": "dist/index.d.ts",
   "scripts": {"build":"tsc -p tsconfig.json","start":"node dist/index.js","dev":"tsx src/index.ts","lint":"echo lint"},
   "dependencies": {
-    "@platform/core":"workspace:*",
-    "@platform/db":"workspace:*",
-    "@platform/queue":"workspace:*"
+    "@platform/core":"file:../../packages/core",
+    "@platform/db":"file:../../packages/db",
+    "@platform/queue":"file:../../packages/queue"
   }
 }
