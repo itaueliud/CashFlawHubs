@@ -7,14 +7,6 @@
     "skipLibCheck": true,
     "outDir": "dist",
     "baseUrl": ".",
-    "paths": {
-      "@platform/core": ["packages/core/src"],
-      "@platform/db": ["packages/db/src"],
-      "@platform/enrichment": ["packages/enrichment/src"],
-      "@platform/queue": ["packages/queue/src"],
-      "@platform/scrapers": ["packages/scrapers/src"]
-    },
-    "types": ["node"],
     "typeRoots": ["./types", "./node_modules/@types"],
     "ignoreDeprecations": "6.0"
   }
