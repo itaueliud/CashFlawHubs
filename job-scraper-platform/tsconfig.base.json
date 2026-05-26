@@ -1,20 +1,18 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "CommonJS",
-    "moduleResolution": "node",
+    "module": "Node16",
+    "moduleResolution": "node16",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
     "paths": {
-      "@platform/core": ["packages/core/src/index.ts"],
-      "@platform/db": ["packages/db/src/index.ts"],
-      "@platform/enrichment": ["packages/enrichment/src/index.ts"],
-      "@platform/scrapers": ["packages/scrapers/src/index.ts"]
+      "@platform/core": ["./packages/core/src/index.ts"],
+      "@platform/db": ["./packages/db/src/index.ts"],
+      "@platform/enrichment": ["./packages/enrichment/src/index.ts"],
+      "@platform/scrapers": ["./packages/scrapers/src/index.ts"]
     },
     "types": ["node"],
-    "typeRoots": ["./types", "./node_modules/@types"],
-    "ignoreDeprecations": "5.0"
+    "typeRoots": ["./types", "./node_modules/@types"]
   }
 }
