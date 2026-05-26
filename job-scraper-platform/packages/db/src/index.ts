@@ -66,6 +66,9 @@ export const upsertJob = async (job: NormalizedJob): Promise<string> => {
     { hash: job.hash },
     {
       $set: {
+        // Some deployments accidentally had a unique index on `externalId`.
+        // Populate it to avoid `dup key { externalId: null }` on upserts.
+        externalId: job.hash,
         source: job.source,
         source_url: job.sourceUrl,
         company: job.company,
@@ -87,6 +90,7 @@ export const upsertJob = async (job: NormalizedJob): Promise<string> => {
         updated_at: now,
       },
       $setOnInsert: {
+        externalId: job.hash,
         first_seen: now,
         created_at: now,
       },

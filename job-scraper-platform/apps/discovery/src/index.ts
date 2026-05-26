@@ -1,6 +1,7 @@
 import { config, logger, metrics, startTelemetry } from "@platform/core";
 import { queues } from "@platform/queue";
 import { discoverCareerUrlsForDomain } from "@platform/scrapers";
+import crypto from "crypto";
 
 const staticSeeds = [
   { source: "greenhouse", url: "https://boards.greenhouse.io/embed/job_board?for=airbyte", companyHint: "Airbyte" },
@@ -11,8 +12,14 @@ const staticSeeds = [
 const run = async (): Promise<void> => {
   startTelemetry();
 
+  const safeJobId = (source: string, url: string): string => {
+    // BullMQ jobId cannot contain ":" on some backends.
+    const h = crypto.createHash("sha1").update(url).digest("hex").slice(0, 16);
+    return `${source}-${h}`;
+  };
+
   for (const seed of staticSeeds) {
-    await queues.scrape.add("scrape-url", seed, { jobId: `${seed.source}:${seed.url}` });
+    await queues.scrape.add("scrape-url", seed, { jobId: safeJobId(seed.source, seed.url) });
     metrics.discoveryUrls.inc({ adapter: seed.source });
   }
 
@@ -47,7 +54,7 @@ const run = async (): Promise<void> => {
       continue;
     }
     for (const item of result.items) {
-      await queues.scrape.add("scrape-url", item, { jobId: `${item.source}:${item.url}` });
+      await queues.scrape.add("scrape-url", item, { jobId: safeJobId(item.source, item.url) });
       metrics.discoveryUrls.inc({ adapter: item.source });
       count += 1;
     }

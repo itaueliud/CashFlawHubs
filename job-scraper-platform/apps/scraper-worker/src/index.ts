@@ -10,7 +10,7 @@ const worker = new Worker("scrape", async (job: Job) => {
     const jobs = await scrapeUrl(payload);
     for (const item of jobs) {
       const id = await upsertJob(item);
-      await queues.enrich.add("enrich-job", { dbId: id, job: item }, { jobId: `enrich:${item.hash}` });
+      await queues.enrich.add("enrich-job", { dbId: id, job: item }, { jobId: `enrich-${item.hash}` });
       metrics.scrapedJobs.inc({ source: item.source });
     }
     logger.info({ url: payload.url, jobs: jobs.length }, "scrape complete");

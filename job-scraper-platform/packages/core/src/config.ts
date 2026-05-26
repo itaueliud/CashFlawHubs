@@ -27,6 +27,7 @@ export const config = {
   scraperUseProxies: String(process.env.SCRAPER_USE_PROXIES ?? "false") === "true",
   scraperProxies: (process.env.SCRAPER_PROXY_LIST ?? "").split(",").map((p) => p.trim()).filter(Boolean),
   scraperRespectRobots: String(process.env.SCRAPER_RESPECT_ROBOTS ?? "true") === "true",
+  scraperUsePlaywright: String(process.env.SCRAPER_USE_PLAYWRIGHT ?? "false") === "true",
   discoverySeedDomains: (process.env.DISCOVERY_SEED_DOMAINS ?? "").split(",").map((d) => d.trim()).filter(Boolean),
   discoveryMaxSitemapUrls: asNum(process.env.DISCOVERY_MAX_SITEMAP_URLS, 5000),
   discoveryConcurrency: asNum(process.env.DISCOVERY_CONCURRENCY, 8),

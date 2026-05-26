@@ -3,6 +3,7 @@ import { config, logger, metrics, startTelemetry } from "@platform/core";
 import { searchActiveJobs } from "@platform/db";
 import { queues } from "@platform/queue";
 import { discoverCareerUrlsForDomain } from "@platform/scrapers";
+import crypto from "crypto";
 
 startTelemetry();
 const app = Fastify({ logger: false });
@@ -69,9 +70,13 @@ app.post("/trigger/discovery", async (req) => {
   requireApiKey(req);
 
   let count = 0;
+  const safeJobId = (source: string, url: string): string => {
+    const h = crypto.createHash("sha1").update(url).digest("hex").slice(0, 16);
+    return `${source}-${h}`;
+  };
 
   for (const seed of staticSeeds) {
-    await queues.scrape.add("scrape-url", seed, { jobId: `${seed.source}:${seed.url}` });
+    await queues.scrape.add("scrape-url", seed, { jobId: safeJobId(seed.source, seed.url) });
     metrics.discoveryUrls.inc({ adapter: seed.source });
     count += 1;
   }
@@ -88,7 +93,7 @@ app.post("/trigger/discovery", async (req) => {
 
   for (const r of results) {
     for (const item of r.items) {
-      await queues.scrape.add("scrape-url", item, { jobId: `${item.source}:${item.url}` });
+      await queues.scrape.add("scrape-url", item, { jobId: safeJobId(item.source, item.url) });
       metrics.discoveryUrls.inc({ adapter: item.source });
       count += 1;
     }

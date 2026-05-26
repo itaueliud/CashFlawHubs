@@ -15,7 +15,7 @@ const worker = new Worker("enrich", async (job: Job) => {
     remote: enriched.remote,
   });
 
-  await queues.publish.add("publish-job", { dbId: payload.dbId }, { jobId: `publish:${payload.job.hash}` });
+  await queues.publish.add("publish-job", { dbId: payload.dbId }, { jobId: `publish-${payload.job.hash}` });
 }, {
   connection: queues.enrich.opts.connection,
   prefix: config.queuePrefix,

@@ -1,4 +1,3 @@
-import { chromium } from "playwright";
 import * as cheerio from "cheerio";
 import { config, deterministicHash, jitter, logger, NormalizedJob, sleep } from "@platform/core";
 export * from "./discovery";
@@ -58,7 +57,12 @@ export const scrapeUrl = async ({ source, url, companyHint }: ScrapeInput): Prom
   if (jobs.length > 0 && !/text\/html/i.test(contentType)) return jobs;
 
   if (jobs.length === 0 || /cloudflare|captcha/i.test(html)) {
+    if (!config.scraperUsePlaywright) {
+      logger.warn({ url }, "Playwright disabled; skipping dynamic scrape fallback");
+      return [];
+    }
     logger.warn({ url }, "Cheerio parser empty or blocked; falling back to Playwright");
+    const { chromium } = await import("playwright");
     const browser = await chromium.launch({ headless: true });
     try {
       const context = await browser.newContext({ userAgent: ua });
