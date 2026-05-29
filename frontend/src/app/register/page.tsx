@@ -112,6 +112,15 @@ function RegisterPageContent() {
         if (res.data?.verified) {
           setEmailVerified(true);
           toast.success('Email verified successfully');
+          // If referral code exists, ensure it's verified before moving to step 3
+          if (form.referralCode && !referralVerified) {
+            try {
+              await verifyReferral();
+            } catch (e) {
+              // ignore - verifyReferral already shows toast
+            }
+          }
+          setStep(3);
         }
       } catch (err: any) {
         // ignore
