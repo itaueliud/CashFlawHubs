@@ -17,6 +17,7 @@ interface User {
   lastName?: string;
   name: string;
   email?: string;
+  pending_email?: string;
   phone: string;
   country: string;
   referralCode: string;
