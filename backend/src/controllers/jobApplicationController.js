@@ -263,6 +263,46 @@ exports.applyToJob = async (req, res) => {
       status: 'submitted',
     });
 
+        // If the job has webhook delivery configured, enqueue a delivery record
+        try {
+          if (job.applicationDelivery === 'webhook' && job.employerWebhookUrl) {
+            const Delivery = require('../models/Delivery');
+            const { publishToQueue, QUEUES } = require('../services/queueWorker');
+
+            const applicantPayload = {
+              applicationId: application._id.toString(),
+              jobId: job._id.toString(),
+              jobTitle: job.title,
+              company: job.company,
+              applicant: {
+                id: req.user.id,
+                userId: req.user.userId,
+                name: req.user.name || `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim(),
+                email: req.user.email || null,
+                phone: req.user.phone || null,
+              },
+              coverLetter: coverLetter || null,
+              appliedAt: application.appliedAt || new Date(),
+            };
+
+            const delivery = await Delivery.create({
+              jobApplicationId: application._id,
+              jobId: job._id,
+              webhookUrl: job.employerWebhookUrl,
+              payload: applicantPayload,
+              attempts: 0,
+              status: 'pending',
+              nextAttemptAt: new Date(),
+            });
+
+            // publish to queue
+            publishToQueue(QUEUES.JOB_APPLICATION_DELIVERY, { deliveryId: delivery._id.toString() });
+          }
+        } catch (err) {
+          // do not fail the application if delivery setup has issues
+          logger.error(`Failed to enqueue application delivery: ${err.message}`);
+        }
+
     let tokenBalance = req.user.tokenBalance;
     if (tokenCost > 0) {
       const applicant = await User.findOneAndUpdate(

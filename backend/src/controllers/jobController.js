@@ -701,6 +701,155 @@ exports.getJob = async (req, res) => {
   }
 };
 
+// @PATCH /api/jobs/:id/claim
+exports.claimJob = async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+
+    // Only allow claiming scraped jobs or allow owner/admin to update
+    const isOwner = job.postedBy && String(job.postedBy) === String(req.user.id);
+    const isAdmin = ['admin', 'superadmin'].includes(String(req.user.role || ''));
+
+    if (job.postedBy && !isOwner && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Not allowed to claim or update this job' });
+    }
+
+    const { applicationDelivery, employerWebhookUrl, employerEmail } = req.body || {};
+
+    if (applicationDelivery && !['redirect', 'webhook', 'email', 'internal'].includes(applicationDelivery)) {
+      return res.status(400).json({ success: false, message: 'Invalid applicationDelivery value' });
+    }
+
+    // Claim the job (assign postedBy) if it was unclaimed
+    if (!job.postedBy) {
+      job.postedBy = req.user._id;
+    }
+
+    if (typeof applicationDelivery === 'string') job.applicationDelivery = applicationDelivery;
+    if (typeof employerWebhookUrl === 'string') job.employerWebhookUrl = employerWebhookUrl || null;
+    if (typeof employerEmail === 'string') job.employerEmail = employerEmail || null;
+
+    await job.save();
+
+    return res.json({ success: true, job });
+  } catch (error) {
+    logger.error(`claimJob error: ${error.message}`);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @POST /api/jobs/:id/request-claim
+exports.requestClaim = async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id).select('_id title company applicationUrl');
+    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return res.status(400).json({ success: false, message: 'Valid email required' });
+    }
+
+    const ClaimRequest = require('../models/ClaimRequest');
+    const crypto = require('crypto');
+    const token = crypto.randomBytes(20).toString('hex');
+
+    const claim = await ClaimRequest.create({ jobId: job._id, email, token });
+
+    // Send verification email
+    const { sendgridClient } = require('../services/notificationService');
+    const frontendUrl = process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:3000';
+    const confirmUrl = `${frontendUrl.replace(/\/$/, '')}/jobs/claim/confirm?token=${encodeURIComponent(token)}`;
+    const subject = `Confirm ownership of job: ${job.title}`;
+    const html = `
+      <p>Hello,</p>
+      <p>To claim the job <strong>${job.title}</strong> at <strong>${job.company}</strong> and receive collected applications, please confirm your email by clicking the link below:</p>
+      <p><a href="${confirmUrl}">Claim this job</a></p>
+      <p>This link will expire in 24 hours.</p>
+    `;
+
+    try {
+      await sendgridClient.sendEmail({ to: email, subject, html });
+    } catch (err) {
+      // ignore email failures but log
+      logger.warn(`Failed to send claim confirmation email to ${email}: ${err.message}`);
+    }
+
+    return res.json({ success: true, message: 'Verification email sent if address is valid' });
+  } catch (error) {
+    logger.error(`requestClaim error: ${error.message}`);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @GET /api/jobs/claim/confirm?token=...
+exports.confirmClaim = async (req, res) => {
+  try {
+    const token = String(req.query.token || '').trim();
+    if (!token) return res.status(400).json({ success: false, message: 'Token required' });
+
+    const ClaimRequest = require('../models/ClaimRequest');
+    const claim = await ClaimRequest.findOne({ token });
+    if (!claim) return res.status(404).json({ success: false, message: 'Invalid or expired token' });
+    if (claim.status !== 'pending' || claim.expiresAt <= new Date()) {
+      claim.status = 'expired';
+      await claim.save();
+      return res.status(400).json({ success: false, message: 'Token expired' });
+    }
+
+    const job = await Job.findById(claim.jobId);
+    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+
+    // mark job to deliver applications via email
+    job.applicationDelivery = 'email';
+    job.employerEmail = claim.email;
+    job.claimedBy = null;
+    await job.save();
+
+    claim.status = 'confirmed';
+    await claim.save();
+
+    // Enqueue existing applications for delivery
+    const JobApplication = require('../models/JobApplication');
+    const Delivery = require('../models/Delivery');
+    const { publishToQueue, QUEUES } = require('../services/queueWorker');
+
+    const applications = await JobApplication.find({ jobId: job._id }).lean();
+    for (const app of applications) {
+      const payload = {
+        applicationId: app._id.toString(),
+        jobId: job._id.toString(),
+        jobTitle: job.title,
+        company: job.company,
+        applicant: app.userId || null,
+        coverLetter: app.coverLetter || null,
+        appliedAt: app.appliedAt || app.createdAt,
+        applicationUrl: job.applicationUrl,
+      };
+
+      const delivery = await Delivery.create({
+        jobApplicationId: app._id,
+        jobId: job._id,
+        deliveryType: 'email',
+        emailAddress: claim.email,
+        payload,
+        attempts: 0,
+        status: 'pending',
+        nextAttemptAt: new Date(),
+      });
+
+      publishToQueue(QUEUES.JOB_APPLICATION_DELIVERY, { deliveryId: delivery._id.toString() });
+    }
+
+    // Redirect to a simple confirmation UI on frontend
+    const frontendUrl = process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:3000';
+    return res.redirect(`${frontendUrl.replace(/\/$/, '')}/jobs/claim/success`);
+  } catch (error) {
+    logger.error(`confirmClaim error: ${error.message}`);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // @POST /api/jobs/sync
 exports.syncScrapedJob = async (req, res) => {
   try {
@@ -744,6 +893,7 @@ exports.syncScrapedJob = async (req, res) => {
         applicationUrl,
         applicationContactEmail: contact.applicationContactEmail,
         applicationContactSource: contact.applicationContactSource,
+        collectOnly: !contact.applicationContactEmail,
         postedBy: null,
         budgetAmount: null,
         budgetCurrency: null,
@@ -808,8 +958,331 @@ exports.syncJobs = async () => {
       });
       const remotiveJobs = remotiveRes.data?.jobs || [];
 
-      const remotiveOps = remotiveJobs.slice(0, remoteLimit).map((job) => ({
-        applicationContact: discoverApplicationContact({
+      const remotiveOps = [];
+      for (const job of remotiveJobs.slice(0, remoteLimit)) {
+        const contact = discoverApplicationContact({
+          title: job.title,
+          company: job.company_name,
+          description: job.description || '',
+          applicationUrl: job.url || '',
+          source: 'remotive',
+        });
+
+        remotiveOps.push({
+          updateOne: {
+            filter: { externalId: `remotive-${job.id}` },
+            update: {
+              $set: {
+                externalId: `remotive-${job.id}`,
+                source: 'remotive',
+                title: job.title,
+                company: job.company_name,
+                companyLogo: job.company_logo,
+                category: job.category || 'Other',
+                jobType: normalizeJobType(job.job_type),
+                location: 'Remote',
+                salary: job.salary || null,
+                description: job.description?.slice(0, 2000) || '',
+                tags: job.tags || [],
+                applicationUrl: job.url,
+                applicationContactEmail: contact.applicationContactEmail,
+                applicationContactSource: contact.applicationContactSource,
+                collectOnly: !contact.applicationContactEmail,
+                publishedAt: new Date(job.publication_date),
+                isActive: true,
+              },
+            },
+            upsert: true,
+          },
+        });
+      }
+
+      if (remotiveOps.length > 0) {
+        await Job.bulkWrite(remotiveOps, { ordered: false });
+        synced += remotiveOps.length;
+        providerStats.remotive.synced += remotiveOps.length;
+      }
+      providerStats.remotive.status = 'ok';
+    } catch (remotiveError) {
+      providerStats.remotive.status = 'failed';
+      providerStats.remotive.error = remotiveError.message;
+      logger.warn(`Remotive sync skipped: ${remotiveError.message}`);
+    }
+
+    // Jobicy
+    try {
+      const jobicyRes = await axios.get(process.env.JOBICY_API_URL || 'https://jobicy.com/api/v2/remote-jobs', {
+        timeout: 10000,
+      });
+      const jobicyJobs = jobicyRes.data?.jobs || [];
+
+      for (const job of jobicyJobs.slice(0, remoteLimit)) {
+        const contact = discoverApplicationContact({
+          title: job.jobTitle,
+          company: job.companyName,
+          description: job.jobDescription || '',
+          applicationUrl: job.url || '',
+          source: 'jobicy',
+        });
+
+        await Job.findOneAndUpdate(
+          { externalId: `jobicy-${job.id}` },
+          {
+            externalId: `jobicy-${job.id}`,
+            source: 'jobicy',
+            title: job.jobTitle,
+            company: job.companyName,
+            companyLogo: job.companyLogo || null,
+            category: job.jobIndustry?.[0] || 'Other',
+            jobType: normalizeJobType(job.jobType),
+            location: 'Remote',
+            salary: job.annualSalaryMin ? `$${job.annualSalaryMin} - $${job.annualSalaryMax}` : null,
+            description: job.jobDescription?.slice(0, 2000) || '',
+            tags: job.jobLevel ? [job.jobLevel] : [],
+            applicationUrl: job.url,
+            applicationContactEmail: contact.applicationContactEmail,
+            applicationContactSource: contact.applicationContactSource,
+            collectOnly: !contact.applicationContactEmail,
+            publishedAt: new Date(job.pubDate),
+            isActive: true,
+          },
+          { upsert: true, new: true }
+        );
+        synced++;
+        providerStats.jobicy.synced++;
+      }
+      providerStats.jobicy.status = 'ok';
+    } catch (jobicyError) {
+      providerStats.jobicy.status = 'failed';
+      providerStats.jobicy.error = jobicyError.message;
+      logger.warn(`Jobicy sync skipped: ${jobicyError.message}`);
+    }
+
+    // Remote OK
+    try {
+      const remoteOkRes = await axios.get('https://remoteok.com/api', {
+        timeout: 10000,
+      });
+      const remoteOkJobs = Array.isArray(remoteOkRes.data) ? remoteOkRes.data.slice(1) : [];
+
+      for (const job of remoteOkJobs.slice(0, remoteLimit)) {
+        const applicationUrl = String(job.apply_url || job.url || '').trim();
+        if (!applicationUrl || !job.id) continue;
+
+        const contact = discoverApplicationContact({
+          title: job.position || '',
+          company: job.company || '',
+          description: job.description || '',
+          applicationUrl,
+          source: 'remoteok',
+        });
+
+        const title = String(job.position || 'Remote role').trim();
+        const company = String(job.company || 'Unknown company').trim();
+        const remoteTags = Array.isArray(job.tags) ? job.tags.map((tag) => String(tag).trim()).filter(Boolean) : [];
+        const location = normalizeRemoteLocation(job.location);
+        const description = stripHtml(job.description || '').slice(0, 4000);
+
+        await Job.findOneAndUpdate(
+          { externalId: `remoteok-${job.id}` },
+          {
+            externalId: `remoteok-${job.id}`,
+            source: 'remoteok',
+            title,
+            company,
+            companyLogo: job.company_logo || job.logo || null,
+            category: inferRemoteOkCategory(remoteTags),
+            jobType: normalizeJobType(job.type || 'full-time'),
+            location,
+            salary: formatRemoteOkSalary(job),
+            description,
+            tags: remoteTags,
+            applicationUrl,
+            applicationContactEmail: contact.applicationContactEmail,
+            applicationContactSource: contact.applicationContactSource,
+            collectOnly: !contact.applicationContactEmail,
+            publishedAt: job.date ? new Date(job.date) : new Date(job.epoch * 1000 || Date.now()),
+            isActive: true,
+          },
+          { upsert: true, new: true }
+        );
+        synced++;
+        providerStats.remoteok.synced++;
+      }
+      providerStats.remoteok.status = 'ok';
+    } catch (remoteOkError) {
+      providerStats.remoteok.status = 'failed';
+      providerStats.remoteok.error = remoteOkError.message;
+      logger.warn(`RemoteOK sync skipped: ${remoteOkError.message}`);
+    }
+
+    // Arbeitnow
+    try {
+      const arbeitnowBaseUrl = (process.env.ARBEITNOW_API_URL || 'https://www.arbeitnow.com/api/job-board-api').replace(/\/+$/, '');
+      const arbeitnowMaxPages = Math.min(Math.max(Number(process.env.ARBEITNOW_MAX_PAGES || 10), 1), 30);
+
+      let page = 1;
+      let seen = 0;
+      while (page <= arbeitnowMaxPages && seen < remoteLimit) {
+        const arbeitnowRes = await axios.get(arbeitnowBaseUrl, { timeout: 12000, params: { page } });
+        const pageJobs = Array.isArray(arbeitnowRes.data?.data) ? arbeitnowRes.data.data : [];
+        if (pageJobs.length === 0) break;
+
+        const ops = [];
+        for (const job of pageJobs) {
+          if (job?.remote !== true) continue;
+          if (seen >= remoteLimit) break;
+
+          const applicationUrl = String(job.url || '').trim();
+          const slug = String(job.slug || '').trim();
+          if (!applicationUrl || !slug) continue;
+
+          const contact = discoverApplicationContact({
+            title: job.title || '',
+            company: job.company_name || '',
+            description: job.description || '',
+            applicationUrl,
+            source: 'arbeitnow',
+          });
+
+          ops.push({
+            updateOne: {
+              filter: { externalId: `arbeitnow-${slug}` },
+              update: {
+                $set: {
+                  externalId: `arbeitnow-${slug}`,
+                  source: 'arbeitnow',
+                  title: String(job.title || 'Remote role').trim(),
+                  company: String(job.company_name || 'Unknown company').trim(),
+                  companyLogo: null,
+                  category: inferArbeitnowCategory(job),
+                  categoryOther: null,
+                  jobType: normalizeJobType(job.job_types || ['full-time']),
+                  location: normalizeRemoteLocation(job.location),
+                  salary: null,
+                  description: stripHtml(job.description || '').slice(0, 4000),
+                  tags: Array.isArray(job.tags) ? job.tags.map((tag) => String(tag).trim()).filter(Boolean) : [],
+                  applicationUrl,
+                  applicationContactEmail: contact.applicationContactEmail,
+                  applicationContactSource: contact.applicationContactSource,
+                  collectOnly: !contact.applicationContactEmail,
+                  publishedAt: job.created_at ? new Date(job.created_at) : new Date(),
+                  isActive: true,
+                },
+              },
+              upsert: true,
+            },
+          });
+          seen += 1;
+        }
+
+        if (ops.length > 0) {
+          await Job.bulkWrite(ops, { ordered: false });
+          synced += ops.length;
+          providerStats.arbeitnow.synced += ops.length;
+        }
+
+        // Stop early if the API indicates there's no next page.
+        const next = arbeitnowRes.data?.links?.next;
+        if (!next) break;
+        page += 1;
+      }
+      providerStats.arbeitnow.status = 'ok';
+    } catch (arbeitnowError) {
+      providerStats.arbeitnow.status = 'failed';
+      providerStats.arbeitnow.error = arbeitnowError.message;
+      logger.warn(`Arbeitnow sync skipped: ${arbeitnowError.message}`);
+    }
+
+    // We Work Remotely (RSS)
+    try {
+      const wwrJobs = await fetchWWRJobs();
+      for (const job of wwrJobs.slice(0, remoteLimit)) {
+        const contact = discoverApplicationContact({
+          title: job.title,
+          company: job.company,
+          description: job.description,
+          applicationUrl: job.applicationUrl,
+          source: 'weworkremotely',
+        });
+
+        await Job.findOneAndUpdate(
+          { externalId: job.externalId },
+          {
+            externalId: job.externalId,
+            source: 'weworkremotely',
+            title: job.title,
+            company: job.company,
+            companyLogo: null,
+            category: job.category,
+            jobType: 'full-time',
+            location: 'Remote',
+            salary: null,
+            description: job.description,
+            tags: job.tags,
+            applicationUrl: job.applicationUrl,
+            applicationContactEmail: contact.applicationContactEmail,
+            applicationContactSource: contact.applicationContactSource,
+            collectOnly: !contact.applicationContactEmail,
+            publishedAt: job.publishedAt,
+            isActive: true,
+          },
+          { upsert: true, new: true }
+        );
+        synced++;
+        providerStats.weworkremotely.synced++;
+      }
+      providerStats.weworkremotely.status = 'ok';
+    } catch (wwrError) {
+      providerStats.weworkremotely.status = 'failed';
+      providerStats.weworkremotely.error = wwrError.message;
+      logger.warn(`WWR sync skipped: ${wwrError.message}`);
+    }
+
+    // The Muse
+    try {
+      const museJobs = await fetchTheMuseJobs(remoteLimit);
+      for (const job of museJobs) {
+        const contact = discoverApplicationContact({
+          title: job.title,
+          company: job.company,
+          description: job.description,
+          applicationUrl: job.applicationUrl,
+          source: 'themuse',
+        });
+
+        await Job.findOneAndUpdate(
+          { externalId: job.externalId },
+          {
+            externalId: job.externalId,
+            source: job.source,
+            title: job.title,
+            company: job.company,
+            companyLogo: job.companyLogo,
+            category: job.category,
+            jobType: job.jobType,
+            location: job.location,
+            salary: job.salary,
+            description: job.description,
+            tags: job.tags,
+            applicationUrl: job.applicationUrl,
+            applicationContactEmail: contact.applicationContactEmail,
+            applicationContactSource: contact.applicationContactSource,
+            collectOnly: !contact.applicationContactEmail,
+            publishedAt: job.publishedAt,
+            isActive: true,
+          },
+          { upsert: true, new: true }
+        );
+        synced++;
+        providerStats.themuse.synced++;
+      }
+      providerStats.themuse.status = 'ok';
+    } catch (themuseError) {
+      providerStats.themuse.status = 'failed';
+      providerStats.themuse.error = themuseError.message;
+      logger.warn(`The Muse sync skipped: ${themuseError.message}`);
+    }
           title: job.title,
           company: job.company_name,
           description: job.description || '',
@@ -1199,6 +1672,7 @@ exports.syncJobs = async () => {
                     applicationUrl,
                     applicationContactEmail: contact.applicationContactEmail,
                     applicationContactSource: contact.applicationContactSource,
+                    collectOnly: !contact.applicationContactEmail,
                     publishedAt: job.job_posted_at_datetime_utc ? new Date(job.job_posted_at_datetime_utc) : new Date(),
                     isActive: true,
                   },
@@ -1306,6 +1780,7 @@ exports.syncJobs = async () => {
                     applicationUrl,
                     applicationContactEmail: contact.applicationContactEmail,
                     applicationContactSource: contact.applicationContactSource,
+                    collectOnly: !contact.applicationContactEmail,
                     publishedAt: job.date ? new Date(job.date) : new Date(),
                     isActive: true,
                   },
@@ -1384,6 +1859,7 @@ exports.syncJobs = async () => {
               applicationUrl,
               applicationContactEmail: contact.applicationContactEmail,
               applicationContactSource: contact.applicationContactSource,
+              collectOnly: !contact.applicationContactEmail,
               publishedAt: job.updated ? new Date(job.updated) : new Date(),
               isActive: true,
             },
@@ -1463,6 +1939,7 @@ exports.syncJobs = async () => {
                 applicationUrl,
                 applicationContactEmail: contact.applicationContactEmail,
                 applicationContactSource: contact.applicationContactSource,
+                collectOnly: !contact.applicationContactEmail,
                 publishedAt: job.created ? new Date(job.created) : new Date(),
                 isActive: true,
               },

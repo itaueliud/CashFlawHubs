@@ -54,7 +54,18 @@ const startJobScheduler = () => {
     }
   });
 
-  logger.info('Job scheduler started (jobs, challenges, exchange rates, Friday payout, cleanup)');
+  // Daily employer outreach digest for collect-only jobs.
+  cron.schedule(process.env.JOB_OUTREACH_CRON || '30 7 * * *', async () => {
+    logger.info('CRON: Sending daily job outreach digest...');
+    try {
+      const { sendDailyJobOutreachDigest } = require('./jobOutreachService');
+      await sendDailyJobOutreachDigest();
+    } catch (err) {
+      logger.error(`CRON job outreach digest failed: ${err.message}`);
+    }
+  });
+
+  logger.info('Job scheduler started (jobs, challenges, exchange rates, Friday payout, cleanup, outreach digest)');
 };
 
 const createDailyChallenges = async () => {

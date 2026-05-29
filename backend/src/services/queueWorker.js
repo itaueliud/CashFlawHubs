@@ -9,6 +9,7 @@ const QUEUES = {
   WITHDRAWAL_PROCESS: 'withdrawal.process',
   NOTIFICATION_ACTIVATION: 'notification.activation',
   NOTIFICATION_REFERRAL: 'notification.referral',
+  JOB_APPLICATION_DELIVERY: 'job.application.delivery',
 };
 
 // Initialize queue — tries RabbitMQ first, falls back to Redis list queue
@@ -62,6 +63,20 @@ const startQueueWorker = async () => {
       } catch (err) {
         logger.error(`Queue worker error (notification): ${err.message}`);
         channel.ack(msg); // Don't retry notifications
+      }
+    });
+
+    // Consume job application delivery messages
+    channel.consume(QUEUES.JOB_APPLICATION_DELIVERY, async (msg) => {
+      if (!msg) return;
+      try {
+        const data = JSON.parse(msg.content.toString());
+        const { processDeliveryMessage } = require('../services/applicationDelivery');
+        await processDeliveryMessage(data);
+        channel.ack(msg);
+      } catch (err) {
+        logger.error(`Queue worker error (job.application.delivery): ${err.message}`);
+        channel.nack(msg, false, false);
       }
     });
 
