@@ -105,7 +105,7 @@ function RegisterPageContent() {
 
   const sendPhoneOtp = async () => {
     if (turnstileSiteKey && !turnstileToken) return toast.error('Complete security check first');
-    if (!form.phone.trim()) return toast.error('Phone number is required');
+    if (!form.phone.trim()) return toast.error('Add a phone number first');
     setLoading(true);
     try {
       await api.post('/auth/send-otp', { phone: form.phone.trim(), country: form.country, turnstileToken: turnstileToken || undefined });
@@ -148,7 +148,8 @@ function RegisterPageContent() {
   const completeSignup = async () => {
     if (!referralVerified) return toast.error('Verify referral code first');
     if (!form.firstName || !form.lastName || !form.country) return toast.error('Complete personal details');
-    if (!phoneVerified || !emailVerified) return toast.error('Verify phone and email first');
+    if (!emailVerified) return toast.error('Verify email first');
+    if (form.phone.trim() && !phoneVerified) return toast.error('Verify phone first or leave it blank');
     if (!form.password || form.password.length < 6 || form.password !== form.confirmPassword) return toast.error('Password check failed');
     if (turnstileSiteKey && !turnstileToken) return toast.error('Complete security check');
 
@@ -225,9 +226,10 @@ function RegisterPageContent() {
             <TurnstileWidget siteKey={turnstileSiteKey} onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} onError={() => setTurnstileToken('')} className="flex justify-center" />
             <div>
               <label className="mb-1 block text-sm text-slate-300">Phone Number</label>
-              <input className="input" placeholder="Phone Number" value={form.phone} onChange={(e) => setField('phone', e.target.value)} />
+              <input className="input" placeholder="Phone Number (optional)" value={form.phone} onChange={(e) => setField('phone', e.target.value)} />
             </div>
-            <div className="flex gap-2"><input className="input" placeholder="Phone OTP" value={phoneOtp} onChange={(e) => setPhoneOtp(e.target.value)} /><button className="btn-secondary" onClick={sendPhoneOtp}>Send OTP</button><button className="btn-primary" onClick={verifyPhone}>Verify</button></div>
+            <div className="flex gap-2"><input className="input" placeholder="Phone OTP" value={phoneOtp} onChange={(e) => setPhoneOtp(e.target.value)} /><button className="btn-secondary" disabled={!form.phone.trim()} onClick={sendPhoneOtp}>Send OTP</button><button className="btn-primary" disabled={!form.phone.trim()} onClick={verifyPhone}>Verify</button></div>
+            <p className="text-xs text-slate-400">Phone number is optional. Leave it blank if you do not want SMS verification.</p>
             <div>
               <label className="mb-1 block text-sm text-slate-300">Email Address</label>
               <input className="input" placeholder="Email Address" value={form.email} onChange={(e) => setField('email', e.target.value)} />
@@ -236,7 +238,7 @@ function RegisterPageContent() {
               <button className="btn-secondary" onClick={sendEmailOtp}>Send Verification Link</button>
               <span className={`text-sm ${emailVerified ? 'text-green-400' : 'text-slate-400'}`}>{emailVerified ? 'Email verified' : 'Not verified yet'}</span>
             </div>
-            <button className="btn-primary" disabled={!phoneVerified || !emailVerified} onClick={() => setStep(4)}>Continue</button>
+            <button className="btn-primary" disabled={!emailVerified || (form.phone.trim() && !phoneVerified)} onClick={() => setStep(4)}>Continue</button>
           </div>
         )}
 

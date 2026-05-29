@@ -40,6 +40,7 @@ export default function ProfilePage() {
   const { user, refreshUser } = useAuthStore();
   const [isSendingVerification, setIsSendingVerification] = useState(false);
   const [verificationCooldown, setVerificationCooldown] = useState(0);
+  const [emailDraft, setEmailDraft] = useState('');
   const { register, handleSubmit, reset } = useForm<ProfileForm>({
     defaultValues: {
       name: user?.name || '',
@@ -55,6 +56,10 @@ export default function ProfilePage() {
       userLanguage: (user as any)?.userLanguage || '',
     });
   }, [reset, user]);
+
+  useEffect(() => {
+    setEmailDraft(String(user?.pending_email || user?.email || ''));
+  }, [user?.email, user?.pending_email]);
 
   useEffect(() => {
     if (verificationCooldown <= 0) return;
@@ -73,15 +78,25 @@ export default function ProfilePage() {
   }, [verificationCooldown]);
 
   const requestEmailVerification = async () => {
-    if (!user?.email) {
+    const trimmedEmail = emailDraft.trim().toLowerCase();
+    if (!trimmedEmail) {
       toast.error('Add an email address first');
       return;
     }
 
     try {
       setIsSendingVerification(true);
-      await api.post('/auth/request-email-verification');
+      if (user?.email && trimmedEmail === user.email.toLowerCase()) {
+        if (user.emailVerified) {
+          toast.success('Email is already verified');
+          return;
+        }
+        await api.post('/auth/request-email-verification');
+      } else {
+        await api.post('/users/me/email', { newEmail: trimmedEmail });
+      }
       setVerificationCooldown(60);
+      await refreshUser();
       toast.success('Verification link sent to your email');
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Failed to send verification email');
@@ -136,8 +151,12 @@ export default function ProfilePage() {
     { label: 'Tasks Done', value: user?.tasksCompleted || 0, icon: Gauge, tone: 'text-orange-300' },
   ];
 
+  const accountEmailLabel = user?.pending_email
+    ? `Pending: ${user.pending_email}`
+    : user?.email || 'Not added';
+
   const accountDetails = [
-    { label: 'Email', value: user?.email || 'Not added', icon: Mail },
+    { label: 'Email', value: accountEmailLabel, icon: Mail },
     { label: 'Phone', value: user?.phone || 'Not added', icon: Phone },
     { label: 'Country', value: COUNTRY_LABELS[user?.country || ''] || user?.country || 'Unknown', icon: MapPin },
     { label: 'User ID', value: user?.userId || '-', icon: UserRound, mono: true },
@@ -179,6 +198,7 @@ export default function ProfilePage() {
   ];
 
   const showEmailVerificationAction = Boolean(user?.email && !user?.emailVerified);
+  const currentEmailLabel = user?.pending_email ? `Pending: ${user.pending_email}` : user?.email || 'No email added';
 
   return (
     <div className="space-y-6">
@@ -201,7 +221,10 @@ export default function ProfilePage() {
                 <h2 className="mt-3 text-2xl font-black text-white">{user?.name || 'Unnamed User'}</h2>
                 <div className="mt-2 flex flex-wrap gap-3 text-sm text-slate-300">
                   <span className="inline-flex items-center gap-2"><Phone size={14} className="text-slate-500" />{user?.phone || 'No phone'}</span>
-                  <span className="inline-flex items-center gap-2"><Mail size={14} className="text-slate-500" />{user?.email || 'No email'}</span>
+                  <span className="inline-flex items-center gap-2">
+                    <Mail size={14} className="text-slate-500" />
+                    {user?.pending_email ? `Pending: ${user.pending_email}` : user?.email || 'No email'}
+                  </span>
                   <span className="inline-flex items-center gap-2"><MapPin size={14} className="text-slate-500" />{COUNTRY_LABELS[user?.country || ''] || user?.country}</span>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -268,7 +291,7 @@ export default function ProfilePage() {
                     <span className="text-sm text-slate-400">{item.label}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`text-sm text-right text-slate-100 ${item.mono ? 'font-mono text-xs' : ''}`}>{item.value}</span>
+                    <span className={`text-sm text-right ${String(item.value).startsWith('Pending:') ? 'font-semibold text-amber-200' : 'text-slate-100'} ${item.mono ? 'font-mono text-xs' : ''}`}>{item.value}</span>
                     {item.copyable && item.value && item.value !== '-' && (
                       <button
                         type="button"
@@ -361,24 +384,39 @@ export default function ProfilePage() {
               ))}
             </div>
 
-            {showEmailVerificationAction ? (
-              <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4">
-                <div className="text-sm font-semibold text-amber-200">Your email is not verified yet</div>
-                <p className="mt-1 text-sm text-slate-300">
-                  Send a new verification link to {user?.email}. You can use it to confirm ownership of your email address.
-                </p>
-                <button type="button" onClick={requestEmailVerification} className="btn-primary mt-3" disabled={isSendingVerification || verificationCooldown > 0}>
+            <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4">
+              <div className="text-sm font-semibold text-amber-200">Email verification</div>
+              <p className="mt-1 text-sm text-slate-300">
+                {user?.emailVerified
+                  ? 'Update your email here if you want to switch to a new address.'
+                  : 'Add an email address or resend the verification link to confirm ownership.'}
+              </p>
+              <div className="mt-3 space-y-2">
+                <label className="block text-xs uppercase tracking-wide text-slate-400">Email address</label>
+                <input
+                  className="input"
+                  type="email"
+                  value={emailDraft}
+                  onChange={(event) => setEmailDraft(event.target.value)}
+                  placeholder="you@example.com"
+                />
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <button type="button" onClick={requestEmailVerification} className="btn-primary" disabled={isSendingVerification || verificationCooldown > 0}>
                   {isSendingVerification
                     ? 'Sending...'
                     : verificationCooldown > 0
                       ? `Resend available in ${verificationCooldown}s`
-                      : 'Verify email'}
+                      : user?.email && emailDraft.trim().toLowerCase() === user.email.toLowerCase() && !user.emailVerified
+                        ? 'Resend verification'
+                        : 'Save & verify'}
                 </button>
-                {verificationCooldown > 0 ? (
-                  <p className="mt-2 text-xs text-amber-200/80">You can request another link after the timer expires.</p>
-                ) : null}
+                <span className="text-xs text-slate-400">Current: {currentEmailLabel}</span>
               </div>
-            ) : null}
+              {verificationCooldown > 0 ? (
+                <p className="mt-2 text-xs text-amber-200/80">You can request another link after the timer expires.</p>
+              ) : null}
+            </div>
           </section>
         </div>
       </div>

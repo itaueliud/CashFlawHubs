@@ -336,7 +336,7 @@ exports.register = async (req, res) => {
       device_fingerprint,
     } = req.body;
 
-    if (!firstName || !lastName || !email || !phone || !country || !password) {
+    if (!firstName || !lastName || !email || !country || !password) {
       return res.status(400).json({ success: false, message: 'Missing required registration fields' });
     }
     if (!isValidEmail(email)) {
@@ -348,9 +348,12 @@ exports.register = async (req, res) => {
     if (!referralCode) {
       return res.status(400).json({ success: false, message: 'Referral code is required' });
     }
-    const phoneVerified = await getCode('phone_verified', phone);
-    if (phoneVerified !== 'true') {
-      return res.status(400).json({ success: false, message: 'Phone OTP verification required' });
+    const normalizedPhone = String(phone || '').trim();
+    if (normalizedPhone) {
+      const phoneVerified = await getCode('phone_verified', normalizedPhone);
+      if (phoneVerified !== 'true') {
+        return res.status(400).json({ success: false, message: 'Phone OTP verification required' });
+      }
     }
     const emailVerified = await getCode('email_verified', normalizeEmail(email));
     if (emailVerified !== 'true') {
@@ -361,18 +364,13 @@ exports.register = async (req, res) => {
     let existingId = null;
 
     if (isDatabaseReady()) {
-      const checks = [
-        User.findOne({ phone }),
-        User.findOne({ email: email.toLowerCase() }),
-      ];
+      const phoneQuery = normalizedPhone ? User.findOne({ phone: normalizedPhone }) : Promise.resolve(null);
+      const emailQuery = User.findOne({ email: email.toLowerCase() });
+      const idQuery = idNumber ? User.findOne({ idNumber }) : Promise.resolve(null);
 
-      if (idNumber) {
-        checks.push(User.findOne({ idNumber }));
-      }
-
-      [existingPhone, existingEmail, existingId] = await Promise.all(checks);
+      [existingPhone, existingEmail, existingId] = await Promise.all([phoneQuery, emailQuery, idQuery]);
     } else {
-      existingPhone = devAuthStore.findByPhone(phone);
+      existingPhone = normalizedPhone ? devAuthStore.findByPhone(normalizedPhone) : null;
       existingEmail = devAuthStore.findByEmail(email);
       existingId = idNumber ? devAuthStore.findByIdNumber(idNumber) : null;
     }
@@ -400,7 +398,7 @@ exports.register = async (req, res) => {
         lastName,
         name: fullName,
         email,
-        phone,
+        phone: normalizedPhone || undefined,
         country,
         passwordHash: password,
         idNumber: idNumber || undefined,
@@ -438,7 +436,7 @@ exports.register = async (req, res) => {
       lastName,
       name: fullName,
       email: email.toLowerCase(),
-      phone,
+      ...(normalizedPhone ? { phone: normalizedPhone } : {}),
       country,
       passwordHash: password,
       idNumber: idNumber || undefined,
@@ -462,7 +460,9 @@ exports.register = async (req, res) => {
         eventType: 'registration',
       }],
     });
-    await clearCode('phone_verified', phone);
+    if (normalizedPhone) {
+      await clearCode('phone_verified', normalizedPhone);
+    }
     await clearCode('email_verified', email);
 
     await Wallet.create({ userId: user._id });
