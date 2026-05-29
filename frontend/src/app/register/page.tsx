@@ -90,7 +90,14 @@ function RegisterPageContent() {
     const emailVerifiedParam = searchParams?.get('emailVerified');
     const reasonParam = searchParams?.get('reason');
 
+    // prefer explicit step in URL, otherwise restore saved step from sessionStorage
     if (stepParam === '3') setStep(3);
+    else {
+      const savedStep = typeof window !== 'undefined' ? sessionStorage.getItem('register-step') : null;
+      if (savedStep && ['1', '2', '3', '4', '5'].includes(savedStep)) {
+        setStep(Number(savedStep));
+      }
+    }
     if (emailParam) setField('email', emailParam);
 
     if (emailVerifiedParam === '1') {
@@ -101,6 +108,29 @@ function RegisterPageContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  // Persist step and key form fields so refresh keeps user on the same step
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('register-step', String(step));
+        sessionStorage.setItem('register-referral', form.referralCode || '');
+        sessionStorage.setItem('register-email', form.email || '');
+      }
+    } catch (e) {
+      // ignore storage errors
+    }
+  }, [step, form.referralCode, form.email]);
+
+  // Clear persisted state on successful registration
+  useEffect(() => {
+    const onBeforeUnload = () => {
+      // no-op
+    };
+    return () => {
+      // keep persisted values for refresh; do not clear here
+    };
+  }, []);
 
   // If user refreshed the page or returned without query params, check server-side email verified flag
   useEffect(() => {
