@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Referral = require('../models/Referral');
 const Wallet = require('../models/Wallet');
 const logger = require('../utils/logger');
+const devAuthStore = require('../services/devAuthStore');
 
 // @GET /api/referrals/dashboard
 exports.getReferralDashboard = async (req, res) => {
@@ -52,8 +53,13 @@ exports.getLeaderboard = async (req, res) => {
 exports.validateReferralCode = async (req, res) => {
   try {
     const { code } = req.params;
-    const referrer = await User.findOne({ referralCode: code }).select('name country');
+    let referrer = await User.findOne({ referralCode: code }).select('name country');
     if (!referrer) {
+      // Fallback to local dev auth store when MongoDB doesn't have the code
+      const devRef = devAuthStore.findByReferralCode(code);
+      if (devRef) {
+        return res.json({ success: true, referrer: { name: devRef.name, country: devRef.country } });
+      }
       return res.status(404).json({ success: false, message: 'Invalid referral code' });
     }
     res.json({ success: true, referrer: { name: referrer.name, country: referrer.country } });

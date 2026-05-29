@@ -376,9 +376,18 @@ exports.register = async (req, res) => {
     if (existingId) return res.status(409).json({ success: false, message: 'ID number already registered' });
 
     let referrer = null;
-    referrer = isDatabaseReady()
-      ? await User.findOne({ referralCode })
-      : devAuthStore.findByReferralCode(referralCode);
+    if (isDatabaseReady()) {
+      referrer = await User.findOne({ referralCode });
+      if (!referrer) {
+        // Fallback to dev auth store if MongoDB doesn't contain the referral (useful for local dev helpers)
+        const devRef = devAuthStore.findByReferralCode(referralCode);
+        if (devRef) {
+          referrer = devRef;
+        }
+      }
+    } else {
+      referrer = devAuthStore.findByReferralCode(referralCode);
+    }
     if (!referrer) {
       return res.status(400).json({ success: false, message: 'Invalid referral code' });
     }
