@@ -4,10 +4,21 @@ const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 const logger = require('../utils/logger');
 const { sendgridClient, sendSMS } = require('../services/notificationService');
+const fs = require('fs');
 
 const MAX_COVER_LETTER_LENGTH = 3000;
+const MIN_COVER_LETTER_LENGTH = 1;
 const JOB_APPLICATION_STATUS = ['submitted', 'reviewed', 'shortlisted', 'rejected'];
 const STATUS_NOTIFY_SET = new Set(['reviewed', 'shortlisted']);
+
+const cleanupUploadedCv = async (file) => {
+  if (!file?.path) return;
+  try {
+    await fs.promises.unlink(file.path);
+  } catch (error) {
+    logger.warn(`Failed to remove uploaded CV ${file.path}: ${error.message}`);
+  }
+};
 
 exports.getJobApplicationsForManagement = async (req, res) => {
   try {
@@ -84,7 +95,7 @@ exports.getJobApplicationsForManagement = async (req, res) => {
           path: 'userId',
           select: 'firstName lastName name email phone userId',
         })
-        .lean(),
+            .select('status appliedAt createdAt updatedAt tokenCost coverLetter userId cvOriginalName cvFileName cvMimeType cvUrl'),
       JobApplication.countDocuments(query),
     ]);
 
@@ -94,6 +105,12 @@ exports.getJobApplicationsForManagement = async (req, res) => {
         _id: application._id,
         status: application.status,
         coverLetter: application.coverLetter || '',
+        cv: application.cvUrl ? {
+          originalName: application.cvOriginalName,
+          fileName: application.cvFileName,
+          mimeType: application.cvMimeType,
+          url: application.cvUrl,
+        } : null,
         tokenCost: application.tokenCost || 0,
         appliedAt: application.appliedAt,
         createdAt: application.createdAt,
@@ -192,6 +209,12 @@ exports.getMyJobApplications = async (req, res) => {
         _id: application._id,
         status: application.status,
         coverLetter: application.coverLetter,
+        cv: application.cvUrl ? {
+          originalName: application.cvOriginalName,
+          fileName: application.cvFileName,
+          mimeType: application.cvMimeType,
+          url: application.cvUrl,
+        } : null,
         tokenCost: application.tokenCost || 0,
         appliedAt: application.appliedAt,
         createdAt: application.createdAt,
@@ -232,24 +255,36 @@ exports.applyToJob = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
     if (!job || !job.isActive) {
+      await cleanupUploadedCv(req.file);
       return res.status(404).json({ success: false, message: 'Job not found' });
     }
 
     if (job.expiresAt && job.expiresAt <= new Date()) {
+      await cleanupUploadedCv(req.file);
       return res.status(410).json({ success: false, message: 'This job is no longer accepting applications' });
     }
 
     if (job.postedBy && String(job.postedBy) === String(req.user.id)) {
+      await cleanupUploadedCv(req.file);
       return res.status(400).json({ success: false, message: 'You cannot apply to your own job posting' });
     }
 
     const coverLetter = typeof req.body?.coverLetter === 'string' ? req.body.coverLetter.trim() : '';
+    const cvFile = req.file || null;
+
+    if (coverLetter.length < MIN_COVER_LETTER_LENGTH) {
+      await cleanupUploadedCv(cvFile);
+      return res.status(400).json({ success: false, message: `Cover letter is required and must be at least ${MIN_COVER_LETTER_LENGTH} characters` });
+    }
+
     if (coverLetter.length > MAX_COVER_LETTER_LENGTH) {
+      await cleanupUploadedCv(cvFile);
       return res.status(400).json({ success: false, message: `Cover letter is too long (max ${MAX_COVER_LETTER_LENGTH} characters)` });
     }
 
     const existingApplication = await JobApplication.findOne({ jobId: job._id, userId: req.user.id });
     if (existingApplication) {
+      await cleanupUploadedCv(req.file);
       return res.status(409).json({ success: false, message: 'You already applied to this job' });
     }
 
@@ -258,7 +293,12 @@ exports.applyToJob = async (req, res) => {
     const application = await JobApplication.create({
       jobId: job._id,
       userId: req.user.id,
-      coverLetter: coverLetter || null,
+      coverLetter,
+      cvOriginalName: cvFile?.originalname || null,
+      cvFileName: cvFile?.filename || null,
+      cvMimeType: cvFile?.mimetype || null,
+      cvPath: cvFile?.path || null,
+      cvUrl: cvFile ? `/uploads/job-applications/${cvFile.filename}` : null,
       tokenCost,
       status: 'submitted',
     });
@@ -313,6 +353,7 @@ exports.applyToJob = async (req, res) => {
 
       if (!applicant) {
         await JobApplication.deleteOne({ _id: application._id });
+        await cleanupUploadedCv(cvFile);
         return res.status(400).json({
           success: false,
           message: `Applying for this job requires ${tokenCost} tokens`,
@@ -369,6 +410,9 @@ exports.applyToJob = async (req, res) => {
             const applicantName = applicant?.name || [applicant?.firstName, applicant?.lastName].filter(Boolean).join(' ').trim() || applicant?.email || 'Applicant';
             const subject = `New application for ${jobRef.title} at ${jobRef.company}`;
             const safeCover = coverLetter ? String(coverLetter).replace(/\n/g, '<br/>') : 'No cover letter provided.';
+            const cvSection = application.cvUrl
+              ? `<p><strong>CV:</strong> <a href="${application.cvUrl}">${application.cvOriginalName || application.cvFileName || 'Download CV'}</a></p>`
+              : '<p><strong>CV:</strong> Not provided</p>';
             const html = `
               <p>Hello,</p>
               <p>You have received a new application for <strong>${jobRef.title}</strong> at <strong>${jobRef.company}</strong>.</p>
@@ -377,6 +421,7 @@ exports.applyToJob = async (req, res) => {
               <p><strong>Phone:</strong> ${applicant?.phone || 'N/A'}</p>
               <p><strong>Cover Letter:</strong></p>
               <p>${safeCover}</p>
+              ${cvSection}
               <p>Original job listing: <a href="${jobRef.applicationUrl}">${jobRef.applicationUrl}</a></p>
               <p>To reply directly to the applicant, reply to this email.</p>
             `;
@@ -403,6 +448,9 @@ exports.applyToJob = async (req, res) => {
   } catch (error) {
     if (error?.code === 11000) {
       return res.status(409).json({ success: false, message: 'You already applied to this job' });
+    }
+    if (req.file) {
+      await cleanupUploadedCv(req.file);
     }
     logger.error(`applyToJob error: ${error.message}`);
     res.status(error.status || 500).json({ success: false, message: error.message });

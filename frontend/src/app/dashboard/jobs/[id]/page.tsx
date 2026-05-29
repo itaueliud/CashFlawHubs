@@ -71,6 +71,7 @@ export default function JobDetailsPage() {
   const slugId = Array.isArray(params?.slug) && params.slug[0] === 'jobs' ? params.slug[1] : undefined;
   const jobId = directId || slugId;
   const [coverLetter, setCoverLetter] = useState('');
+  const [cvFile, setCvFile] = useState<File | null>(null);
   const { user, setUser } = useAuthStore();
 
   const { data, isLoading, refetch } = useQuery({
@@ -90,7 +91,12 @@ export default function JobDetailsPage() {
 
   const applyMutation = useMutation({
     mutationFn: async () => {
-      const response = await api.post(`/jobs/${jobId}/apply`, { coverLetter });
+      const formData = new FormData();
+      formData.append('coverLetter', coverLetter.trim());
+      if (cvFile) formData.append('cv', cvFile);
+      const response = await api.post(`/jobs/${jobId}/apply`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       return response.data as ApplyResponse;
     },
     onSuccess: async (response) => {
@@ -99,6 +105,7 @@ export default function JobDetailsPage() {
         setUser({ ...user, tokenBalance: response.tokenBalance });
       }
       setCoverLetter('');
+      setCvFile(null);
       await refetch();
     },
     onError: (error: unknown) => {
@@ -138,6 +145,8 @@ export default function JobDetailsPage() {
     if (!job?.publishedAt) return '';
     return new Date(job.publishedAt).toLocaleString();
   }, [job?.publishedAt]);
+
+  const canSubmitApplication = coverLetter.trim().length > 0 && !applyMutation.isPending && !userApplication;
 
   if (!jobId) {
     return <div className="card text-slate-400">Missing job id.</div>;
@@ -228,18 +237,32 @@ export default function JobDetailsPage() {
             </div>
 
             <div>
-              <label className="text-sm text-slate-300 mb-1 block">Cover Letter</label>
+              <label className="text-sm text-slate-300 mb-1 block">Cover Letter <span className="text-rose-400">*</span></label>
               <textarea
                 className="input min-h-40"
                 value={coverLetter}
                 onChange={(e) => setCoverLetter(e.target.value)}
                 placeholder="Tell the employer why you are a fit for this role..."
+                required
               />
+              <p className="mt-2 text-xs text-slate-500">Required. Please enter a cover letter before applying.</p>
+            </div>
+
+            <div>
+              <label className="text-sm text-slate-300 mb-1 block">Upload CV / Resume</label>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                className="input file:mr-4 file:rounded-lg file:border-0 file:bg-slate-700 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-slate-600"
+                onChange={(e) => setCvFile(e.target.files?.[0] || null)}
+              />
+              <p className="mt-2 text-xs text-slate-500">PDF, DOC, or DOCX. Optional, but recommended.</p>
+              {cvFile ? <p className="mt-2 text-xs text-emerald-300">Selected: {cvFile.name}</p> : null}
             </div>
 
             <button
               onClick={() => applyMutation.mutate()}
-              disabled={applyMutation.isPending || Boolean(userApplication)}
+              disabled={!canSubmitApplication}
               className="btn-primary w-full flex items-center justify-center gap-2"
             >
               {applyMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}

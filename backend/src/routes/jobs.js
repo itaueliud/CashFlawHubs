@@ -18,6 +18,7 @@ const {
 	getJobApplicationsForManagement,
 } = require('../controllers/jobApplicationController');
 const { getJobApplicants } = require('../controllers/jobApplicationController');
+const jobsUpload = require('../middleware/jobsUpload');
 const { protect, requireActivation, staffOnly } = require('../middleware/auth');
 const { syncJobs } = require('../controllers/jobController');
 
@@ -50,6 +51,6 @@ router.post('/sync-now', protect, staffOnly, async (req, res) => {
   }
 });
 router.get('/:id', protect, getJob);
-router.post('/:id/apply', protect, requireActivation, applyToJob);
+router.post('/:id/apply', protect, requireActivation, jobsUpload.single('cv'), applyToJob);
 
 module.exports = router;
