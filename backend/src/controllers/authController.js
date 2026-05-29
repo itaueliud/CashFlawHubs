@@ -266,6 +266,20 @@ exports.verifyEmailLink = async (req, res) => {
   }
 };
 
+// @GET /api/auth/email-verified-status?email=...
+exports.emailVerifiedStatus = async (req, res) => {
+  try {
+    const email = String(req.query.email || '').trim();
+    if (!email) return res.status(400).json({ success: false, message: 'Email required' });
+    const normalizedEmail = normalizeEmail(email);
+    const verified = (await getCode('email_verified', normalizedEmail)) === 'true';
+    return res.json({ success: true, verified });
+  } catch (error) {
+    logger.error(`emailVerifiedStatus error: ${error.message}`);
+    return res.status(500).json({ success: false, message: 'Failed to check email verified status' });
+  }
+};
+
 exports.verifyPhoneOTP = async (req, res) => {
   try {
     const { phone, otp } = req.body;

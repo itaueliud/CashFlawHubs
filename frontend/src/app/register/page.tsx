@@ -102,6 +102,26 @@ function RegisterPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  // If user refreshed the page or returned without query params, check server-side email verified flag
+  useEffect(() => {
+    const checkVerified = async () => {
+      const email = form.email?.trim();
+      if (!email) return;
+      try {
+        const res = await api.get(`/auth/email-verified-status?email=${encodeURIComponent(email)}`);
+        if (res.data?.verified) {
+          setEmailVerified(true);
+          toast.success('Email verified successfully');
+        }
+      } catch (err: any) {
+        // ignore
+      }
+    };
+    // run check once on mount and whenever email changes
+    checkVerified();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.email]);
+
   // Phone verification endpoints exist but the UI is hidden while verification is bypassed.
 
   const sendEmailOtp = async () => {
