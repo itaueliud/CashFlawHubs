@@ -238,7 +238,7 @@ function RegisterPageContent() {
               <button className="btn-secondary" onClick={sendEmailOtp}>Send Verification Link</button>
               <span className={`text-sm ${emailVerified ? 'text-green-400' : 'text-slate-400'}`}>{emailVerified ? 'Email verified' : 'Not verified yet'}</span>
             </div>
-            <button className="btn-primary" disabled={!emailVerified || (form.phone.trim() && !phoneVerified)} onClick={() => setStep(4)}>Continue</button>
+            <button className="btn-primary" disabled={!emailVerified || (Boolean(form.phone.trim()) && !phoneVerified)} onClick={() => setStep(4)}>Continue</button>
           </div>
         )}
 
