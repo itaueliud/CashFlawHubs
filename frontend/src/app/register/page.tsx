@@ -122,7 +122,6 @@ function RegisterPageContent() {
     if (!referralVerified) return toast.error('Verify referral code first');
     if (!form.firstName || !form.lastName || !form.country) return toast.error('Complete personal details');
     if (!emailVerified) return toast.error('Verify email first');
-    if (form.phone.trim() && !phoneVerified) return toast.error('Verify phone first or leave it blank');
     if (!form.password || form.password.length < 6 || form.password !== form.confirmPassword) return toast.error('Password check failed');
     if (turnstileSiteKey && !turnstileToken) return toast.error('Complete security check');
 
