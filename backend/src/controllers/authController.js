@@ -349,12 +349,8 @@ exports.register = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Referral code is required' });
     }
     const normalizedPhone = String(phone || '').trim();
-    if (normalizedPhone) {
-      const phoneVerified = await getCode('phone_verified', normalizedPhone);
-      if (phoneVerified !== 'true') {
-        return res.status(400).json({ success: false, message: 'Phone OTP verification required' });
-      }
-    }
+    // Phone verification is optional during registration: do not block account creation
+    // if the phone OTP hasn't been verified. We still accept and store the phone if provided.
     const emailVerified = await getCode('email_verified', normalizeEmail(email));
     if (emailVerified !== 'true') {
       return res.status(400).json({ success: false, message: 'Email verification required' });

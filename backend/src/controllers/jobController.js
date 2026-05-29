@@ -996,18 +996,7 @@ exports.syncJobs = async () => {
           },
         });
       }
-
-      if (remotiveOps.length > 0) {
-        await Job.bulkWrite(remotiveOps, { ordered: false });
-        synced += remotiveOps.length;
-        providerStats.remotive.synced += remotiveOps.length;
-      }
-      providerStats.remotive.status = 'ok';
-    } catch (remotiveError) {
-      providerStats.remotive.status = 'failed';
-      providerStats.remotive.error = remotiveError.message;
-      logger.warn(`Remotive sync skipped: ${remotiveError.message}`);
-    }
+    
 
     // Jobicy
     try {
@@ -1283,49 +1272,7 @@ exports.syncJobs = async () => {
       providerStats.themuse.error = themuseError.message;
       logger.warn(`The Muse sync skipped: ${themuseError.message}`);
     }
-          title: job.title,
-          company: job.company_name,
-          description: job.description || '',
-          applicationUrl: job.url || '',
-          source: 'remotive',
-        }),
-        updateOne: {
-          filter: { externalId: `remotive-${job.id}` },
-          update: {
-            $set: {
-              externalId: `remotive-${job.id}`,
-              source: 'remotive',
-              title: job.title,
-              company: job.company_name,
-              companyLogo: job.company_logo,
-              category: job.category || 'Other',
-              jobType: normalizeJobType(job.job_type),
-              location: 'Remote',
-              salary: job.salary || null,
-              description: job.description?.slice(0, 2000) || '',
-              tags: job.tags || [],
-              applicationUrl: job.url,
-              applicationContactEmail: discoverApplicationContact({
-                title: job.title,
-                company: job.company_name,
-                description: job.description || '',
-                applicationUrl: job.url || '',
-                source: 'remotive',
-              }).applicationContactEmail,
-              applicationContactSource: discoverApplicationContact({
-                title: job.title,
-                company: job.company_name,
-                description: job.description || '',
-                applicationUrl: job.url || '',
-                source: 'remotive',
-              }).applicationContactSource,
-              publishedAt: new Date(job.publication_date),
-              isActive: true,
-            },
-          },
-          upsert: true,
-        },
-      }));
+    
       if (remotiveOps.length > 0) {
         await Job.bulkWrite(remotiveOps, { ordered: false });
         synced += remotiveOps.length;
