@@ -37,8 +37,7 @@ function RegisterPageContent() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState('');
-  const [phoneOtp, setPhoneOtp] = useState('');
-  const [phoneVerified, setPhoneVerified] = useState(false);
+  // Phone OTP UI hidden while phone verification is bypassed
   const [emailVerified, setEmailVerified] = useState(false);
   const [referralVerified, setReferralVerified] = useState(false);
 
@@ -103,33 +102,7 @@ function RegisterPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const sendPhoneOtp = async () => {
-    if (turnstileSiteKey && !turnstileToken) return toast.error('Complete security check first');
-    if (!form.phone.trim()) return toast.error('Add a phone number first');
-    setLoading(true);
-    try {
-      await api.post('/auth/send-otp', { phone: form.phone.trim(), country: form.country, turnstileToken: turnstileToken || undefined });
-      toast.success('Phone OTP sent');
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to send phone OTP');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const verifyPhone = async () => {
-    if (!phoneOtp.trim()) return toast.error('Enter phone OTP');
-    setLoading(true);
-    try {
-      await api.post('/auth/verify-phone-otp', { phone: form.phone.trim(), otp: phoneOtp.trim() });
-      setPhoneVerified(true);
-      toast.success('Phone verified');
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Phone OTP invalid');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Phone verification endpoints exist but the UI is hidden while verification is bypassed.
 
   const sendEmailOtp = async () => {
     if (turnstileSiteKey && !turnstileToken) return toast.error('Complete security check first');
@@ -228,7 +201,6 @@ function RegisterPageContent() {
               <label className="mb-1 block text-sm text-slate-300">Phone Number</label>
               <input className="input" placeholder="Phone Number (optional)" value={form.phone} onChange={(e) => setField('phone', e.target.value)} />
             </div>
-            <div className="flex gap-2"><input className="input" placeholder="Phone OTP" value={phoneOtp} onChange={(e) => setPhoneOtp(e.target.value)} /><button className="btn-secondary" disabled={!form.phone.trim()} onClick={sendPhoneOtp}>Send OTP</button><button className="btn-primary" disabled={!form.phone.trim()} onClick={verifyPhone}>Verify</button></div>
             <p className="text-xs text-slate-400">Phone number is optional. Leave it blank if you do not want SMS verification.</p>
             <div>
               <label className="mb-1 block text-sm text-slate-300">Email Address</label>
@@ -238,7 +210,7 @@ function RegisterPageContent() {
               <button className="btn-secondary" onClick={sendEmailOtp}>Send Verification Link</button>
               <span className={`text-sm ${emailVerified ? 'text-green-400' : 'text-slate-400'}`}>{emailVerified ? 'Email verified' : 'Not verified yet'}</span>
             </div>
-            <button className="btn-primary" disabled={!emailVerified || (Boolean(form.phone.trim()) && !phoneVerified)} onClick={() => setStep(4)}>Continue</button>
+            <button className="btn-primary" disabled={!emailVerified} onClick={() => setStep(4)}>Continue</button>
           </div>
         )}
 
