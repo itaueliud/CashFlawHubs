@@ -4,7 +4,7 @@
   "description": "EarnHub API Server",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "node --max-old-space-size=512 src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node scripts/seed.js",
     "set-test-tokens": "node scripts/set-test-user-tokens.js"
