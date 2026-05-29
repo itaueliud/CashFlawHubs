@@ -1,6 +1,5 @@
 ﻿'use client';
-
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import {
@@ -39,6 +38,8 @@ type ProfileForm = {
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuthStore();
+  const [isSendingVerification, setIsSendingVerification] = useState(false);
+  const [verificationCooldown, setVerificationCooldown] = useState(0);
   const { register, handleSubmit, reset } = useForm<ProfileForm>({
     defaultValues: {
       name: user?.name || '',
@@ -54,6 +55,40 @@ export default function ProfilePage() {
       userLanguage: (user as any)?.userLanguage || '',
     });
   }, [reset, user]);
+
+  useEffect(() => {
+    if (verificationCooldown <= 0) return;
+
+    const timer = window.setInterval(() => {
+      setVerificationCooldown((current) => {
+        if (current <= 1) {
+          window.clearInterval(timer);
+          return 0;
+        }
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [verificationCooldown]);
+
+  const requestEmailVerification = async () => {
+    if (!user?.email) {
+      toast.error('Add an email address first');
+      return;
+    }
+
+    try {
+      setIsSendingVerification(true);
+      await api.post('/auth/request-email-verification');
+      setVerificationCooldown(60);
+      toast.success('Verification link sent to your email');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to send verification email');
+    } finally {
+      setIsSendingVerification(false);
+    }
+  };
 
   const onSave = async (data: ProfileForm) => {
     try {
@@ -142,6 +177,8 @@ export default function ProfilePage() {
       tone: 'text-orange-300',
     },
   ];
+
+  const showEmailVerificationAction = Boolean(user?.email && !user?.emailVerified);
 
   return (
     <div className="space-y-6">
@@ -323,6 +360,25 @@ export default function ProfilePage() {
                 </div>
               ))}
             </div>
+
+            {showEmailVerificationAction ? (
+              <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4">
+                <div className="text-sm font-semibold text-amber-200">Your email is not verified yet</div>
+                <p className="mt-1 text-sm text-slate-300">
+                  Send a new verification link to {user?.email}. You can use it to confirm ownership of your email address.
+                </p>
+                <button type="button" onClick={requestEmailVerification} className="btn-primary mt-3" disabled={isSendingVerification || verificationCooldown > 0}>
+                  {isSendingVerification
+                    ? 'Sending...'
+                    : verificationCooldown > 0
+                      ? `Resend available in ${verificationCooldown}s`
+                      : 'Verify email'}
+                </button>
+                {verificationCooldown > 0 ? (
+                  <p className="mt-2 text-xs text-amber-200/80">You can request another link after the timer expires.</p>
+                ) : null}
+              </div>
+            ) : null}
           </section>
         </div>
       </div>

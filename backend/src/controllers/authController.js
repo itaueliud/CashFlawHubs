@@ -96,6 +96,40 @@ const getSecurityContext = (req, payload = {}) => ({
   deviceFingerprint: String(payload.device_fingerprint || req.headers['x-device-fingerprint'] || ''),
 });
 
+const sendVerificationEmailToRecipient = async ({ email, firstName, allowExistingUser = false }) => {
+  if (!email || !isValidEmail(email)) {
+    const error = new Error('Valid email required');
+    error.status = 400;
+    throw error;
+  }
+
+  const normalizedEmail = normalizeEmail(email);
+
+  if (!allowExistingUser) {
+    const existing = isDatabaseReady()
+      ? await User.findOne({ email: normalizedEmail })
+      : devAuthStore.findByEmail(normalizedEmail);
+    if (existing) {
+      const error = new Error('Email already registered');
+      error.status = 409;
+      throw error;
+    }
+  }
+
+  const token = crypto.randomBytes(32).toString('hex');
+  await setCode('email_verify_token', token, normalizedEmail, EMAIL_VERIFY_TTL_SECONDS);
+  await clearCode('email_verified', normalizedEmail);
+  const verifyLink = `${getApiBaseUrl()}/api/auth/verify-email-link?token=${encodeURIComponent(token)}`;
+
+  await sendgridClient.sendEmail({
+    to: normalizedEmail,
+    subject: 'Verify your CashFlawHubs email',
+    html: `<p>Hello ${firstName || 'there'},</p><p>Click below to verify your CashFlawHubs email address:</p><p><a href="${verifyLink}">${verifyLink}</a></p><p>This link expires in 24 hours.</p>`,
+  });
+
+  return { normalizedEmail, verifyLink };
+};
+
 exports.sendOTP = async (req, res) => {
   try {
     const { phone, country } = req.body;
@@ -140,28 +174,7 @@ exports.sendOTP = async (req, res) => {
 exports.sendEmailVerification = async (req, res) => {
   try {
     const { email, firstName } = req.body;
-    if (!email || !isValidEmail(email)) {
-      return res.status(400).json({ success: false, message: 'Valid email required' });
-    }
-    const normalizedEmail = normalizeEmail(email);
-
-    const existing = isDatabaseReady()
-      ? await User.findOne({ email: normalizedEmail })
-      : devAuthStore.findByEmail(normalizedEmail);
-    if (existing) {
-      return res.status(409).json({ success: false, message: 'Email already registered' });
-    }
-
-    const token = crypto.randomBytes(32).toString('hex');
-    await setCode('email_verify_token', token, normalizedEmail, EMAIL_VERIFY_TTL_SECONDS);
-    await clearCode('email_verified', normalizedEmail);
-    const verifyLink = `${getApiBaseUrl()}/api/auth/verify-email-link?token=${encodeURIComponent(token)}`;
-
-    await sendgridClient.sendEmail({
-      to: normalizedEmail,
-      subject: 'Verify your CashFlawHubs email',
-      html: `<p>Hello ${firstName || 'there'},</p><p>Click below to verify your CashFlawHubs email address:</p><p><a href="${verifyLink}">${verifyLink}</a></p><p>This link expires in 24 hours.</p>`,
-    });
+    const { verifyLink, normalizedEmail } = await sendVerificationEmailToRecipient({ email, firstName, allowExistingUser: false });
 
     if (process.env.NODE_ENV === 'development') {
       logger.info(`[DEV MODE] Email verification link for ${normalizedEmail}: ${verifyLink}`);
@@ -172,6 +185,38 @@ exports.sendEmailVerification = async (req, res) => {
   } catch (error) {
     logger.error(`sendEmailVerification error: ${error.message}`);
     res.status(500).json({ success: false, message: 'Failed to send verification email' });
+  }
+};
+
+exports.requestEmailVerification = async (req, res) => {
+  try {
+    const user = isDatabaseReady()
+      ? await User.findById(req.user.id).select('email firstName name')
+      : devAuthStore.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (!user.email) {
+      return res.status(400).json({ success: false, message: 'No email address on file' });
+    }
+
+    const { verifyLink, normalizedEmail } = await sendVerificationEmailToRecipient({
+      email: user.email,
+      firstName: user.firstName || user.name || 'there',
+      allowExistingUser: true,
+    });
+
+    if (process.env.NODE_ENV === 'development') {
+      logger.info(`[DEV MODE] Email verification link for ${normalizedEmail}: ${verifyLink}`);
+      return res.json({ success: true, message: 'Verification link generated', verifyLink });
+    }
+
+    return res.json({ success: true, message: 'Verification email sent. Open the link in your inbox.' });
+  } catch (error) {
+    logger.error(`requestEmailVerification error: ${error.message}`);
+    res.status(error.status || 500).json({ success: false, message: error.message || 'Failed to send verification email' });
   }
 };
 
