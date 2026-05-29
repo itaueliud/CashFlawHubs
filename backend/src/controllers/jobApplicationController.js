@@ -1,9 +1,11 @@
 const Job = require('../models/Job');
+const Delivery = require('../models/Delivery');
 const JobApplication = require('../models/JobApplication');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 const logger = require('../utils/logger');
 const { sendgridClient, sendSMS } = require('../services/notificationService');
+const { processDeliveryMessage } = require('../services/applicationDelivery');
 const fs = require('fs');
 
 const MAX_COVER_LETTER_LENGTH = 3000;
@@ -192,6 +194,22 @@ exports.getJobApplicationsForManagement = async (req, res) => {
       JobApplication.countDocuments(query),
     ]);
 
+    const applicationIds = applications.map((application) => application._id);
+    const deliveries = applicationIds.length
+      ? await Delivery.find({ jobApplicationId: { $in: applicationIds } })
+          .sort({ createdAt: -1 })
+          .select('jobApplicationId status deliveryType createdAt updatedAt')
+          .lean()
+      : [];
+
+    const deliveryStatusByApplicationId = new Map();
+    deliveries.forEach((delivery) => {
+      const key = String(delivery.jobApplicationId);
+      if (!deliveryStatusByApplicationId.has(key)) {
+        deliveryStatusByApplicationId.set(key, delivery.status);
+      }
+    });
+
     const normalized = applications.map((application) => {
       const applicant = application.userId || {};
       return {
@@ -208,6 +226,7 @@ exports.getJobApplicationsForManagement = async (req, res) => {
         appliedAt: application.appliedAt,
         createdAt: application.createdAt,
         updatedAt: application.updatedAt,
+        employerDeliveryStatus: deliveryStatusByApplicationId.get(String(application._id)) || null,
         applicantEmailSent: Boolean(application.applicantEmailSent),
         applicant: {
           id: applicant._id,
@@ -509,6 +528,33 @@ exports.applyToJob = async (req, res) => {
           const cvSection = application.cvUrl
             ? `<p><strong>CV:</strong> <a href="${application.cvUrl}">${application.cvOriginalName || application.cvFileName || 'Download CV'}</a></p>`
             : '<p><strong>CV:</strong> Not provided</p>';
+          const deliveryPayload = {
+            subject,
+            jobTitle: jobRef.title,
+            company: jobRef.company,
+            applicationUrl: jobRef.applicationUrl,
+            coverLetter: coverLetter || null,
+            applicant: {
+              id: req.user.id,
+              userId: req.user.userId,
+              name: applicantProfile?.name || [applicantProfile?.firstName, applicantProfile?.lastName].filter(Boolean).join(' ').trim() || applicantProfile?.email || 'Applicant',
+              email: applicantProfile?.email || null,
+              phone: applicantProfile?.phone || null,
+            },
+          };
+
+          const delivery = await Delivery.create({
+            jobApplicationId: application._id,
+            jobId: jobRef._id,
+            deliveryType: 'email',
+            emailAddress: ownerEmail,
+            payload: deliveryPayload,
+            attempts: 0,
+            status: 'pending',
+            nextAttemptAt: new Date(),
+          });
+
+          const delivered = await processDeliveryMessage({ deliveryId: delivery._id.toString() });
           const html = `
             <p>Hello,</p>
             <p>You have received a new application for <strong>${jobRef.title}</strong> at <strong>${jobRef.company}</strong>.</p>
@@ -521,11 +567,13 @@ exports.applyToJob = async (req, res) => {
             <p>Original job listing: <a href="${jobRef.applicationUrl}">${jobRef.applicationUrl}</a></p>
             <p>To reply directly to the applicant, reply to this email.</p>
           `;
-
-          await sendgridClient.sendEmail({ to: ownerEmail, subject, html, replyTo: applicantProfile?.email });
-          recruiterForwarded = true;
-          recruiterEmail = ownerEmail;
-          logger.info(`Forwarded application ${application._id} to owner ${ownerEmail}`);
+          if (delivered) {
+            recruiterForwarded = true;
+            recruiterEmail = ownerEmail;
+            logger.info(`Forwarded application ${application._id} to owner ${ownerEmail}`);
+          } else {
+            logger.warn(`Failed to forward application ${application._id} to owner ${ownerEmail}`);
+          }
         }
       }
     } catch (err) {

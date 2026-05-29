@@ -7,6 +7,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Loader2, Search } from 'lucide-react';
+import ApplicantEmailBadge from '@/components/ApplicantEmailBadge';
 
 type JobApplicationStatus = 'submitted' | 'reviewed' | 'shortlisted' | 'rejected';
 
@@ -28,6 +29,8 @@ type ManagedApplication = {
   appliedAt?: string;
   createdAt?: string;
   applicant?: Applicant;
+  applicantEmailSent?: boolean;
+  employerDeliveryStatus?: 'pending' | 'processing' | 'delivered' | 'failed';
 };
 
 type ApplicantsResponse = {
@@ -172,13 +175,14 @@ export default function JobApplicantsPage() {
         <div className="overflow-x-auto rounded-2xl border border-slate-700 bg-slate-900/90">
           <table className="w-full min-w-[900px] text-left text-sm">
             <thead className="border-b border-slate-700 text-slate-400">
-              <tr>
+                <tr>
                 <th className="px-4 py-3 font-medium">Applicant</th>
                 <th className="px-4 py-3 font-medium">Contact</th>
                 <th className="px-4 py-3 font-medium">Applied</th>
                 <th className="px-4 py-3 font-medium">Tokens</th>
                 <th className="px-4 py-3 font-medium">Cover Letter</th>
                 <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Recruiter delivery</th>
                 <th className="px-4 py-3 font-medium">Action</th>
               </tr>
             </thead>
@@ -201,6 +205,9 @@ export default function JobApplicantsPage() {
                     <td className="px-4 py-3 text-slate-300">
                       <div>{application.applicant?.email || '—'}</div>
                       <div className="text-xs text-slate-500">{application.applicant?.phone || 'No phone'}</div>
+                      <div className="mt-2">
+                        <ApplicantEmailBadge sent={Boolean(application.applicantEmailSent)} />
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-slate-300">
                       {new Date(application.appliedAt || application.createdAt || Date.now()).toLocaleString()}
@@ -239,6 +246,15 @@ export default function JobApplicantsPage() {
                           ))}
                         </select>
                       </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {application.employerDeliveryStatus ? (
+                        <span className={`text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded-full ${application.employerDeliveryStatus === 'delivered' ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-400/20' : application.employerDeliveryStatus === 'failed' ? 'bg-red-500/10 text-red-300 border border-red-400/20' : 'bg-amber-500/10 text-amber-300 border border-amber-400/20'}`}>
+                          {application.employerDeliveryStatus}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
                     </td>
                   </tr>
                 );

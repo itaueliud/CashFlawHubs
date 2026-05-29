@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -90,7 +90,12 @@ export default function JobDetailsPage() {
     applicationStatus?: string;
     emailSent?: boolean;
   } | null>(null);
-  const { user, setUser } = useAuthStore();
+  const { user, setUser, refreshUser, hasHydrated } = useAuthStore();
+
+  useEffect(() => {
+    if (!hasHydrated || !user || user.email) return;
+    refreshUser();
+  }, [hasHydrated, refreshUser, user]);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['job', jobId],
@@ -175,6 +180,7 @@ export default function JobDetailsPage() {
 
   const canSubmitApplication = coverLetter.trim().length > 0 && !applyMutation.isPending && !userApplication;
   const applicantName = user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || user?.email || 'Applicant';
+  const applicantEmail = user?.email || 'N/A';
   const emailBadgeClass = submissionReceipt?.emailSent
     ? 'bg-emerald-400/15 text-emerald-300 border border-emerald-400/30'
     : 'bg-amber-400/15 text-amber-300 border border-amber-400/30';
@@ -226,7 +232,7 @@ export default function JobDetailsPage() {
                 <div className="text-sm font-semibold text-white">Applicant summary</div>
                 <div className="grid grid-cols-1 gap-2 text-sm text-slate-300">
                   <div>Name: <span className="text-white">{applicantName}</span></div>
-                  <div>Email: <span className="text-white">{user?.email || 'N/A'}</span></div>
+                  <div>Email: <span className="text-white">{applicantEmail}</span></div>
                   <div>Phone: <span className="text-white">{user?.phone || 'N/A'}</span></div>
                   <div>Country: <span className="text-white">{user?.country || 'N/A'}</span></div>
                   <div>Referral code: <span className="text-white">{user?.referralCode || 'N/A'}</span></div>
