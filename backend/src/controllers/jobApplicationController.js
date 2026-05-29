@@ -301,6 +301,58 @@ exports.applyToJob = async (req, res) => {
       });
     }
 
+    // Attempt to forward application to external job owner if contact email is available
+    (async () => {
+      try {
+        const jobRef = await Job.findById(job._id).select('applicationUrl title company description applicationContactEmail applicationContactSource');
+        if (!jobRef) return;
+
+        // Prefer the stored contact email discovered during sync, then fall back to local discovery.
+        let ownerEmail = String(jobRef.applicationContactEmail || '').trim() || null;
+        const appUrl = String(jobRef.applicationUrl || '').trim();
+        if (!ownerEmail) {
+          const mailtoMatch = appUrl.match(/^mailto:([^?]+)/i);
+          if (mailtoMatch) {
+            ownerEmail = decodeURIComponent(mailtoMatch[1] || '').trim();
+          }
+        }
+
+        if (!ownerEmail) {
+          const hay = `${String(jobRef.description || '')} ${String(jobRef.company || '')} ${appUrl}`;
+          const emailMatch = hay.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
+          if (emailMatch) ownerEmail = String(emailMatch[0]).trim();
+        }
+
+        if (ownerEmail) {
+          try {
+            const applicant = await User.findById(req.user.id).select('firstName lastName name email phone userId');
+            const applicantName = applicant?.name || [applicant?.firstName, applicant?.lastName].filter(Boolean).join(' ').trim() || applicant?.email || 'Applicant';
+            const subject = `New application for ${jobRef.title} at ${jobRef.company}`;
+            const safeCover = coverLetter ? String(coverLetter).replace(/\n/g, '<br/>') : 'No cover letter provided.';
+            const html = `
+              <p>Hello,</p>
+              <p>You have received a new application for <strong>${jobRef.title}</strong> at <strong>${jobRef.company}</strong>.</p>
+              <p><strong>Applicant:</strong> ${applicantName}</p>
+              <p><strong>Email:</strong> ${applicant?.email || 'N/A'}</p>
+              <p><strong>Phone:</strong> ${applicant?.phone || 'N/A'}</p>
+              <p><strong>Cover Letter:</strong></p>
+              <p>${safeCover}</p>
+              <p>Original job listing: <a href="${jobRef.applicationUrl}">${jobRef.applicationUrl}</a></p>
+              <p>To reply directly to the applicant, reply to this email.</p>
+            `;
+
+            // send with reply-to set to applicant email so employer responses go directly to applicant
+            await sendgridClient.sendEmail({ to: ownerEmail, subject, html, replyTo: applicant?.email });
+            logger.info(`Forwarded application ${application._id} to owner ${ownerEmail}`);
+          } catch (err) {
+            logger.warn(`Failed to forward application to owner: ${err.message}`);
+          }
+        }
+      } catch (err) {
+        logger.warn(`Owner forward attempt failed: ${err.message}`);
+      }
+    })();
+
     res.status(201).json({
       success: true,
       message: tokenCost > 0 ? `Application submitted successfully using ${tokenCost} tokens` : 'Application submitted successfully',

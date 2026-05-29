@@ -14,6 +14,8 @@ const jobSchema = new mongoose.Schema({
   description: { type: String, required: true },
   tags: [{ type: String }],
   applicationUrl: { type: String, required: true },
+  applicationContactEmail: { type: String, default: null },
+  applicationContactSource: { type: String, default: null },
   postedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   budgetAmount: { type: Number, default: null },
   budgetCurrency: { type: String, default: null },

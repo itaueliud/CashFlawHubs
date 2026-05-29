@@ -29,6 +29,7 @@ const DEFAULT_JOB_CATEGORIES = [
   'Project Management',
   'Other',
 ];
+const { discoverApplicationContact } = require('../utils/jobContact');
 
 const normalizeJobType = (value, fallback = 'full-time') => {
   if (Array.isArray(value)) {
@@ -161,21 +162,54 @@ const extractTheMuseJobLinks = (html) => {
   return [...urls];
 };
 
-const parseTheMuseJobPosting = (html) => {
+const parseTheMuseJobPosting = (html, url) => {
+  // Try JSON-LD first
   const match = html.match(/<script[^>]*id=["']job-posting-jsonld["'][^>]*>([\s\S]*?)<\/script>/i);
-  if (!match) return null;
-
-  try {
-    return JSON.parse(match[1]);
-  } catch (error) {
+  if (match) {
     try {
-      const normalized = match[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&');
-      return JSON.parse(normalized);
-    } catch (retryError) {
-      logger.warn(`Failed to parse The Muse job posting JSON-LD: ${retryError.message}`);
-      return null;
+      return JSON.parse(match[1]);
+    } catch (error) {
+      try {
+        const normalized = match[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+        return JSON.parse(normalized);
+      } catch (retryError) {
+        logger.warn(`Failed to parse The Muse job posting JSON-LD: ${retryError.message}`);
+      }
     }
   }
+
+  // Fallback: extract metadata and page content when JSON-LD isn't present
+  try {
+    const getMeta = (name) => {
+      const m = html.match(new RegExp(`<meta[^>]+(?:name|property)=["']${name}["'][^>]+content=["']([^"']+)["']`, 'i'));
+      return m ? String(m[1]).trim() : null;
+    };
+
+    const title = getMeta('og:title') || (html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || [])[1];
+    const description = getMeta('og:description') || (html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i) || [])[1];
+    const companyFromPage = (html.match(/<a[^>]*href=["'][^"']*companies[^"']*["'][^>]*>([\s\S]*?)<\/a>/i) || [])[1]
+      || (html.match(/<div[^>]+class=["'][^"']*(company|employer|hiringOrganization)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) || [])[2];
+
+    const hiringOrganization = companyFromPage ? { name: stripHtml(companyFromPage) } : null;
+
+    const datePosted = getMeta('article:published_time') || getMeta('og:updated_time');
+
+    const jobData = {
+      title: title ? stripHtml(title) : null,
+      hiringOrganization: hiringOrganization || null,
+      url: url || getMeta('og:url') || null,
+      description: description ? stripHtml(description) : null,
+      datePosted: datePosted || null,
+      jobLocationType: /remote|telecommute|work from home/i.test(html) ? 'TELECOMMUTE' : undefined,
+    };
+
+    // Ensure we return something useful or null
+    if (jobData.title && jobData.hiringOrganization && jobData.description) return jobData;
+  } catch (err) {
+    logger.warn(`The Muse fallback parse failed: ${err.message}`);
+  }
+
+  return null;
 };
 
 const normalizeTheMuseCategory = (slug) => THEMUSE_CATEGORY_MAP[String(slug || '').trim()] || 'Other';
@@ -683,6 +717,15 @@ exports.syncScrapedJob = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing required scraped job fields' });
     }
 
+    const contact = discoverApplicationContact({
+      title,
+      company,
+      description,
+      applicationUrl,
+      source: 'scraper',
+      extraText: scraped.sourceUrl || scraped.source_url || '',
+    });
+
     const job = await Job.findOneAndUpdate(
       { externalId: `scraper-${hash}` },
       {
@@ -699,6 +742,8 @@ exports.syncScrapedJob = async (req, res) => {
         description: description.slice(0, 10000),
         tags: Array.isArray(scraped.tags) ? scraped.tags.slice(0, 20) : [],
         applicationUrl,
+        applicationContactEmail: contact.applicationContactEmail,
+        applicationContactSource: contact.applicationContactSource,
         postedBy: null,
         budgetAmount: null,
         budgetCurrency: null,
@@ -764,6 +809,13 @@ exports.syncJobs = async () => {
       const remotiveJobs = remotiveRes.data?.jobs || [];
 
       const remotiveOps = remotiveJobs.slice(0, remoteLimit).map((job) => ({
+        applicationContact: discoverApplicationContact({
+          title: job.title,
+          company: job.company_name,
+          description: job.description || '',
+          applicationUrl: job.url || '',
+          source: 'remotive',
+        }),
         updateOne: {
           filter: { externalId: `remotive-${job.id}` },
           update: {
@@ -780,6 +832,20 @@ exports.syncJobs = async () => {
               description: job.description?.slice(0, 2000) || '',
               tags: job.tags || [],
               applicationUrl: job.url,
+              applicationContactEmail: discoverApplicationContact({
+                title: job.title,
+                company: job.company_name,
+                description: job.description || '',
+                applicationUrl: job.url || '',
+                source: 'remotive',
+              }).applicationContactEmail,
+              applicationContactSource: discoverApplicationContact({
+                title: job.title,
+                company: job.company_name,
+                description: job.description || '',
+                applicationUrl: job.url || '',
+                source: 'remotive',
+              }).applicationContactSource,
               publishedAt: new Date(job.publication_date),
               isActive: true,
             },
@@ -807,6 +873,14 @@ exports.syncJobs = async () => {
       const jobicyJobs = jobicyRes.data?.jobs || [];
 
       for (const job of jobicyJobs.slice(0, remoteLimit)) {
+        const contact = discoverApplicationContact({
+          title: job.jobTitle,
+          company: job.companyName,
+          description: job.jobDescription || '',
+          applicationUrl: job.url || '',
+          source: 'jobicy',
+        });
+
         await Job.findOneAndUpdate(
           { externalId: `jobicy-${job.id}` },
           {
@@ -822,6 +896,8 @@ exports.syncJobs = async () => {
             description: job.jobDescription?.slice(0, 2000) || '',
             tags: job.jobLevel ? [job.jobLevel] : [],
             applicationUrl: job.url,
+            applicationContactEmail: contact.applicationContactEmail,
+            applicationContactSource: contact.applicationContactSource,
             publishedAt: new Date(job.pubDate),
             isActive: true,
           },
@@ -848,6 +924,14 @@ exports.syncJobs = async () => {
         const applicationUrl = String(job.apply_url || job.url || '').trim();
         if (!applicationUrl || !job.id) continue;
 
+        const contact = discoverApplicationContact({
+          title: job.position || '',
+          company: job.company || '',
+          description: job.description || '',
+          applicationUrl,
+          source: 'remoteok',
+        });
+
         const title = String(job.position || 'Remote role').trim();
         const company = String(job.company || 'Unknown company').trim();
         const remoteTags = Array.isArray(job.tags) ? job.tags.map((tag) => String(tag).trim()).filter(Boolean) : [];
@@ -869,6 +953,8 @@ exports.syncJobs = async () => {
             description,
             tags: remoteTags,
             applicationUrl,
+            applicationContactEmail: contact.applicationContactEmail,
+            applicationContactSource: contact.applicationContactSource,
             publishedAt: job.date ? new Date(job.date) : new Date(job.epoch * 1000 || Date.now()),
             isActive: true,
           },
@@ -905,6 +991,14 @@ exports.syncJobs = async () => {
           const slug = String(job.slug || '').trim();
           if (!applicationUrl || !slug) continue;
 
+          const contact = discoverApplicationContact({
+            title: job.title || '',
+            company: job.company_name || '',
+            description: job.description || '',
+            applicationUrl,
+            source: 'arbeitnow',
+          });
+
           ops.push({
             updateOne: {
               filter: { externalId: `arbeitnow-${slug}` },
@@ -923,6 +1017,8 @@ exports.syncJobs = async () => {
                   description: stripHtml(job.description || '').slice(0, 4000),
                   tags: Array.isArray(job.tags) ? job.tags.map((tag) => String(tag).trim()).filter(Boolean) : [],
                   applicationUrl,
+                  applicationContactEmail: contact.applicationContactEmail,
+                  applicationContactSource: contact.applicationContactSource,
                   publishedAt: job.created_at ? new Date(job.created_at) : new Date(),
                   isActive: true,
                 },
@@ -955,6 +1051,14 @@ exports.syncJobs = async () => {
     try {
       const wwrJobs = await fetchWWRJobs();
       for (const job of wwrJobs.slice(0, remoteLimit)) {
+        const contact = discoverApplicationContact({
+          title: job.title,
+          company: job.company,
+          description: job.description,
+          applicationUrl: job.applicationUrl,
+          source: 'weworkremotely',
+        });
+
         await Job.findOneAndUpdate(
           { externalId: job.externalId },
           {
@@ -970,6 +1074,8 @@ exports.syncJobs = async () => {
             description: job.description,
             tags: job.tags,
             applicationUrl: job.applicationUrl,
+            applicationContactEmail: contact.applicationContactEmail,
+            applicationContactSource: contact.applicationContactSource,
             publishedAt: job.publishedAt,
             isActive: true,
           },
@@ -989,6 +1095,14 @@ exports.syncJobs = async () => {
     try {
       const museJobs = await fetchTheMuseJobs(remoteLimit);
       for (const job of museJobs) {
+        const contact = discoverApplicationContact({
+          title: job.title,
+          company: job.company,
+          description: job.description,
+          applicationUrl: job.applicationUrl,
+          source: 'themuse',
+        });
+
         await Job.findOneAndUpdate(
           { externalId: job.externalId },
           {
@@ -1004,6 +1118,8 @@ exports.syncJobs = async () => {
             description: job.description,
             tags: job.tags,
             applicationUrl: job.applicationUrl,
+            applicationContactEmail: contact.applicationContactEmail,
+            applicationContactSource: contact.applicationContactSource,
             publishedAt: job.publishedAt,
             isActive: true,
           },
@@ -1055,6 +1171,14 @@ exports.syncJobs = async () => {
             const externalIdRaw = String(job.job_id || job.job_offer_expiration_datetime_utc || applicationUrl).trim();
             if (!applicationUrl || !externalIdRaw) continue;
 
+            const contact = discoverApplicationContact({
+              title: job.job_title || '',
+              company: job.employer_name || '',
+              description: job.job_description || '',
+              applicationUrl,
+              source: 'jsearch',
+            });
+
             ops.push({
               updateOne: {
                 filter: { externalId: `jsearch-${externalIdRaw}` },
@@ -1073,6 +1197,8 @@ exports.syncJobs = async () => {
                     description: stripHtml(job.job_description || '').slice(0, 4000),
                     tags: ['jsearch', ...(Array.isArray(job.job_required_skills) ? job.job_required_skills.slice(0, 10).map((s) => String(s).trim()).filter(Boolean) : [])],
                     applicationUrl,
+                    applicationContactEmail: contact.applicationContactEmail,
+                    applicationContactSource: contact.applicationContactSource,
                     publishedAt: job.job_posted_at_datetime_utc ? new Date(job.job_posted_at_datetime_utc) : new Date(),
                     isActive: true,
                   },
@@ -1152,6 +1278,14 @@ exports.syncJobs = async () => {
             const externalIdRaw = String(job.id || `${job.url || ''}-${job.title || ''}-${job.company || ''}`).trim();
             if (!applicationUrl || !externalIdRaw) continue;
 
+            const contact = discoverApplicationContact({
+              title: job.title || '',
+              company: job.company || '',
+              description: job.description || '',
+              applicationUrl,
+              source: 'careerjet',
+            });
+
             ops.push({
               updateOne: {
                 filter: { externalId: `careerjet-${externalIdRaw}` },
@@ -1170,6 +1304,8 @@ exports.syncJobs = async () => {
                     description: stripHtml(job.description || '').slice(0, 4000),
                     tags: ['careerjet', careerjetLocale],
                     applicationUrl,
+                    applicationContactEmail: contact.applicationContactEmail,
+                    applicationContactSource: contact.applicationContactSource,
                     publishedAt: job.date ? new Date(job.date) : new Date(),
                     isActive: true,
                   },
@@ -1223,6 +1359,14 @@ exports.syncJobs = async () => {
           const applicationUrl = job.link || job.url;
           if (!applicationUrl) continue;
           const externalId = job.id || job.link || `${job.title || 'job'}-${job.company || 'company'}`;
+          const contact = discoverApplicationContact({
+            title: job.title || '',
+            company: job.company || '',
+            description: job.snippet || job.description || '',
+            applicationUrl: String(applicationUrl || ''),
+            source: 'jooble',
+          });
+
           await Job.findOneAndUpdate(
             { externalId: `jooble-${externalId}` },
             {
@@ -1238,6 +1382,8 @@ exports.syncJobs = async () => {
               description: (job.snippet || job.description || '').slice(0, 2000),
               tags: ['jooble', joobleCountry],
               applicationUrl,
+              applicationContactEmail: contact.applicationContactEmail,
+              applicationContactSource: contact.applicationContactSource,
               publishedAt: job.updated ? new Date(job.updated) : new Date(),
               isActive: true,
             },
@@ -1292,6 +1438,14 @@ exports.syncJobs = async () => {
             const applicationUrl = job.redirect_url || job.adref;
             if (!applicationUrl || !job.id) continue;
 
+            const contact = discoverApplicationContact({
+              title: job.title || '',
+              company: job.company?.display_name || '',
+              description: job.description || '',
+              applicationUrl: String(applicationUrl || ''),
+              source: 'adzuna',
+            });
+
             await Job.findOneAndUpdate(
               { externalId: `adzuna-${job.id}` },
               {
@@ -1307,6 +1461,8 @@ exports.syncJobs = async () => {
                 description: (job.description || '').slice(0, 4000),
                 tags: ['adzuna', adzunaCountry, ...(job.contract_time ? [job.contract_time] : [])],
                 applicationUrl,
+                applicationContactEmail: contact.applicationContactEmail,
+                applicationContactSource: contact.applicationContactSource,
                 publishedAt: job.created ? new Date(job.created) : new Date(),
                 isActive: true,
               },
