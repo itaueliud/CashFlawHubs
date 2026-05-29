@@ -62,6 +62,9 @@ const parseAllowedOrigins = () => {
   return new Set([
     'http://localhost:3000',
     'http://localhost:3001',
+    // Common production hostnames
+    'https://www.cashflowhubs.com',
+    'https://cashflowhubs.onrender.com',
     ...configuredOrigins,
   ]);
 };
