@@ -23,6 +23,7 @@ type JobApplicationItem = {
   appliedAt?: string;
   createdAt: string;
   job: AppliedJob | null;
+  applicantEmailSent?: boolean;
 };
 
 type JobApplicationsResponse = {
@@ -89,6 +90,9 @@ export default function JobApplicationsPage() {
                       <span className="badge-blue capitalize">{application.status}</span>
                       {application.tokenCost > 0 ? <span className="badge-yellow">{application.tokenCost}T spent</span> : null}
                       <span className="badge-green">{application.jobAvailable ? 'Open' : 'Closed'}</span>
+                      <span className={`text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded-full ${application.applicantEmailSent ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-400/20' : 'bg-amber-500/10 text-amber-300 border border-amber-400/20'}`}>
+                        {application.applicantEmailSent ? 'Email sent' : 'Email pending'}
+                      </span>
                     </div>
                     <h2 className="truncate text-lg font-bold text-white">{job?.title || 'Job unavailable'}</h2>
                     <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400">

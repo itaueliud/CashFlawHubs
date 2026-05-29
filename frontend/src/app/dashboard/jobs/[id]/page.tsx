@@ -60,6 +60,15 @@ type JobDetailsResponse = {
 type ApplyResponse = {
   message?: string;
   tokenBalance?: number;
+  emailSent?: boolean;
+  application?: {
+    coverLetter?: string | null;
+    cvOriginalName?: string | null;
+    cvFileName?: string | null;
+    cvUrl?: string | null;
+    status?: string;
+    appliedAt?: string;
+  };
 };
 
 const STATUS_OPTIONS: JobApplicationStatus[] = ['submitted', 'reviewed', 'shortlisted', 'rejected'];
@@ -72,6 +81,15 @@ export default function JobDetailsPage() {
   const jobId = directId || slugId;
   const [coverLetter, setCoverLetter] = useState('');
   const [cvFile, setCvFile] = useState<File | null>(null);
+  const [submissionReceipt, setSubmissionReceipt] = useState<{
+    submittedAt: string;
+    jobTitle: string;
+    company: string;
+    coverLetter: string;
+    cvName?: string | null;
+    applicationStatus?: string;
+    emailSent?: boolean;
+  } | null>(null);
   const { user, setUser } = useAuthStore();
 
   const { data, isLoading, refetch } = useQuery({
@@ -104,6 +122,15 @@ export default function JobDetailsPage() {
       if (typeof response?.tokenBalance === 'number' && user) {
         setUser({ ...user, tokenBalance: response.tokenBalance });
       }
+      setSubmissionReceipt({
+        submittedAt: response.application?.appliedAt || new Date().toISOString(),
+        jobTitle: job?.title || 'Job',
+        company: job?.company || 'Company',
+        coverLetter: coverLetter.trim(),
+        cvName: response.application?.cvOriginalName || response.application?.cvFileName || cvFile?.name || null,
+        applicationStatus: response.application?.status || 'submitted',
+        emailSent: response.emailSent,
+      });
       setCoverLetter('');
       setCvFile(null);
       await refetch();
@@ -147,6 +174,88 @@ export default function JobDetailsPage() {
   }, [job?.publishedAt]);
 
   const canSubmitApplication = coverLetter.trim().length > 0 && !applyMutation.isPending && !userApplication;
+  const applicantName = user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || user?.email || 'Applicant';
+  const emailBadgeClass = submissionReceipt?.emailSent
+    ? 'bg-emerald-400/15 text-emerald-300 border border-emerald-400/30'
+    : 'bg-amber-400/15 text-amber-300 border border-amber-400/30';
+
+  if (submissionReceipt && job) {
+    return (
+      <div className="space-y-5 animate-fade-in max-w-4xl mx-auto">
+        <button onClick={() => router.back()} className="text-sm text-slate-400 hover:text-white flex items-center gap-2">
+          <ArrowLeft size={16} /> Back to jobs
+        </button>
+
+        <div className="overflow-hidden rounded-[28px] border border-slate-700 bg-slate-950/80 shadow-2xl shadow-emerald-950/10">
+          <div className="bg-gradient-to-br from-emerald-500/20 via-slate-950 to-slate-900 px-6 py-7 sm:px-8 sm:py-8 border-b border-slate-700/80">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-emerald-300 uppercase">
+              CashFlawHubs
+            </div>
+            <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <div className="text-sm uppercase tracking-[0.18em] text-emerald-300/80">Application submitted</div>
+                <h1 className="mt-2 text-3xl font-black text-white sm:text-4xl">Your application has been sent</h1>
+                <p className="mt-2 max-w-2xl text-sm text-slate-300">We emailed you a confirmation and forwarded the application to the recruiter when a contact was available.</p>
+              </div>
+              <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-right">
+                <div className="text-[11px] uppercase tracking-wide text-emerald-300/80">Status</div>
+                <div className="text-lg font-bold text-emerald-300 capitalize">{submissionReceipt.applicationStatus}</div>
+                <div className="text-xs text-slate-300">Submitted {new Date(submissionReceipt.submittedAt).toLocaleString()}</div>
+                <div className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${emailBadgeClass}`}>
+                  {submissionReceipt.emailSent ? 'Email sent' : 'Email pending'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6 px-6 py-6 sm:px-8 sm:py-8">
+            <div className="grid md:grid-cols-2 gap-4 text-sm">
+              <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+                <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">Job</div>
+                <div className="font-semibold text-white">{submissionReceipt.jobTitle}</div>
+                <div className="text-slate-400">{submissionReceipt.company}</div>
+              </div>
+              <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+                <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">What happens next</div>
+                <p className="text-sm text-slate-300">Check your email for the confirmation and your dashboard for application updates.</p>
+              </div>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-4">
+              <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-5 space-y-3">
+                <div className="text-sm font-semibold text-white">Applicant summary</div>
+                <div className="grid grid-cols-1 gap-2 text-sm text-slate-300">
+                  <div>Name: <span className="text-white">{applicantName}</span></div>
+                  <div>Email: <span className="text-white">{user?.email || 'N/A'}</span></div>
+                  <div>Phone: <span className="text-white">{user?.phone || 'N/A'}</span></div>
+                  <div>Country: <span className="text-white">{user?.country || 'N/A'}</span></div>
+                  <div>Referral code: <span className="text-white">{user?.referralCode || 'N/A'}</span></div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-5 space-y-3">
+                <div className="text-sm font-semibold text-white">Submitted details</div>
+                <div className="rounded-xl border border-slate-700 bg-slate-950/80 p-4">
+                  <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">Cover letter</div>
+                  <div className="whitespace-pre-line text-sm text-slate-300">{submissionReceipt.coverLetter}</div>
+                </div>
+                <div className="text-sm text-slate-300">CV: <span className="text-white">{submissionReceipt.cvName || 'Not provided'}</span></div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Link href="/dashboard/jobs/applications" className="btn-primary inline-flex items-center gap-2">
+                <ExternalLink size={16} /> View my applications
+              </Link>
+              <button onClick={() => setSubmissionReceipt(null)} className="btn-secondary inline-flex items-center gap-2">
+                <ArrowLeft size={16} /> Back to job details
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!jobId) {
     return <div className="card text-slate-400">Missing job id.</div>;

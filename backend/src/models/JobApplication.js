@@ -11,6 +11,7 @@ const jobApplicationSchema = new mongoose.Schema(
     cvPath: { type: String, default: null },
     cvUrl: { type: String, default: null },
     tokenCost: { type: Number, default: 0, min: 0 },
+    applicantEmailSent: { type: Boolean, default: false },
     status: { type: String, enum: ['submitted', 'reviewed', 'shortlisted', 'rejected'], default: 'submitted' },
     appliedAt: { type: Date, default: Date.now },
   },
