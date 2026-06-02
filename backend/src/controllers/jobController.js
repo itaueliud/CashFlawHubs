@@ -407,6 +407,52 @@ const requireScraperApiKey = (req, res) => {
   return true;
 };
 
+const normalizeJobText = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+const normalizeJobUrl = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  try {
+    const parsed = new URL(raw);
+    const host = parsed.hostname.replace(/^www\./i, '').toLowerCase();
+    const path = parsed.pathname.replace(/\/+$/, '').toLowerCase();
+    return `${host}${path}`;
+  } catch {
+    return raw
+      .replace(/^https?:\/\//i, '')
+      .replace(/^www\./i, '')
+      .replace(/[?#].*$/, '')
+      .replace(/\/+$/, '')
+      .toLowerCase();
+  }
+};
+
+const getJobDedupKey = (job) => {
+  const urlKey = normalizeJobUrl(job?.applicationUrl);
+  if (urlKey) return `url:${urlKey}`;
+
+  const title = normalizeJobText(job?.title);
+  const company = normalizeJobText(job?.company);
+  if (title || company) return `title-company:${title}|${company}`;
+
+  return String(job?._id || '');
+};
+
+const dedupeJobs = (jobs = []) => {
+  const seen = new Set();
+  const unique = [];
+
+  for (const job of jobs) {
+    const key = getJobDedupKey(job);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    unique.push(job);
+  }
+
+  return unique;
+};
+
 // @GET /api/jobs
 exports.getJobs = async (req, res) => {
   try {
@@ -449,15 +495,16 @@ exports.getJobs = async (req, res) => {
             },
           },
           { $sort: { sourcePriority: -1, publishedAt: -1 } },
-          { $skip: skip },
-          { $limit: Number(limit) },
         ])
-      : Job.find(query).sort({ publishedAt: -1 }).skip(skip).limit(Number(limit));
+      : Job.find(query).sort({ publishedAt: -1 }).lean();
 
-    const [jobs, total] = await Promise.all([
+    const [allJobs] = await Promise.all([
       jobsPromise,
-      Job.countDocuments(query),
     ]);
+    const uniqueJobs = dedupeJobs(allJobs);
+    const total = uniqueJobs.length;
+    const jobs = uniqueJobs.slice(skip, skip + Number(limit));
+
     const sourceCounts = await Job.aggregate([
       { $match: { isActive: true, $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] } },
       { $group: { _id: '$source', count: { $sum: 1 } } },
