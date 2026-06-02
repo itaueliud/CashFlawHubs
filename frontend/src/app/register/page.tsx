@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { TurnstileWidget } from '@/components/security/TurnstileWidget';
+import { ChevronLeft } from 'lucide-react';
 
 const langs = ['en', 'sw', 'fr'];
 const countries = [
@@ -38,7 +39,6 @@ function RegisterPageContent() {
   const [loading, setLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState('');
   // Phone OTP UI hidden while phone verification is bypassed
-  const [emailVerified, setEmailVerified] = useState(false);
   const [referralVerified, setReferralVerified] = useState(false);
 
   const [form, setForm] = useState({
@@ -61,6 +61,7 @@ function RegisterPageContent() {
   const progress = useMemo(() => (step / 5) * 100, [step]);
 
   const setField = (key: string, value: string) => setForm((prev) => ({ ...prev, [key]: value }));
+  const goBack = () => setStep((currentStep) => Math.max(1, currentStep - 1));
 
   const verifyReferral = async () => {
     if (!form.referralCode.trim()) return toast.error('Referral code is required');
@@ -101,7 +102,6 @@ function RegisterPageContent() {
     if (emailParam) setField('email', emailParam);
 
     if (emailVerifiedParam === '1') {
-      setEmailVerified(true);
       toast.success('Email verified successfully');
     } else if (emailVerifiedParam === '0' && reasonParam) {
       toast.error('Email verification link is invalid or expired');
@@ -140,7 +140,6 @@ function RegisterPageContent() {
       try {
         const res = await api.get(`/auth/email-verified-status?email=${encodeURIComponent(email)}`);
         if (res.data?.verified) {
-          setEmailVerified(true);
           toast.success('Email verified successfully');
           // If referral code exists, ensure it's verified before moving to step 3
           if (form.referralCode && !referralVerified) {
@@ -162,20 +161,6 @@ function RegisterPageContent() {
   }, [form.email]);
 
   // Phone verification endpoints exist but the UI is hidden while verification is bypassed.
-
-  const sendEmailOtp = async () => {
-    if (turnstileSiteKey && !turnstileToken) return toast.error('Complete security check first');
-    if (!form.email.trim()) return toast.error('Email is required');
-    setLoading(true);
-    try {
-      await api.post('/auth/send-email-verification', { email: form.email.trim(), firstName: form.firstName, turnstileToken: turnstileToken || undefined });
-      toast.success('Verification link sent to your email');
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to send verification email');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const completeSignup = async () => {
     if (!referralVerified) return toast.error('Verify referral code first');
@@ -248,7 +233,13 @@ function RegisterPageContent() {
               {countries.map((country) => <option key={country.code} value={country.code}>{country.name}</option>)}
             </select>
             </div>
-            <button className="btn-primary md:col-span-2" onClick={() => setStep(3)}>Continue</button>
+            <div className="md:col-span-2 flex items-center justify-between gap-3">
+              <button type="button" className="btn-secondary inline-flex items-center gap-2" onClick={goBack}>
+                <ChevronLeft size={16} />
+                Back
+              </button>
+              <button type="button" className="btn-primary" onClick={() => setStep(3)}>Continue</button>
+            </div>
           </div>
         )}
 
@@ -264,12 +255,14 @@ function RegisterPageContent() {
               <label className="mb-1 block text-sm text-slate-300">Email Address</label>
               <input className="input" placeholder="Email Address" value={form.email} onChange={(e) => setField('email', e.target.value)} />
             </div>
-            <div className="flex items-center gap-2">
-              <button className="btn-secondary" onClick={sendEmailOtp}>Send Verification Link</button>
-              <span className={`text-sm ${emailVerified ? 'text-green-400' : 'text-slate-400'}`}>{emailVerified ? 'Email verified' : 'Not verified yet'}</span>
-            </div>
             <p className="text-xs text-slate-400">Email verification is optional during registration. You can verify it later after login from your profile.</p>
-            <button className="btn-primary" onClick={() => setStep(4)}>Continue</button>
+            <div className="flex items-center justify-between gap-3">
+              <button type="button" className="btn-secondary inline-flex items-center gap-2" onClick={goBack}>
+                <ChevronLeft size={16} />
+                Back
+              </button>
+              <button className="btn-primary" onClick={() => setStep(4)}>Continue</button>
+            </div>
           </div>
         )}
 
@@ -290,14 +283,26 @@ function RegisterPageContent() {
               {langs.map((lang) => <option key={lang} value={lang}>{lang.toUpperCase()}</option>)}
             </select>
             </div>
-            <button className="btn-primary" onClick={() => setStep(5)}>Review</button>
+            <div className="flex items-center justify-between gap-3">
+              <button type="button" className="btn-secondary inline-flex items-center gap-2" onClick={goBack}>
+                <ChevronLeft size={16} />
+                Back
+              </button>
+              <button className="btn-primary" onClick={() => setStep(5)}>Review</button>
+            </div>
           </div>
         )}
 
         {step === 5 && (
           <div className="mt-5 space-y-3">
             <div className="rounded border border-white/10 p-3 text-sm text-slate-300">Device ID/fingerprint, IP, browser/OS, timezone, registration date, Accept-Language, and CF-IPCountry headers are captured automatically for fraud/security monitoring.</div>
-            <button className="btn-primary" disabled={loading} onClick={completeSignup}>{loading ? 'Creating...' : 'Complete Account Creation'}</button>
+            <div className="flex items-center justify-between gap-3">
+              <button type="button" className="btn-secondary inline-flex items-center gap-2" onClick={goBack}>
+                <ChevronLeft size={16} />
+                Back
+              </button>
+              <button className="btn-primary" disabled={loading} onClick={completeSignup}>{loading ? 'Creating...' : 'Complete Account Creation'}</button>
+            </div>
           </div>
         )}
 
