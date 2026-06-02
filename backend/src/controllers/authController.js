@@ -363,12 +363,10 @@ exports.register = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Referral code is required' });
     }
     const normalizedPhone = String(phone || '').trim();
+    const normalizedEmail = normalizeEmail(email);
     // Phone verification is optional during registration: do not block account creation
     // if the phone OTP hasn't been verified. We still accept and store the phone if provided.
-    const emailVerified = await getCode('email_verified', normalizeEmail(email));
-    if (emailVerified !== 'true') {
-      return res.status(400).json({ success: false, message: 'Email verification required' });
-    }
+    const emailVerified = (await getCode('email_verified', normalizedEmail)) === 'true';
     let existingPhone;
     let existingEmail;
     let existingId = null;
@@ -425,7 +423,7 @@ exports.register = async (req, res) => {
         faceVerificationImage: validateImagePayload(faceVerificationImage) ? faceVerificationImage : null,
         identityVerificationStatus,
         referredBy: referrer ? referrer.referralCode : null,
-        emailVerified: true,
+        emailVerified,
         phoneVerified: true,
         dateOfBirth: dateOfBirth || null,
         browserLanguage: securityContext.browserLanguage || normalizeLang(securityContext.acceptLanguage),
@@ -463,7 +461,7 @@ exports.register = async (req, res) => {
       faceVerificationImage: validateImagePayload(faceVerificationImage) ? faceVerificationImage : null,
       identityVerificationStatus,
       referredBy: referrer ? referrer.referralCode : null,
-      emailVerified: true,
+      emailVerified,
       phoneVerified: true,
       dateOfBirth: dateOfBirth || null,
       browserLanguage: securityContext.browserLanguage || normalizeLang(securityContext.acceptLanguage),
@@ -482,7 +480,6 @@ exports.register = async (req, res) => {
     if (normalizedPhone) {
       await clearCode('phone_verified', normalizedPhone);
     }
-    await clearCode('email_verified', email);
 
     await Wallet.create({ userId: user._id });
 

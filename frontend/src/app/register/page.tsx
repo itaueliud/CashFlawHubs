@@ -180,7 +180,7 @@ function RegisterPageContent() {
   const completeSignup = async () => {
     if (!referralVerified) return toast.error('Verify referral code first');
     if (!form.firstName || !form.lastName || !form.country) return toast.error('Complete personal details');
-    if (!emailVerified) return toast.error('Verify email first');
+    if (!form.email.trim()) return toast.error('Email is required');
     if (!form.password || form.password.length < 6 || form.password !== form.confirmPassword) return toast.error('Password check failed');
     if (turnstileSiteKey && !turnstileToken) return toast.error('Complete security check');
 
@@ -268,7 +268,8 @@ function RegisterPageContent() {
               <button className="btn-secondary" onClick={sendEmailOtp}>Send Verification Link</button>
               <span className={`text-sm ${emailVerified ? 'text-green-400' : 'text-slate-400'}`}>{emailVerified ? 'Email verified' : 'Not verified yet'}</span>
             </div>
-            <button className="btn-primary" disabled={!emailVerified} onClick={() => setStep(4)}>Continue</button>
+            <p className="text-xs text-slate-400">Email verification is optional during registration. You can verify it later after login from your profile.</p>
+            <button className="btn-primary" onClick={() => setStep(4)}>Continue</button>
           </div>
         )}
 
