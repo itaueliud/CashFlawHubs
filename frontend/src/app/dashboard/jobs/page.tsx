@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
@@ -53,39 +53,7 @@ export default function JobsPage() {
     },
   });
 
-  const jobs = useMemo(() => {
-    const list = Array.isArray(data?.jobs) ? data.jobs : [];
-    const seen = new Set<string>();
-
-    const normalizeText = (value: any) => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
-    const normalizeUrl = (value: any) => {
-      const raw = String(value || '').trim();
-      if (!raw) return '';
-      try {
-        const parsed = new URL(raw);
-        const host = parsed.hostname.replace(/^www\./i, '').toLowerCase();
-        const path = parsed.pathname.replace(/\/+$/, '').toLowerCase();
-        return `${host}${path}`;
-      } catch {
-        return raw
-          .replace(/^https?:\/\//i, '')
-          .replace(/^www\./i, '')
-          .replace(/[?#].*$/, '')
-          .replace(/\/+$/, '')
-          .toLowerCase();
-      }
-    };
-
-    return list.filter((job: any) => {
-      const urlKey = normalizeUrl(job?.applicationUrl);
-      const titleCompanyKey = `${normalizeText(job?.title)}|${normalizeText(job?.company)}`;
-      const dedupeKey = urlKey || titleCompanyKey;
-      if (!dedupeKey) return true;
-      if (seen.has(dedupeKey)) return false;
-      seen.add(dedupeKey);
-      return true;
-    });
-  }, [data?.jobs]);
+  const jobs = Array.isArray(data?.jobs) ? data.jobs : [];
   const pagination = data?.pagination || {};
   const sourceCounts = isStaff ? (data?.sourceCounts || {}) : {};
   const sourceCount = Object.values(sourceCounts).filter((count: any) => Number(count) > 0).length;
