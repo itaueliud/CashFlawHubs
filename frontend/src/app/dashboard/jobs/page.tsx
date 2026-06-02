@@ -392,21 +392,22 @@ export default function JobsPage() {
                           router.push(`/dashboard/jobs/${job._id}`);
                         }}
                         className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
-                      ))}
-                    </div>
+                      >
+                        Apply on site <ArrowRight size={14} />
                       </button>
-                  {pages > 1 && (
-                    <div className="flex justify-center gap-2">
-                      <button disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="btn-secondary text-sm py-1.5 px-4 disabled:opacity-40">Prev</button>
-                      <span className="text-slate-400 text-sm py-1.5 px-3">{page} / {pages}</span>
-                      <button disabled={page === pages} onClick={() => setPage((p) => Math.min(p + 1, pages))} className="btn-secondary text-sm py-1.5 px-4 disabled:opacity-40">Next</button>
+                      <div className="text-xs uppercase tracking-[0.2em] text-slate-500">CashFlowHubs remote board</div>
                     </div>
-                  )}
-          {pagination.pages > 1 && (
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {pages > 1 && (
             <div className="flex justify-center gap-2">
-              <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="btn-secondary text-sm py-1.5 px-4 disabled:opacity-40">Prev</button>
-              <span className="text-slate-400 text-sm py-1.5 px-3">{page} / {pagination.pages}</span>
-              <button disabled={page === pagination.pages} onClick={() => setPage((p) => p + 1)} className="btn-secondary text-sm py-1.5 px-4 disabled:opacity-40">Next</button>
+              <button disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="btn-secondary text-sm py-1.5 px-4 disabled:opacity-40">Prev</button>
+              <span className="text-slate-400 text-sm py-1.5 px-3">{page} / {pages}</span>
+              <button disabled={page === pages} onClick={() => setPage((p) => Math.min(p + 1, pages))} className="btn-secondary text-sm py-1.5 px-4 disabled:opacity-40">Next</button>
             </div>
           )}
         </>
