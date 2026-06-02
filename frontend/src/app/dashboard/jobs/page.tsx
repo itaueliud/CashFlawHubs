@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
@@ -37,10 +37,9 @@ export default function JobsPage() {
   const queryClient = useQueryClient();
   const isStaff = ['admin', 'superadmin', 'ledger'].includes(user?.role || '');
 
-  const SERVER_FETCH_LIMIT = 100; // backend caps at 100
   const { data, isLoading } = useQuery({
-    queryKey: ['jobs', search, category],
-    queryFn: () => api.get(`/jobs?search=${encodeURIComponent(search)}&category=${encodeURIComponent(category)}&page=1&limit=${SERVER_FETCH_LIMIT}`).then((r) => r.data),
+    queryKey: ['jobs', search, category, page],
+    queryFn: () => api.get(`/jobs?search=${search}&category=${category}&page=${page}&limit=20`).then((r) => r.data),
   });
   const { data: catData } = useQuery({
     queryKey: ['job-cats'],
@@ -54,48 +53,7 @@ export default function JobsPage() {
     },
   });
 
-  const jobsRaw = Array.isArray(data?.jobs) ? data.jobs : [];
-
-  const jobs = useMemo(() => {
-    const list = jobsRaw;
-    const seen = new Set();
-
-    const normalizeText = (value: any) => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
-    const normalizeUrl = (value: any) => {
-      const raw = String(value || '').trim();
-      if (!raw) return '';
-      try {
-        const parsed = new URL(raw);
-        const host = parsed.hostname.replace(/^www\./i, '').toLowerCase();
-        const path = parsed.pathname.replace(/\/+$/, '').toLowerCase();
-        return `${host}${path}`;
-      } catch {
-        return raw
-          .replace(/^https?:\/\//i, '')
-          .replace(/^www\./i, '')
-          .replace(/[?#].*$/, '')
-          .replace(/\/+$/, '')
-          .toLowerCase();
-      }
-    };
-
-    return list.filter((job: any) => {
-      const urlKey = normalizeUrl(job?.applicationUrl);
-      const titleCompanyKey = `${normalizeText(job?.title)}|${normalizeText(job?.company)}`;
-      const dedupeKey = urlKey || titleCompanyKey || String(job?._id || '');
-      if (!dedupeKey) return true;
-      if (seen.has(dedupeKey)) return false;
-      seen.add(dedupeKey);
-      return true;
-    });
-  }, [jobsRaw]);
-
-  // Client-side pagination (after dedupe)
-  const PER_PAGE = 20;
-  const total = jobs.length;
-  const pages = Math.max(Math.ceil(total / PER_PAGE), 1);
-  const skip = (page - 1) * PER_PAGE;
-  const displayedJobs = jobs.slice(skip, skip + PER_PAGE);
+  const jobs = data?.jobs || [];
   const pagination = data?.pagination || {};
   const sourceCounts = isStaff ? (data?.sourceCounts || {}) : {};
   const sourceCount = Object.values(sourceCounts).filter((count: any) => Number(count) > 0).length;
@@ -180,7 +138,7 @@ export default function JobsPage() {
             <div className="flex flex-wrap gap-3">
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-xs text-slate-400">Visible jobs</div>
-                <div className="text-2xl font-black text-emerald-300">{typeof total === 'number' ? total : '—'}</div>
+                <div className="text-2xl font-black text-emerald-300">{pagination.total ?? '—'}</div>
               </div>
               {isStaff && (
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
@@ -361,7 +319,7 @@ export default function JobsPage() {
             <div className="card text-center py-12 text-slate-400">No jobs found. Try a different search.</div>
           ) : (
             <div className="grid gap-3">
-              {displayedJobs.map((job: any) => (
+              {jobs.map((job: any) => (
                 <div key={job._id} className="rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 transition-all hover:-translate-y-1 hover:border-emerald-400/30 hover:shadow-xl hover:shadow-emerald-950/15">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0 flex-1 space-y-4">
@@ -402,12 +360,11 @@ export default function JobsPage() {
               ))}
             </div>
           )}
-
-          {pages > 1 && (
+          {pagination.pages > 1 && (
             <div className="flex justify-center gap-2">
-              <button disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="btn-secondary text-sm py-1.5 px-4 disabled:opacity-40">Prev</button>
-              <span className="text-slate-400 text-sm py-1.5 px-3">{page} / {pages}</span>
-              <button disabled={page === pages} onClick={() => setPage((p) => Math.min(p + 1, pages))} className="btn-secondary text-sm py-1.5 px-4 disabled:opacity-40">Next</button>
+              <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="btn-secondary text-sm py-1.5 px-4 disabled:opacity-40">Prev</button>
+              <span className="text-slate-400 text-sm py-1.5 px-3">{page} / {pagination.pages}</span>
+              <button disabled={page === pagination.pages} onClick={() => setPage((p) => p + 1)} className="btn-secondary text-sm py-1.5 px-4 disabled:opacity-40">Next</button>
             </div>
           )}
         </>
