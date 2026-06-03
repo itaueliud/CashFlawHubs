@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
+import NotificationBell from '@/components/NotificationBell';
 import {
   LayoutDashboard,
   ClipboardList,
@@ -249,6 +250,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             Welcome back, <span className="text-white font-medium">{user.name}</span>
           </div>
           <div className="flex items-center gap-3">
+            <NotificationBell />
             {!user.activationStatus && (
               <Link href="/dashboard/activate" className="btn-primary text-xs py-1.5 px-3">
                 Activate Account

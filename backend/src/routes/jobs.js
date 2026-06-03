@@ -15,6 +15,7 @@ const {
 	applyToJob,
 	getMyJobApplications,
 	updateJobApplicationStatus,
+	updateMyJobApplicationStatus,
 	getJobApplicationsForManagement,
 } = require('../controllers/jobApplicationController');
 const { getJobApplicants } = require('../controllers/jobApplicationController');
@@ -26,6 +27,7 @@ router.get('/', protect, getJobs);
 router.post('/', protect, requireActivation, createJobPosting);
 router.get('/categories', protect, getCategories);
 router.get('/applications/me', protect, getMyJobApplications);
+router.patch('/applications/:applicationId/status', protect, requireActivation, updateMyJobApplicationStatus);
 router.post('/sync', syncScrapedJob);
 router.post('/expire', expireScrapedJobs);
 router.patch('/:id/claim', protect, requireActivation, claimJob);

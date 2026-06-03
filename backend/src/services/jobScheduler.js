@@ -33,6 +33,17 @@ const startJobScheduler = () => {
     }
   });
 
+  // Process job application reminders every hour.
+  cron.schedule('15 * * * *', async () => {
+    logger.info('CRON: Processing job application reminders...');
+    try {
+      const { processJobApplicationReminders } = require('../controllers/jobApplicationController');
+      await processJobApplicationReminders();
+    } catch (err) {
+      logger.error(`CRON job application reminders failed: ${err.message}`);
+    }
+  });
+
   // Friday bulk payout at 06:00 EAT (03:00 UTC).
   cron.schedule('0 3 * * 5', async () => {
     logger.info('CRON: Friday bulk payout running...');
@@ -65,7 +76,7 @@ const startJobScheduler = () => {
     }
   });
 
-  logger.info('Job scheduler started (jobs, challenges, exchange rates, Friday payout, cleanup, outreach digest)');
+  logger.info('Job scheduler started (jobs, challenges, exchange rates, reminders, Friday payout, cleanup, outreach digest)');
 };
 
 const createDailyChallenges = async () => {

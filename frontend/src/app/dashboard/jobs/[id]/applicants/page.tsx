@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 import { ArrowLeft, Loader2, Search } from 'lucide-react';
 import ApplicantEmailBadge from '@/components/ApplicantEmailBadge';
 
-type JobApplicationStatus = 'submitted' | 'reviewed' | 'shortlisted' | 'rejected';
+type JobApplicationStatus = 'redirected' | 'applied' | 'interviewing' | 'offered' | 'rejected' | 'withdrawn';
 
 type Applicant = {
   id?: string;
@@ -48,7 +48,7 @@ type ApplicantsResponse = {
   };
 };
 
-const STATUS_OPTIONS: JobApplicationStatus[] = ['submitted', 'reviewed', 'shortlisted', 'rejected'];
+const STATUS_OPTIONS: JobApplicationStatus[] = ['redirected', 'applied', 'interviewing', 'offered', 'rejected', 'withdrawn'];
 
 export default function JobApplicantsPage() {
   const params = useParams<{ id?: string | string[]; slug?: string[] }>();
@@ -175,15 +175,15 @@ export default function JobApplicantsPage() {
         <div className="overflow-x-auto rounded-2xl border border-slate-700 bg-slate-900/90">
           <table className="w-full min-w-[900px] text-left text-sm">
             <thead className="border-b border-slate-700 text-slate-400">
-                <tr>
+              <tr>
                 <th className="px-4 py-3 font-medium">Applicant</th>
                 <th className="px-4 py-3 font-medium">Contact</th>
                 <th className="px-4 py-3 font-medium">Applied</th>
                 <th className="px-4 py-3 font-medium">Tokens</th>
                 <th className="px-4 py-3 font-medium">Cover Letter</th>
                 <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Manage</th>
                 <th className="px-4 py-3 font-medium">Recruiter delivery</th>
-                <th className="px-4 py-3 font-medium">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -203,7 +203,7 @@ export default function JobApplicantsPage() {
                       ) : null}
                     </td>
                     <td className="px-4 py-3 text-slate-300">
-                      <div>{application.applicant?.email || '—'}</div>
+                      <div>{application.applicant?.email || '-'}</div>
                       <div className="text-xs text-slate-500">{application.applicant?.phone || 'No phone'}</div>
                       <div className="mt-2">
                         <ApplicantEmailBadge sent={Boolean(application.applicantEmailSent)} />
@@ -253,7 +253,7 @@ export default function JobApplicantsPage() {
                           {application.employerDeliveryStatus}
                         </span>
                       ) : (
-                        <span className="text-xs text-slate-400">—</span>
+                        <span className="text-xs text-slate-400">-</span>
                       )}
                     </td>
                   </tr>

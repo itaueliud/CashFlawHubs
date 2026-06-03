@@ -30,6 +30,13 @@ const DEFAULT_JOB_CATEGORIES = [
   'Other',
 ];
 const { discoverApplicationContact } = require('../utils/jobContact');
+const normalizeJobApplicationStatus = (status) => {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (normalized === 'submitted') return 'redirected';
+  if (normalized === 'reviewed') return 'interviewing';
+  if (normalized === 'shortlisted') return 'offered';
+  return normalized;
+};
 
 const normalizeJobType = (value, fallback = 'full-time') => {
   if (Array.isArray(value)) {
@@ -704,7 +711,7 @@ exports.getJob = async (req, res) => {
       JobApplication.findOne({
         jobId: job._id,
         userId: req.user.id,
-      }).select('status appliedAt createdAt tokenCost'),
+      }).select('status appliedAt createdAt updatedAt tokenCost applicantEmailSent reminder24At reminder7At redirectedAt appliedConfirmedAt'),
       canManageApplications
         ? JobApplication.find({ jobId: job._id })
             .sort({ createdAt: -1 })
@@ -712,25 +719,35 @@ exports.getJob = async (req, res) => {
               path: 'userId',
               select: 'firstName lastName name email phone userId',
             })
-            .select('status appliedAt createdAt updatedAt tokenCost coverLetter userId')
+            .select('status appliedAt createdAt updatedAt tokenCost coverLetter userId applicantEmailSent reminder24At reminder7At redirectedAt appliedConfirmedAt')
         : Promise.resolve([]),
     ]);
 
     job.views += 1;
     await job.save();
 
+    const normalizedUserApplication = userApplication
+      ? {
+          ...userApplication.toObject(),
+          status: normalizeJobApplicationStatus(userApplication.status),
+        }
+      : null;
+
     const normalizedApplications = canManageApplications
       ? applications.map((application) => {
           const applicant = application.userId || {};
-          return {
-            _id: application._id,
-            status: application.status,
-            appliedAt: application.appliedAt,
-            createdAt: application.createdAt,
-            updatedAt: application.updatedAt,
-            tokenCost: application.tokenCost || 0,
-            coverLetter: application.coverLetter || '',
-            applicant: {
+      return {
+        _id: application._id,
+        status: normalizeJobApplicationStatus(application.status),
+        appliedAt: application.appliedAt,
+        createdAt: application.createdAt,
+        updatedAt: application.updatedAt,
+        tokenCost: application.tokenCost || 0,
+        coverLetter: application.coverLetter || '',
+        applicantEmailSent: Boolean(application.applicantEmailSent),
+        reminder24At: application.reminder24At,
+        reminder7At: application.reminder7At,
+        applicant: {
               id: applicant._id,
               userId: applicant.userId,
               firstName: applicant.firstName,
@@ -746,7 +763,7 @@ exports.getJob = async (req, res) => {
     res.json({
       success: true,
       job,
-      userApplication,
+      userApplication: normalizedUserApplication,
       canManageApplications,
       applications: normalizedApplications,
     });

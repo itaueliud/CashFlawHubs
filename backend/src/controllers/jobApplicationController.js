@@ -4,14 +4,35 @@ const JobApplication = require('../models/JobApplication');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 const logger = require('../utils/logger');
-const { sendgridClient, sendSMS } = require('../services/notificationService');
+const { sendgridClient } = require('../services/notificationService');
+const { createNotification } = require('../services/notificationCenter');
 const { processDeliveryMessage } = require('../services/applicationDelivery');
 const fs = require('fs');
 
 const MAX_COVER_LETTER_LENGTH = 3000;
 const MIN_COVER_LETTER_LENGTH = 1;
-const JOB_APPLICATION_STATUS = ['submitted', 'reviewed', 'shortlisted', 'rejected'];
-const STATUS_NOTIFY_SET = new Set(['reviewed', 'shortlisted']);
+const JOB_APPLICATION_STATUS = ['submitted', 'reviewed', 'shortlisted', 'redirected', 'applied', 'interviewing', 'offered', 'rejected', 'withdrawn'];
+const PUBLIC_JOB_APPLICATION_STATUS = ['redirected', 'applied', 'interviewing', 'offered', 'rejected', 'withdrawn'];
+const STATUS_ALIASES = {
+  submitted: 'redirected',
+  reviewed: 'interviewing',
+  shortlisted: 'offered',
+};
+const STATUS_NOTIFY_SET = new Set(['applied', 'interviewing', 'offered', 'rejected']);
+const STATUS_LABELS = {
+  submitted: 'Submitted',
+  reviewed: 'Reviewed',
+  shortlisted: 'Shortlisted',
+  redirected: 'Redirected',
+  applied: 'Applied',
+  interviewing: 'Interviewing',
+  offered: 'Offered',
+  rejected: 'Rejected',
+  withdrawn: 'Withdrawn',
+};
+const APPLY_XP_REWARD = 25;
+const CONFIRM_XP_REWARD = 50;
+const OFFER_XP_BONUS = 75;
 
 const escapeHtml = (value) => String(value || '')
   .replace(/&/g, '&amp;')
@@ -115,6 +136,137 @@ const cleanupUploadedCv = async (file) => {
   }
 };
 
+const normalizeApplicationStatus = (status) => {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (!normalized) return 'redirected';
+  return STATUS_ALIASES[normalized] || normalized;
+};
+
+const isTrackableApplicationStatus = (status) =>
+  PUBLIC_JOB_APPLICATION_STATUS.includes(normalizeApplicationStatus(status));
+
+const getStatusTimestampField = (status) => {
+  switch (normalizeApplicationStatus(status)) {
+    case 'redirected':
+      return 'redirectedAt';
+    case 'applied':
+      return 'appliedConfirmedAt';
+    case 'interviewing':
+      return 'interviewingAt';
+    case 'offered':
+      return 'offeredAt';
+    case 'rejected':
+      return 'rejectedAt';
+    case 'withdrawn':
+      return 'withdrawnAt';
+    default:
+      return null;
+  }
+};
+
+const statusToLabel = (status) => STATUS_LABELS[normalizeApplicationStatus(status)] || 'Application update';
+
+const getApplicantDisplayName = (applicant = {}) =>
+  applicant.firstName || applicant.name || [applicant.firstName, applicant.lastName].filter(Boolean).join(' ').trim() || 'there';
+
+const buildApplicationReminderMessage = ({ jobTitle, company, delayLabel }) =>
+  `You started an application for ${jobTitle} at ${company}. CashFlawHubs has kept your progress safe. ${delayLabel} reminder: open your dashboard to confirm, update, or withdraw it.`;
+
+const bumpUserXp = async (userId, xpDelta = 0) => {
+  const delta = Math.max(Number(xpDelta) || 0, 0);
+  if (!delta) return null;
+
+  const updatedUser = await User.findOneAndUpdate(
+    { _id: userId },
+    {
+      $inc: { xpPoints: delta },
+    },
+    { new: true }
+  ).select('xpPoints level');
+
+  if (!updatedUser) return null;
+
+  try {
+    updatedUser.checkLevelUp();
+    await updatedUser.save();
+  } catch (error) {
+    logger.warn(`Failed to persist level-up after XP award: ${error.message}`);
+  }
+
+  return updatedUser;
+};
+
+const sendApplicationConfirmationEmail = async ({ applicant, job, application }) => {
+  if (!applicant?.email) return false;
+
+  const applicantName = getApplicantDisplayName(applicant);
+  const submittedAt = application.appliedAt ? new Date(application.appliedAt).toLocaleString() : new Date().toLocaleString();
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;background:#f8fafc;padding:24px;">
+      <div style="max-width:720px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#0f172a,#14532d);color:#ffffff;padding:24px 28px;">
+          <div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.8;">CashFlawHubs</div>
+          <h2 style="margin:8px 0 0;font-size:28px;line-height:1.2;">Application confirmed</h2>
+          <p style="margin:8px 0 0;opacity:.9;">${escapeHtml(job.title)} at ${escapeHtml(job.company)}</p>
+        </div>
+        <div style="padding:28px;">
+          <p style="margin-top:0;">Hello ${escapeHtml(applicantName)},</p>
+          <p>Your application has been confirmed in CashFlawHubs and your dashboard is now the source of truth for tracking it.</p>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin:20px 0;">
+            <div style="flex:1;min-width:220px;padding:16px;border:1px solid #e5e7eb;border-radius:14px;background:#f8fafc;">
+              <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;">Status</div>
+              <div style="font-size:18px;font-weight:700;color:#166534;margin-top:4px;">Applied</div>
+              <div style="font-size:12px;color:#64748b;margin-top:6px;">Confirmed ${escapeHtml(submittedAt)}</div>
+            </div>
+            <div style="flex:1;min-width:220px;padding:16px;border:1px solid #e5e7eb;border-radius:14px;background:#f8fafc;">
+              <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;">XP reward</div>
+              <div style="font-size:18px;font-weight:700;color:#0f172a;margin-top:4px;">+${CONFIRM_XP_REWARD} XP</div>
+              <div style="font-size:12px;color:#64748b;margin-top:6px;">Keep updating the status as you hear back.</div>
+            </div>
+          </div>
+          <p style="margin-bottom:0;">Open your dashboard to follow the next steps, and keep an eye out for replies from the employer.</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  try {
+    await sendgridClient.sendEmail({
+      to: applicant.email,
+      subject: `Application confirmed for ${job.title}`,
+      html,
+    });
+    return true;
+  } catch (error) {
+    logger.warn(`Application confirmation email failed: ${error.message}`);
+    return false;
+  }
+};
+
+const createApplicationNotification = async ({ userId, type, title, message, dedupeKey, metadata = {} }) =>
+  createNotification({
+    userId,
+    type,
+    title,
+    message,
+    dedupeKey,
+    metadata,
+    channel: 'in_app',
+  });
+
+const buildTrackedApplicationResponse = (application) => ({
+  _id: application._id,
+  status: normalizeApplicationStatus(application.status),
+  appliedAt: application.appliedAt,
+  createdAt: application.createdAt,
+  updatedAt: application.updatedAt,
+  tokenCost: application.tokenCost || 0,
+  applicantEmailSent: Boolean(application.applicantEmailSent),
+  reminder24At: application.reminder24At,
+  reminder7At: application.reminder7At,
+});
+
 exports.getJobApplicationsForManagement = async (req, res) => {
   try {
     const { id: jobId } = req.params;
@@ -139,10 +291,11 @@ exports.getJobApplicationsForManagement = async (req, res) => {
 
     const query = { jobId: job._id };
     if (status) {
-      if (!JOB_APPLICATION_STATUS.includes(status)) {
+      const normalizedStatus = normalizeApplicationStatus(status);
+      if (!JOB_APPLICATION_STATUS.includes(normalizedStatus)) {
         return res.status(400).json({ success: false, message: 'Invalid application status filter' });
       }
-      query.status = status;
+      query.status = normalizedStatus;
     }
 
     if (search) {
@@ -190,7 +343,7 @@ exports.getJobApplicationsForManagement = async (req, res) => {
           path: 'userId',
           select: 'firstName lastName name email phone userId',
         })
-            .select('status appliedAt createdAt updatedAt tokenCost coverLetter userId cvOriginalName cvFileName cvMimeType cvUrl'),
+        .select('status appliedAt createdAt updatedAt tokenCost coverLetter userId cvOriginalName cvFileName cvMimeType cvUrl applicantEmailSent reminder24At reminder7At'),
       JobApplication.countDocuments(query),
     ]);
 
@@ -214,7 +367,8 @@ exports.getJobApplicationsForManagement = async (req, res) => {
       const applicant = application.userId || {};
       return {
         _id: application._id,
-        status: application.status,
+        status: normalizeApplicationStatus(application.status),
+        statusLabel: statusToLabel(application.status),
         coverLetter: application.coverLetter || '',
         cv: application.cvUrl ? {
           originalName: application.cvOriginalName,
@@ -226,6 +380,8 @@ exports.getJobApplicationsForManagement = async (req, res) => {
         appliedAt: application.appliedAt,
         createdAt: application.createdAt,
         updatedAt: application.updatedAt,
+        reminder24At: application.reminder24At,
+        reminder7At: application.reminder7At,
         employerDeliveryStatus: deliveryStatusByApplicationId.get(String(application._id)) || null,
         applicantEmailSent: Boolean(application.applicantEmailSent),
         applicant: {
@@ -262,31 +418,41 @@ exports.getJobApplicationsForManagement = async (req, res) => {
 
 const notifyJobApplicationStatusChange = async ({ applicant, status, jobTitle, company }) => {
   if (!applicant) return;
-  if (!STATUS_NOTIFY_SET.has(status)) return;
+  const normalizedStatus = normalizeApplicationStatus(status);
+  if (!STATUS_NOTIFY_SET.has(normalizedStatus)) return;
 
-  const safeName = applicant.firstName || applicant.name || 'there';
+  const safeName = getApplicantDisplayName(applicant);
   const safeJobTitle = jobTitle || 'the role';
   const safeCompany = company || 'the company';
-  const statusLabel = status === 'shortlisted' ? 'shortlisted' : 'reviewed';
+  const statusLabel = statusToLabel(normalizedStatus);
+  const title = normalizedStatus === 'applied' ? 'Application confirmed' : `Application ${statusLabel.toLowerCase()}`;
+  let message = `Your application for ${safeJobTitle} at ${safeCompany} has been updated to ${statusLabel.toLowerCase()}.`;
 
-  if (applicant.email) {
-    try {
-      await sendgridClient.sendEmail({
-        to: applicant.email,
-        subject: `Update on your application for ${safeJobTitle}`,
-        html: `<p>Hello ${safeName},</p><p>Your application for <strong>${safeJobTitle}</strong> at <strong>${safeCompany}</strong> has been <strong>${statusLabel}</strong>.</p><p>Log in to CashFlawHubs to view details and next steps.</p>`,
-      });
-    } catch (error) {
-      logger.warn(`Job application email notification failed: ${error.message}`);
-    }
+  if (normalizedStatus === 'offered') {
+    message = `Great news ${safeName}, your application for ${safeJobTitle} at ${safeCompany} has been marked as offered.`;
+  } else if (normalizedStatus === 'rejected') {
+    message = `Your application for ${safeJobTitle} at ${safeCompany} was marked rejected. Keep going, the next opportunity is waiting.`;
+  } else if (normalizedStatus === 'interviewing') {
+    message = `You've been moved to interviewing for ${safeJobTitle} at ${safeCompany}. Check the dashboard for next steps.`;
+  } else if (normalizedStatus === 'applied') {
+    message = `Your application for ${safeJobTitle} at ${safeCompany} is confirmed and saved in CashFlawHubs.`;
   }
 
-  if (applicant.phone) {
-    try {
-      await sendSMS(applicant.phone, `CashFlawHubs update: your application for ${safeJobTitle} at ${safeCompany} has been ${statusLabel}.`);
-    } catch (error) {
-      logger.warn(`Job application SMS notification failed: ${error.message}`);
-    }
+  try {
+    await createApplicationNotification({
+      userId: applicant._id,
+      type: 'job_status',
+      title,
+      message,
+      dedupeKey: `job-application-status:${applicant._id}:${safeJobTitle}:${safeCompany}:${normalizedStatus}`,
+      metadata: {
+        jobTitle: safeJobTitle,
+        company: safeCompany,
+        status: normalizedStatus,
+      },
+    });
+  } catch (error) {
+    logger.warn(`Job application notification failed: ${error.message}`);
   }
 };
 
@@ -305,6 +471,7 @@ exports.getMyJobApplications = async (req, res) => {
           path: 'jobId',
           select: 'title company location category source isActive expiresAt publishedAt applicationUrl',
         })
+        .select('status appliedAt createdAt updatedAt tokenCost coverLetter cvOriginalName cvFileName cvMimeType cvUrl applicantEmailSent reminder24At reminder7At')
         .lean(),
       JobApplication.countDocuments({ userId: req.user.id }),
     ]);
@@ -320,7 +487,8 @@ exports.getMyJobApplications = async (req, res) => {
 
       return {
         _id: application._id,
-        status: application.status,
+        status: normalizeApplicationStatus(application.status),
+        statusLabel: statusToLabel(application.status),
         coverLetter: application.coverLetter,
         cv: application.cvUrl ? {
           originalName: application.cvOriginalName,
@@ -333,6 +501,8 @@ exports.getMyJobApplications = async (req, res) => {
         appliedAt: application.appliedAt,
         createdAt: application.createdAt,
         updatedAt: application.updatedAt,
+        reminder24At: application.reminder24At,
+        reminder7At: application.reminder7At,
         job: job
           ? {
               _id: job._id,
@@ -414,7 +584,10 @@ exports.applyToJob = async (req, res) => {
       cvPath: cvFile?.path || null,
       cvUrl: cvFile ? `/uploads/job-applications/${cvFile.filename}` : null,
       tokenCost,
-      status: 'submitted',
+      status: 'redirected',
+      redirectedAt: new Date(),
+      reminder24At: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      reminder7At: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
     const applicantProfile = await User.findById(req.user.id).select('firstName lastName name email phone country userId referralCode userLanguage timezone registrationContext');
@@ -580,43 +753,51 @@ exports.applyToJob = async (req, res) => {
       logger.warn(`Owner forward attempt failed: ${err.message}`);
     }
 
-    let applicantEmailSent = false;
+    const xpAwarded = APPLY_XP_REWARD;
+    const updatedUser = await bumpUserXp(req.user.id, xpAwarded);
 
     try {
-      if (applicantProfile?.email) {
-        const confirmationSubject = `Your application for ${job.title} was submitted`;
-        const confirmationHtml = buildApplicantSubmissionEmail({
-          user: applicantProfile.toObject ? applicantProfile.toObject() : applicantProfile,
-          job,
-          application,
-          recruiterForwarded,
-          recruiterEmail,
-        });
-
-        await sendgridClient.sendEmail({
-          to: applicantProfile.email,
-          subject: confirmationSubject,
-          html: confirmationHtml,
-        });
-        applicantEmailSent = true;
-        try {
-          // persist flag on the application document
-          await JobApplication.findByIdAndUpdate(application._id, { applicantEmailSent: true }).exec();
-        } catch (err) {
-          logger.warn(`Failed to persist applicantEmailSent for ${application._id}: ${err.message}`);
-        }
-      }
+      await JobApplication.findByIdAndUpdate(application._id, {
+        applicantEmailSent: false,
+      }).exec();
     } catch (err) {
-      logger.warn(`Failed to send applicant submission confirmation: ${err.message}`);
+      logger.warn(`Failed to persist applicantEmailSent for ${application._id}: ${err.message}`);
+    }
+
+    try {
+      await createApplicationNotification({
+        userId: req.user.id,
+        type: 'job_application',
+        title: 'Application started',
+        message: `Your application for ${job.title} at ${job.company} is now live. Open CashFlawHubs later to confirm it, update the status, or withdraw it.`,
+        dedupeKey: `job-application:${application._id}:redirected`,
+        metadata: {
+          jobId: job._id.toString(),
+          applicationId: application._id.toString(),
+          status: 'redirected',
+          applicationUrl: job.applicationUrl || null,
+        },
+      });
+    } catch (error) {
+      logger.warn(`Failed to create application notification: ${error.message}`);
     }
 
     res.status(201).json({
       success: true,
-      message: tokenCost > 0 ? `Application submitted successfully using ${tokenCost} tokens` : 'Application submitted successfully',
+      message: tokenCost > 0 ? `Application started successfully using ${tokenCost} tokens` : 'Application started successfully',
       tokenCost,
       tokenBalance,
-      emailSent: applicantEmailSent,
-      application,
+      xpEarned: xpAwarded,
+      xpPoints: updatedUser?.xpPoints ?? req.user.xpPoints ?? null,
+      emailSent: false,
+      redirectUrl: job.applicationUrl || null,
+      application: {
+        ...application.toObject(),
+        status: 'redirected',
+        redirectedAt: application.redirectedAt,
+        reminder24At: application.reminder24At,
+        reminder7At: application.reminder7At,
+      },
     });
   } catch (error) {
     if (error?.code === 11000) {
@@ -630,14 +811,116 @@ exports.applyToJob = async (req, res) => {
   }
 };
 
+const persistApplicationStatusUpdate = async ({ application, job, nextStatus, triggerEmailConfirmation = false }) => {
+  const normalizedNextStatus = normalizeApplicationStatus(nextStatus);
+  if (!JOB_APPLICATION_STATUS.includes(normalizedNextStatus)) {
+    const error = new Error('Invalid application status');
+    error.status = 400;
+    throw error;
+  }
+
+  const previousStatus = normalizeApplicationStatus(application.status);
+  if (previousStatus === normalizedNextStatus) {
+    return {
+      application,
+      message: 'Status unchanged',
+      xpEarned: 0,
+      emailSent: false,
+    };
+  }
+
+  application.status = normalizedNextStatus;
+
+  const timestampField = getStatusTimestampField(normalizedNextStatus);
+  if (timestampField && !application[timestampField]) {
+    application[timestampField] = new Date();
+  }
+
+  if (normalizedNextStatus === 'applied') {
+    application.applicantEmailSent = false;
+  }
+
+  await application.save();
+
+  const applicant = await User.findById(application.userId).select('firstName lastName name email phone');
+  let xpEarned = 0;
+  let emailSent = false;
+
+  if (normalizedNextStatus === 'applied' && previousStatus === 'redirected') {
+    xpEarned = CONFIRM_XP_REWARD;
+    const updatedUser = await bumpUserXp(application.userId, xpEarned);
+    emailSent = await sendApplicationConfirmationEmail({ applicant, job, application });
+    if (emailSent) {
+      await JobApplication.findByIdAndUpdate(application._id, { applicantEmailSent: true }).exec();
+    }
+    await createApplicationNotification({
+      userId: application.userId,
+      type: 'job_status',
+      title: 'Application confirmed',
+      message: `Your application for ${job.title} at ${job.company} is confirmed. Keep tracking the employer response from your dashboard.`,
+      dedupeKey: `job-application-status:${application._id}:applied`,
+      metadata: {
+        jobTitle: job.title,
+        company: job.company,
+        status: normalizedNextStatus,
+        applicationId: application._id.toString(),
+      },
+    });
+    return {
+      application: await JobApplication.findById(application._id).lean(),
+      message: `Application confirmed! +${CONFIRM_XP_REWARD} XP earned`,
+      xpEarned,
+      xpPoints: updatedUser?.xpPoints ?? null,
+      emailSent,
+    };
+  }
+
+  if (normalizedNextStatus === 'offered') {
+    xpEarned = OFFER_XP_BONUS;
+    const updatedUser = await bumpUserXp(application.userId, xpEarned);
+    await createApplicationNotification({
+      userId: application.userId,
+      type: 'job_status',
+      title: 'Application offered',
+      message: `Great news, your application for ${job.title} at ${job.company} has been marked offered. You earned ${OFFER_XP_BONUS} XP.`,
+      dedupeKey: `job-application-status:${application._id}:offered`,
+      metadata: {
+        jobTitle: job.title,
+        company: job.company,
+        status: normalizedNextStatus,
+        applicationId: application._id.toString(),
+      },
+    });
+    return {
+      application: await JobApplication.findById(application._id).lean(),
+      message: `Application marked offered! +${OFFER_XP_BONUS} XP earned`,
+      xpEarned,
+      xpPoints: updatedUser?.xpPoints ?? null,
+      emailSent: false,
+    };
+  }
+
+  if (STATUS_NOTIFY_SET.has(normalizedNextStatus)) {
+    await notifyJobApplicationStatusChange({
+      applicant,
+      status: normalizedNextStatus,
+      jobTitle: job.title,
+      company: job.company,
+    });
+  }
+
+  return {
+    application: await JobApplication.findById(application._id).lean(),
+    message: `Application status updated from ${previousStatus} to ${normalizedNextStatus}`,
+    xpEarned,
+    emailSent,
+  };
+};
+
 exports.updateJobApplicationStatus = async (req, res) => {
   try {
     const { id: jobId, applicationId } = req.params;
-    const status = String(req.body?.status || '').trim().toLowerCase();
-
-    if (!JOB_APPLICATION_STATUS.includes(status)) {
-      return res.status(400).json({ success: false, message: 'Invalid application status' });
-    }
+    const nextStatus = req.body?.status;
 
     const [job, application] = await Promise.all([
       Job.findById(jobId).select('_id postedBy title company'),
@@ -660,37 +943,125 @@ exports.updateJobApplicationStatus = async (req, res) => {
       return res.status(403).json({ success: false, message: 'You are not allowed to update this application' });
     }
 
-    const previousStatus = application.status;
-    if (previousStatus === status) {
-      return res.json({
-        success: true,
-        message: 'Status unchanged',
-        application,
-      });
-    }
-
-    application.status = status;
-    await application.save();
-
-    if (STATUS_NOTIFY_SET.has(status)) {
-      const applicant = await User.findById(application.userId).select('firstName name email phone');
-      await notifyJobApplicationStatusChange({
-        applicant,
-        status,
-        jobTitle: job.title,
-        company: job.company,
-      });
-    }
+    const result = await persistApplicationStatusUpdate({
+      application,
+      job,
+      nextStatus,
+    });
 
     return res.json({
       success: true,
-      message: `Application status updated from ${previousStatus} to ${status}`,
-      application,
+      ...result,
     });
   } catch (error) {
     logger.error(`updateJobApplicationStatus error: ${error.message}`);
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(error.status || 500).json({ success: false, message: error.message });
   }
+};
+
+exports.updateMyJobApplicationStatus = async (req, res) => {
+  try {
+    const { applicationId } = req.params;
+    const nextStatus = req.body?.status;
+    const normalizedNextStatus = normalizeApplicationStatus(nextStatus);
+
+    if (!PUBLIC_JOB_APPLICATION_STATUS.includes(normalizedNextStatus)) {
+      return res.status(400).json({ success: false, message: 'Invalid application status' });
+    }
+
+    const application = await JobApplication.findOne({
+      _id: applicationId,
+      userId: req.user.id,
+    });
+
+    if (!application) {
+      return res.status(404).json({ success: false, message: 'Application not found' });
+    }
+
+    const job = await Job.findById(application.jobId).select('_id title company applicationUrl');
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+
+    const result = await persistApplicationStatusUpdate({
+      application,
+      job,
+      nextStatus: normalizedNextStatus,
+    });
+
+    return res.json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    logger.error(`updateMyJobApplicationStatus error: ${error.message}`);
+    return res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+};
+
+exports.processJobApplicationReminders = async () => {
+  const now = new Date();
+  const dueApplications = await JobApplication.find({
+    $or: [
+      { reminder24At: { $ne: null, $lte: now }, reminder24SentAt: null },
+      { reminder7At: { $ne: null, $lte: now }, reminder7SentAt: null },
+    ],
+  })
+    .populate({ path: 'userId', select: 'firstName lastName name email phone' })
+    .populate({ path: 'jobId', select: 'title company applicationUrl' });
+
+  for (const application of dueApplications) {
+    const job = application.jobId;
+    const applicant = application.userId;
+    if (!job || !applicant) continue;
+
+    const normalizedStatus = normalizeApplicationStatus(application.status);
+    if (!PUBLIC_JOB_APPLICATION_STATUS.includes(normalizedStatus) && normalizedStatus !== 'applied') {
+      continue;
+    }
+
+    if (normalizedStatus === 'redirected' && application.reminder24At && !application.reminder24SentAt && application.reminder24At <= now) {
+      await createApplicationNotification({
+        userId: applicant._id,
+        type: 'job_reminder',
+        title: 'Application reminder',
+        message: buildApplicationReminderMessage({
+          jobTitle: job.title,
+          company: job.company,
+          delayLabel: '24-hour',
+        }),
+        dedupeKey: `job-application-reminder:${application._id}:24h`,
+        metadata: {
+          applicationId: application._id.toString(),
+          jobId: job._id.toString(),
+          delayHours: 24,
+          status: normalizedStatus,
+        },
+      });
+      application.reminder24SentAt = new Date();
+    }
+
+    if (['redirected', 'applied'].includes(normalizedStatus) && application.reminder7At && !application.reminder7SentAt && application.reminder7At <= now) {
+      await createApplicationNotification({
+        userId: applicant._id,
+        type: 'job_reminder',
+        title: 'Status nudge',
+        message: `Seven days have passed since you started applying for ${job.title} at ${job.company}. Update the status in CashFlawHubs so your dashboard stays accurate.`,
+        dedupeKey: `job-application-reminder:${application._id}:7d`,
+        metadata: {
+          applicationId: application._id.toString(),
+          jobId: job._id.toString(),
+          delayDays: 7,
+          status: normalizedStatus,
+        },
+      });
+      application.reminder7SentAt = new Date();
+    }
+
+    await application.save();
+  }
+
+  return { checked: dueApplications.length };
 };
 
 exports.getJobApplicants = async (req, res) => {

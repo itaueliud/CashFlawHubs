@@ -12,7 +12,7 @@ export default function ApplicantEmailBadge({ sent = false, className = '' }: Pr
 
   return (
     <span className={`text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded-full ${base} ${className}`}>
-      {sent ? 'Email sent' : 'Email pending'}
+      {sent ? 'Confirmation sent' : 'Confirmation pending'}
     </span>
   );
 }

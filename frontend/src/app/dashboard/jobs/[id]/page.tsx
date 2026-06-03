@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -27,10 +27,13 @@ type JobDetails = {
   publishedAt?: string;
 };
 
-type JobApplicationStatus = 'submitted' | 'reviewed' | 'shortlisted' | 'rejected';
+type JobApplicationStatus = 'redirected' | 'applied' | 'interviewing' | 'offered' | 'rejected' | 'withdrawn';
 
 type JobApplicationState = {
+  _id?: string;
   status: JobApplicationStatus;
+  appliedAt?: string;
+  createdAt?: string;
 };
 
 type ManagedJobApplication = {
@@ -61,34 +64,37 @@ type ApplyResponse = {
   message?: string;
   tokenBalance?: number;
   emailSent?: boolean;
+  xpEarned?: number;
+  xpPoints?: number | null;
+  redirectUrl?: string | null;
   application?: {
+    _id?: string;
     coverLetter?: string | null;
     cvOriginalName?: string | null;
     cvFileName?: string | null;
     cvUrl?: string | null;
-    status?: string;
+    status?: JobApplicationStatus;
     appliedAt?: string;
   };
 };
 
-const STATUS_OPTIONS: JobApplicationStatus[] = ['submitted', 'reviewed', 'shortlisted', 'rejected'];
+const STATUS_OPTIONS: JobApplicationStatus[] = ['applied', 'interviewing', 'offered', 'rejected', 'withdrawn'];
 
 export default function JobDetailsPage() {
   const params = useParams<{ id?: string | string[]; slug?: string[] }>();
   const router = useRouter();
+  const applicationWindowRef = useRef<Window | null>(null);
   const directId = Array.isArray(params?.id) ? params.id[0] : params?.id;
   const slugId = Array.isArray(params?.slug) && params.slug[0] === 'jobs' ? params.slug[1] : undefined;
   const jobId = directId || slugId;
   const [coverLetter, setCoverLetter] = useState('');
   const [cvFile, setCvFile] = useState<File | null>(null);
-  const [submissionReceipt, setSubmissionReceipt] = useState<{
-    submittedAt: string;
-    jobTitle: string;
-    company: string;
-    coverLetter: string;
-    cvName?: string | null;
-    applicationStatus?: string;
-    emailSent?: boolean;
+  const [applicationFlow, setApplicationFlow] = useState<{
+    phase: 'idle' | 'countdown' | 'waiting';
+    countdown: number;
+    applicationId?: string;
+    redirectUrl?: string | null;
+    status?: JobApplicationStatus;
   } | null>(null);
   const { user, setUser, refreshUser, hasHydrated } = useAuthStore();
 
@@ -112,6 +118,44 @@ export default function JobDetailsPage() {
   const managedApplications = data?.applications || [];
   const isStaff = ['admin', 'superadmin', 'ledger'].includes(user?.role || '');
 
+  useEffect(() => {
+    if (userApplication?.status === 'redirected' && !applicationFlow) {
+      setApplicationFlow({
+        phase: 'waiting',
+        countdown: 0,
+        applicationId: userApplication._id,
+        redirectUrl: job?.applicationUrl || null,
+        status: 'redirected',
+      });
+    }
+  }, [applicationFlow, job?.applicationUrl, userApplication?._id, userApplication?.status]);
+
+  useEffect(() => {
+    if (!applicationFlow || applicationFlow.phase !== 'countdown') return;
+    if (applicationFlow.countdown <= 0) {
+      const redirectUrl = applicationFlow.redirectUrl || job?.applicationUrl;
+      if (redirectUrl) {
+        if (applicationWindowRef.current && !applicationWindowRef.current.closed) {
+          applicationWindowRef.current.location.href = redirectUrl;
+          applicationWindowRef.current.focus();
+        } else {
+          window.open(redirectUrl, '_blank', 'noopener,noreferrer');
+        }
+      }
+      setApplicationFlow((current) => current ? { ...current, phase: 'waiting', countdown: 0 } : current);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setApplicationFlow((current) => {
+        if (!current || current.phase !== 'countdown') return current;
+        return { ...current, countdown: Math.max(current.countdown - 1, 0) };
+      });
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [applicationFlow, job?.applicationUrl]);
+
   const applyMutation = useMutation({
     mutationFn: async () => {
       const formData = new FormData();
@@ -123,24 +167,31 @@ export default function JobDetailsPage() {
       return response.data as ApplyResponse;
     },
     onSuccess: async (response) => {
-      toast.success(response.message || 'Application submitted');
+      toast.success(response.message || 'Application started');
       if (typeof response?.tokenBalance === 'number' && user) {
         setUser({ ...user, tokenBalance: response.tokenBalance });
       }
-      setSubmissionReceipt({
-        submittedAt: response.application?.appliedAt || new Date().toISOString(),
-        jobTitle: job?.title || 'Job',
-        company: job?.company || 'Company',
-        coverLetter: coverLetter.trim(),
-        cvName: response.application?.cvOriginalName || response.application?.cvFileName || cvFile?.name || null,
-        applicationStatus: response.application?.status || 'submitted',
-        emailSent: response.emailSent,
+      if (typeof response?.xpPoints === 'number' && user) {
+        setUser({ ...user, xpPoints: response.xpPoints });
+      }
+      await refreshUser();
+      const applicationId = response.application?._id || userApplication?._id;
+      setApplicationFlow({
+        phase: 'countdown',
+        countdown: 5,
+        applicationId,
+        redirectUrl: response.redirectUrl || job?.applicationUrl || null,
+        status: response.application?.status || 'redirected',
       });
       setCoverLetter('');
       setCvFile(null);
       await refetch();
     },
     onError: (error: unknown) => {
+      if (applicationWindowRef.current && !applicationWindowRef.current.closed) {
+        applicationWindowRef.current.close();
+      }
+      applicationWindowRef.current = null;
       const message =
         typeof error === 'object' &&
         error !== null &&
@@ -154,11 +205,20 @@ export default function JobDetailsPage() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ applicationId, status }: { applicationId: string; status: JobApplicationStatus }) => {
-      const response = await api.patch(`/jobs/${jobId}/applications/${applicationId}/status`, { status });
-      return response.data as { message?: string };
+      const response = await api.patch(`/jobs/applications/${applicationId}/status`, { status });
+      return response.data as { message?: string; xpPoints?: number | null; xpEarned?: number; emailSent?: boolean };
     },
     onSuccess: async (response) => {
       toast.success(response.message || 'Application status updated');
+      if (typeof response?.xpPoints === 'number' && user) {
+        setUser({ ...user, xpPoints: response.xpPoints });
+      } else if (typeof response?.xpEarned === 'number' && response.xpEarned > 0 && user) {
+        setUser({ ...user, xpPoints: (user.xpPoints || 0) + response.xpEarned });
+      }
+      await refreshUser();
+      if (updateStatusMutation.variables?.status === 'applied') {
+        setApplicationFlow(null);
+      }
       await refetch();
     },
     onError: (error: unknown) => {
@@ -173,24 +233,50 @@ export default function JobDetailsPage() {
     },
   });
 
+  const handleApplyClick = () => {
+    if (typeof window !== 'undefined') {
+      applicationWindowRef.current = window.open('about:blank', '_blank') || null;
+    }
+    applyMutation.mutate();
+  };
+
   const publishedLabel = useMemo(() => {
     if (!job?.publishedAt) return '';
     return new Date(job.publishedAt).toLocaleString();
   }, [job?.publishedAt]);
 
-  const canSubmitApplication = coverLetter.trim().length > 0 && !applyMutation.isPending && !userApplication;
-  const applicantName = user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || user?.email || 'Applicant';
-  const applicantEmail = user?.email || 'N/A';
-  const emailBadgeClass = submissionReceipt?.emailSent
-    ? 'bg-emerald-400/15 text-emerald-300 border border-emerald-400/30'
-    : 'bg-amber-400/15 text-amber-300 border border-amber-400/30';
+  const canSubmitApplication =
+    coverLetter.trim().length > 0 &&
+    !applyMutation.isPending &&
+    !userApplication &&
+    applicationFlow?.phase !== 'countdown' &&
+    applicationFlow?.phase !== 'waiting';
 
-  if (submissionReceipt && job) {
+  if ((applicationFlow || userApplication?.status === 'redirected') && job) {
+    const waitingApplicationId = applicationFlow?.applicationId || userApplication?._id || '';
+    const waitingStatus = applicationFlow?.status || userApplication?.status || 'redirected';
     return (
       <div className="space-y-5 animate-fade-in max-w-4xl mx-auto">
         <button onClick={() => router.back()} className="text-sm text-slate-400 hover:text-white flex items-center gap-2">
           <ArrowLeft size={16} /> Back to jobs
         </button>
+
+        {applicationFlow?.phase === 'countdown' ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 px-4 backdrop-blur-xl">
+            <div className="w-full max-w-xl rounded-[28px] border border-emerald-400/20 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/70 p-8 text-center shadow-2xl shadow-emerald-950/30">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-500/10 text-2xl font-black text-emerald-300">
+                {applicationFlow.countdown}
+              </div>
+              <h2 className="text-3xl font-black text-white">Taking you to the employer site</h2>
+              <p className="mt-3 text-sm text-slate-300">
+                We created the application, awarded your XP, and will open the external page in a few seconds.
+              </p>
+              <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
+                Please keep this tab open. Your waiting screen will be ready when you return.
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <div className="overflow-hidden rounded-[28px] border border-slate-700 bg-slate-950/80 shadow-2xl shadow-emerald-950/10">
           <div className="bg-gradient-to-br from-emerald-500/20 via-slate-950 to-slate-900 px-6 py-7 sm:px-8 sm:py-8 border-b border-slate-700/80">
@@ -199,16 +285,22 @@ export default function JobDetailsPage() {
             </div>
             <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <div className="text-sm uppercase tracking-[0.18em] text-emerald-300/80">Application submitted</div>
-                <h1 className="mt-2 text-3xl font-black text-white sm:text-4xl">Your application has been sent</h1>
-                <p className="mt-2 max-w-2xl text-sm text-slate-300">We emailed you a confirmation and forwarded the application to the recruiter when a contact was available.</p>
+                <div className="text-sm uppercase tracking-[0.18em] text-emerald-300/80">Application handoff</div>
+                <h1 className="mt-2 text-3xl font-black text-white sm:text-4xl">
+                  {applicationFlow?.phase === 'countdown' ? 'Opening application site' : 'Waiting for you to return'}
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm text-slate-300">
+                  {applicationFlow?.phase === 'countdown'
+                    ? 'We created the application record, awarded XP, and are taking you to the employer site in a moment.'
+                  : 'The application is redirected. Come back here when you finish, then confirm the result or update the status.'}
+                </p>
               </div>
               <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-right">
                 <div className="text-[11px] uppercase tracking-wide text-emerald-300/80">Status</div>
-                <div className="text-lg font-bold text-emerald-300 capitalize">{submissionReceipt.applicationStatus}</div>
-                <div className="text-xs text-slate-300">Submitted {new Date(submissionReceipt.submittedAt).toLocaleString()}</div>
-                <div className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${emailBadgeClass}`}>
-                  {submissionReceipt.emailSent ? 'Email sent' : 'Email pending'}
+                <div className="text-lg font-bold text-emerald-300 capitalize">{waitingStatus}</div>
+                <div className="text-xs text-slate-300">Application saved in your dashboard</div>
+                <div className="mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide bg-slate-100/10 text-slate-200 border border-white/10">
+                  Reminder set
                 </div>
               </div>
             </div>
@@ -218,44 +310,69 @@ export default function JobDetailsPage() {
             <div className="grid md:grid-cols-2 gap-4 text-sm">
               <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
                 <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">Job</div>
-                <div className="font-semibold text-white">{submissionReceipt.jobTitle}</div>
-                <div className="text-slate-400">{submissionReceipt.company}</div>
+                <div className="font-semibold text-white">{job.title}</div>
+                <div className="text-slate-400">{job.company}</div>
               </div>
               <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
                 <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">What happens next</div>
-                <p className="text-sm text-slate-300">Check your email for the confirmation and your dashboard for application updates.</p>
+                <p className="text-sm text-slate-300">
+                  The application page is open externally. When you're done, come back and confirm the result here.
+                </p>
               </div>
             </div>
 
             <div className="grid lg:grid-cols-2 gap-4">
               <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-5 space-y-3">
-                <div className="text-sm font-semibold text-white">Applicant summary</div>
+                <div className="text-sm font-semibold text-white">Application status</div>
                 <div className="grid grid-cols-1 gap-2 text-sm text-slate-300">
-                  <div>Name: <span className="text-white">{applicantName}</span></div>
-                  <div>Email: <span className="text-white">{applicantEmail}</span></div>
-                  <div>Phone: <span className="text-white">{user?.phone || 'N/A'}</span></div>
-                  <div>Country: <span className="text-white">{user?.country || 'N/A'}</span></div>
-                  <div>Referral code: <span className="text-white">{user?.referralCode || 'N/A'}</span></div>
+                  <div>Status: <span className="text-white capitalize">{waitingStatus}</span></div>
+                  <div>Application ID: <span className="text-white">{waitingApplicationId || 'N/A'}</span></div>
+                  <div>Reminder 24h: <span className="text-white">{userApplication?.status === 'redirected' ? 'Scheduled' : 'Tracking active'}</span></div>
+                  <div>Reminder 7d: <span className="text-white">{userApplication?.status === 'redirected' ? 'Scheduled' : 'Tracking active'}</span></div>
                 </div>
               </div>
 
               <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-5 space-y-3">
-                <div className="text-sm font-semibold text-white">Submitted details</div>
-                <div className="rounded-xl border border-slate-700 bg-slate-950/80 p-4">
-                  <div className="text-xs uppercase tracking-wide text-slate-500 mb-2">Cover letter</div>
-                  <div className="whitespace-pre-line text-sm text-slate-300">{submissionReceipt.coverLetter}</div>
+                <div className="text-sm font-semibold text-white">Next steps</div>
+                <div className="rounded-xl border border-slate-700 bg-slate-950/80 p-4 space-y-3">
+                  <p className="text-sm text-slate-300">
+                    You can confirm the application immediately after you submit it on the employer site.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="badge-blue">24h reminder</span>
+                    <span className="badge-blue">7-day nudge</span>
+                    <span className="badge-green">Source of truth saved</span>
+                  </div>
                 </div>
-                <div className="text-sm text-slate-300">CV: <span className="text-white">{submissionReceipt.cvName || 'Not provided'}</span></div>
               </div>
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Link href="/dashboard/jobs/applications" className="btn-primary inline-flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const applicationId = waitingApplicationId;
+                  if (!applicationId) return;
+                  updateStatusMutation.mutate({ applicationId, status: 'applied' });
+                }}
+                className="btn-primary inline-flex items-center gap-2"
+                disabled={updateStatusMutation.isPending}
+              >
+                <Send size={16} /> I completed the application
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  toast.success('Reminder saved. We will nudge you again in 24 hours.');
+                  setApplicationFlow((current) => current ? { ...current, phase: 'waiting', countdown: 0 } : current);
+                }}
+                className="btn-secondary inline-flex items-center gap-2"
+              >
+                <ArrowLeft size={16} /> I will do it later
+              </button>
+              <Link href="/dashboard/jobs/applications" className="btn-secondary inline-flex items-center gap-2">
                 <ExternalLink size={16} /> View my applications
               </Link>
-              <button onClick={() => setSubmissionReceipt(null)} className="btn-secondary inline-flex items-center gap-2">
-                <ArrowLeft size={16} /> Back to job details
-              </button>
             </div>
           </div>
         </div>
@@ -313,7 +430,7 @@ export default function JobDetailsPage() {
               </div>
             )}
 
-            {job.applicationUrl && (
+            {isStaff && job.applicationUrl && (
               <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4 text-sm text-slate-300">
                 The original posting source is still available, but applying happens here in CashFlowConnect.
                 <a href={job.applicationUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-green-400 hover:text-green-300">
@@ -376,7 +493,7 @@ export default function JobDetailsPage() {
             </div>
 
             <button
-              onClick={() => applyMutation.mutate()}
+              onClick={handleApplyClick}
               disabled={!canSubmitApplication}
               className="btn-primary w-full flex items-center justify-center gap-2"
             >
