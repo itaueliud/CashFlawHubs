@@ -408,7 +408,7 @@ export default function ProfilePage() {
                     : verificationCooldown > 0
                       ? `Resend available in ${verificationCooldown}s`
                       : user?.email && emailDraft.trim().toLowerCase() === user.email.toLowerCase() && !user.emailVerified
-                        ? 'Resend verification'
+                        ? 'Send verification'
                         : 'Save & verify'}
                 </button>
                 <span className="text-xs text-slate-400">Current: {currentEmailLabel}</span>

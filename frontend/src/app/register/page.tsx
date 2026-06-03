@@ -250,7 +250,8 @@ function RegisterPageContent() {
               <label className="mb-1 block text-sm text-slate-300">Phone Number</label>
               <input className="input" placeholder="Phone Number (optional)" value={form.phone} onChange={(e) => setField('phone', e.target.value)} />
             </div>
-            <p className="text-xs text-slate-400">Phone number is optional. Leave it blank if you do not want SMS verification.</p>
+            <p className="text-xs text-slate-400">Phone number . you will verify phone number after registration from your profile.
+            </p>
             <div>
               <label className="mb-1 block text-sm text-slate-300">Email Address</label>
               <input className="input" placeholder="Email Address" value={form.email} onChange={(e) => setField('email', e.target.value)} />
