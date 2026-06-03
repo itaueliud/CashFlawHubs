@@ -180,6 +180,26 @@ const extractTheMuseJobLinks = (html) => {
 };
 
 const parseTheMuseJobPosting = (html, url) => {
+  const normalizeTheMuseTitle = (value) =>
+    String(stripHtml(value || ''))
+      .replace(/\s+/g, ' ')
+      .replace(/\s*\|\s*The Muse\s*$/i, '')
+      .trim();
+
+  const cleanCompanyName = (value) => {
+    const text = String(stripHtml(value || ''))
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!text || /^(companies|company|employer|the muse)$/i.test(text)) return null;
+    return text;
+  };
+
+  const extractCompanyFromTitle = (value) => {
+    const titleText = normalizeTheMuseTitle(value);
+    const match = titleText.match(/^(.*?)\s+at\s+(.+?)$/i);
+    return match ? cleanCompanyName(match[2]) : null;
+  };
+
   // Try JSON-LD first
   const match = html.match(/<script[^>]*id=["']job-posting-jsonld["'][^>]*>([\s\S]*?)<\/script>/i);
   if (match) {
@@ -202,12 +222,12 @@ const parseTheMuseJobPosting = (html, url) => {
       return m ? String(m[1]).trim() : null;
     };
 
-    const title = getMeta('og:title') || (html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || [])[1];
+    const title = normalizeTheMuseTitle(getMeta('og:title') || (html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || [])[1]);
     const description = getMeta('og:description') || (html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i) || [])[1];
-    const companyFromPage = (html.match(/<a[^>]*href=["'][^"']*companies[^"']*["'][^>]*>([\s\S]*?)<\/a>/i) || [])[1]
-      || (html.match(/<div[^>]+class=["'][^"']*(company|employer|hiringOrganization)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) || [])[2];
-
-    const hiringOrganization = companyFromPage ? { name: stripHtml(companyFromPage) } : null;
+    const companyFromPage = cleanCompanyName((html.match(/<a[^>]*href=["'][^"']*companies[^"']*["'][^>]*>([\s\S]*?)<\/a>/i) || [])[1]
+      || (html.match(/<div[^>]+class=["'][^"']*(company|employer|hiringOrganization)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) || [])[2]);
+    const companyFromTitle = extractCompanyFromTitle(title);
+    const hiringOrganization = (companyFromPage || companyFromTitle) ? { name: companyFromPage || companyFromTitle } : null;
 
     const datePosted = getMeta('article:published_time') || getMeta('og:updated_time');
 
