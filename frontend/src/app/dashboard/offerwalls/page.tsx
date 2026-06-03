@@ -147,6 +147,7 @@ export default function OfferwallsPage() {
     );
   }
 
+  const isPreviewUser = user?.role === 'user' && (user?.userAccessType || 'real') === 'real';
   const providers = data?.providers || [];
   const liveProviders = providers.filter((provider: any) => provider.live);
   const plannedProviders = providers.filter((provider: any) => !provider.live);
@@ -211,43 +212,51 @@ export default function OfferwallsPage() {
       <div className="grid gap-4 lg:grid-cols-[1.4fr_0.6fr]">
         <div className="grid gap-4 xl:grid-cols-2">
           {providers.map((provider: any) => (
-            <div key={provider.key} className="group rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 transition-all hover:-translate-y-1 hover:border-emerald-400/30 hover:shadow-xl hover:shadow-emerald-950/20">
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div>
-                  <div className="mb-2 flex flex-wrap gap-2">
-                    <span className={provider.live ? 'badge-green' : 'badge-blue'}>{provider.badge}</span>
-                    <span className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }}>
-                      {provider.integrationType}
-                    </span>
+            <div key={provider.key} className={`group rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 transition-all hover:-translate-y-1 hover:border-emerald-400/30 hover:shadow-xl hover:shadow-emerald-950/20 ${!provider.live && isPreviewUser ? 'relative overflow-hidden' : ''}`}>
+              {!provider.live && isPreviewUser ? <div className="absolute inset-0 rounded-[1.5rem] bg-slate-950/35 backdrop-blur-md" /> : null}
+              <div className={!provider.live && isPreviewUser ? 'relative blur-sm select-none' : 'relative'}>
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      <span className={provider.live ? 'badge-green' : 'badge-blue'}>{provider.badge}</span>
+                      {!provider.live ? (
+                        <span className="badge" style={{ background: 'rgba(148,163,184,0.15)', color: '#cbd5e1' }}>
+                          Preview only
+                        </span>
+                      ) : null}
+                      <span className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }}>
+                        {provider.integrationType}
+                      </span>
+                    </div>
+                    <div className="text-xl font-bold text-white">{provider.name}</div>
                   </div>
-                  <div className="text-xl font-bold text-white">{provider.name}</div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300 transition-transform group-hover:scale-105">
+                    <Radio size={18} />
+                  </div>
                 </div>
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300 transition-transform group-hover:scale-105">
-                  <Radio size={18} />
+
+                <p className="mb-4 text-sm leading-6 text-slate-300">{provider.description}</p>
+
+                <div className="mb-5 flex items-center justify-between text-xs uppercase tracking-[0.2em] text-slate-500">
+                  <span>{provider.access.replace(/_/g, ' ')}</span>
+                  <span>{provider.url ? 'Ready' : 'Awaiting keys'}</span>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!provider.live) {
+                      toast.error('This provider is not configured yet');
+                      return;
+                    }
+                    setActiveProviderKey(provider.key);
+                  }}
+                  disabled={!provider.live}
+                  className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Open offerwall <ExternalLink size={14} />
+                </button>
               </div>
-
-              <p className="mb-4 text-sm leading-6 text-slate-300">{provider.description}</p>
-
-              <div className="mb-5 flex items-center justify-between text-xs uppercase tracking-[0.2em] text-slate-500">
-                <span>{provider.access.replace(/_/g, ' ')}</span>
-                <span>{provider.url ? 'Ready' : 'Awaiting keys'}</span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (!provider.live) {
-                    toast.error('This provider is not configured yet');
-                    return;
-                  }
-                  setActiveProviderKey(provider.key);
-                }}
-                disabled={!provider.live}
-                className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200 transition hover:border-emerald-300/50 hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Open offerwall <ExternalLink size={14} />
-              </button>
             </div>
           ))}
         </div>

@@ -55,6 +55,16 @@ const formatAdzunaSalary = (job) => {
   return null;
 };
 
+const normalizeJobText = (value = '') => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+const buildJobDedupKey = (job = {}) => {
+  const source = normalizeJobText(job.source);
+  const title = normalizeJobText(job.title);
+  const company = normalizeJobText(job.company);
+  const location = normalizeJobText(job.location);
+  return [source, title, company, location].join('|');
+};
+
 const WWR_FEEDS = [
   { url: 'https://weworkremotely.com/categories/remote-programming-jobs.rss', category: 'Software Development' },
   { url: 'https://weworkremotely.com/categories/remote-design-jobs.rss', category: 'Design' },
@@ -411,6 +421,7 @@ const requireScraperApiKey = (req, res) => {
 exports.getJobs = async (req, res) => {
   try {
     const { category, search } = req.query;
+    const view = String(req.query.view || 'unique').trim().toLowerCase();
     const page = Math.max(Number(req.query.page) || 1, 1);
     const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
     const skip = (page - 1) * limit;
@@ -424,9 +435,10 @@ exports.getJobs = async (req, res) => {
     if (search) query.$text = { $search: search };
 
     const shouldPrioritizeRemoteSources = !category && !search;
-    const jobsPromise = shouldPrioritizeRemoteSources
-      ? Job.aggregate([
-          { $match: query },
+    const useRawFeed = view === 'all';
+    const duplicateGroupsOnly = view === 'duplicates';
+    const sortStages = shouldPrioritizeRemoteSources
+      ? [
           {
             $addFields: {
               sourcePriority: {
@@ -439,8 +451,8 @@ exports.getJobs = async (req, res) => {
                     { case: { $eq: ['$source', 'careerjet'] }, then: 2 },
                     { case: { $eq: ['$source', 'remoteok'] }, then: 1 },
                     { case: { $eq: ['$source', 'remotive'] }, then: 0 },
-                    { case: { $eq: ['$source', 'jobicy'] }, then: -1 },
                     { case: { $eq: ['$source', 'jooble'] }, then: 0 },
+                    { case: { $eq: ['$source', 'jobicy'] }, then: -1 },
                     { case: { $eq: ['$source', 'adzuna'] }, then: -2 },
                   ],
                   default: -3,
@@ -448,37 +460,78 @@ exports.getJobs = async (req, res) => {
               },
             },
           },
-          { $sort: { sourcePriority: -1, publishedAt: -1 } },
-          { $skip: skip },
-          { $limit: Number(limit) },
-        ])
-      : Job.find(query).sort({ publishedAt: -1 }).skip(skip).limit(Number(limit));
-
-    const [jobs, total] = await Promise.all([
-      jobsPromise,
-      Job.countDocuments(query),
-    ]);
-    const sourceCounts = await Job.aggregate([
-      { $match: { isActive: true, $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] } },
-      { $group: { _id: '$source', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-    ]);
-
-    const isStaff = ['admin', 'superadmin', 'ledger'].includes(req.user?.role || '');
-    const scraperStats = isStaff
-      ? await Job.aggregate([
-          { $match: { source: 'scraper' } },
+        ]
+      : [];
+    const orderedSort = shouldPrioritizeRemoteSources ? { sourcePriority: -1, publishedAt: -1 } : { publishedAt: -1 };
+    const dedupePipeline = useRawFeed
+      ? []
+      : [
+          { $addFields: { duplicateKey: { $concat: [ { $toLower: { $trim: { input: { $ifNull: ['$source', ''] } } } }, '|', { $toLower: { $trim: { input: { $ifNull: ['$title', ''] } } } }, '|', { $toLower: { $trim: { input: { $ifNull: ['$company', ''] } } } }, '|', { $toLower: { $trim: { input: { $ifNull: ['$location', ''] } } } } ] } } },
           {
             $group: {
-              _id: '$source',
-              total: { $sum: 1 },
-              active: { $sum: { $cond: ['$isActive', 1, 0] } },
-              latestPublishedAt: { $max: '$publishedAt' },
-              latestUpdatedAt: { $max: '$updatedAt' },
+              _id: '$duplicateKey',
+              job: { $first: '$$ROOT' },
+              duplicateCount: { $sum: 1 },
+              firstPublishedAt: { $first: '$publishedAt' },
             },
           },
-        ])
-      : [];
+          ...(duplicateGroupsOnly ? [{ $match: { duplicateCount: { $gt: 1 } } }] : []),
+          {
+            $replaceRoot: {
+              newRoot: {
+                $mergeObjects: [
+                  '$job',
+                  {
+                    duplicateCount: '$duplicateCount',
+                    duplicateKey: '$_id',
+                  },
+                ],
+              },
+            },
+          },
+        ];
+
+    const pipeline = [
+      { $match: query },
+      ...sortStages,
+      { $sort: orderedSort },
+      ...dedupePipeline,
+      ...(!useRawFeed ? [{ $sort: orderedSort }] : []),
+      {
+        $facet: {
+          data: [{ $skip: skip }, { $limit: Number(limit) }],
+          meta: [{ $count: 'total' }],
+        },
+      },
+    ];
+
+    const [aggregatedJobs, sourceCounts, scraperStats] = await Promise.all([
+      Job.aggregate(pipeline),
+      Job.aggregate([
+        { $match: { isActive: true, $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] } },
+        { $group: { _id: '$source', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      ['admin', 'superadmin', 'ledger'].includes(req.user?.role || '')
+        ? Job.aggregate([
+            { $match: { source: 'scraper' } },
+            {
+              $group: {
+                _id: '$source',
+                total: { $sum: 1 },
+                active: { $sum: { $cond: ['$isActive', 1, 0] } },
+                latestPublishedAt: { $max: '$publishedAt' },
+                latestUpdatedAt: { $max: '$updatedAt' },
+              },
+            },
+          ])
+        : Promise.resolve([]),
+    ]);
+
+    const jobs = aggregatedJobs?.[0]?.data || [];
+    const total = aggregatedJobs?.[0]?.meta?.[0]?.total || 0;
+
+    const isStaff = ['admin', 'superadmin', 'ledger'].includes(req.user?.role || '');
 
     res.json({
       success: true,
@@ -501,6 +554,7 @@ exports.getJobs = async (req, res) => {
         hasNextPage: skip + jobs.length < total,
         hasPrevPage: page > 1,
       },
+      view: useRawFeed ? 'all' : duplicateGroupsOnly ? 'duplicates' : 'unique',
     });
   } catch (error) {
     logger.error(`getJobs error: ${error.message}`);
@@ -1845,6 +1899,7 @@ exports.syncJobs = async () => {
           max_days_old: adzunaMaxDaysOld,
           sort_by: 'date',
         };
+        const seenAdzunaJobs = new Set();
 
         if (adzunaLocation) {
           adzunaParams.where = adzunaLocation;
@@ -1860,6 +1915,16 @@ exports.syncJobs = async () => {
           for (const job of adzunaJobs.slice(0, remoteLimit)) {
             const applicationUrl = job.redirect_url || job.adref;
             if (!applicationUrl || !job.id) continue;
+            const duplicateKey = buildJobDedupKey({
+              source: 'adzuna',
+              title: job.title || '',
+              company: job.company?.display_name || '',
+              location: job.location?.display_name || 'Remote',
+            });
+            if (seenAdzunaJobs.has(duplicateKey)) {
+              continue;
+            }
+            seenAdzunaJobs.add(duplicateKey);
 
             const contact = discoverApplicationContact({
               title: job.title || '',

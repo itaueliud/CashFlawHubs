@@ -4,6 +4,9 @@ const Wallet = require('../models/Wallet');
 const logger = require('../utils/logger');
 const devAuthStore = require('../services/devAuthStore');
 
+const getCanonicalFrontendUrl = () =>
+  (process.env.CANONICAL_FRONTEND_URL || 'https://cashflowhubs.com').replace(/\/+$/, '');
+
 // @GET /api/referrals/dashboard
 exports.getReferralDashboard = async (req, res) => {
   try {
@@ -19,7 +22,7 @@ exports.getReferralDashboard = async (req, res) => {
       totalReferrals: user.totalReferrals,
       totalEarnedUSD: wallet?.referralEarnings || 0,
       referralCode: user.referralCode,
-      referralLink: `${process.env.FRONTEND_URL}/register?ref=${user.referralCode}`,
+      referralLink: `${getCanonicalFrontendUrl()}/register?ref=${user.referralCode}`,
       referrals: referrals.map(r => ({
         user: r.newUserId,
         rewardUSD: r.rewardAmountUSD,

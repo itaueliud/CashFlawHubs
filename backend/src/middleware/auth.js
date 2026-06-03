@@ -70,12 +70,19 @@ exports.requireActivation = (req, res, next) => {
 };
 
 exports.requireTestUserModuleAccess = (moduleLabel = 'this module') => (req, res, next) => {
+  if (req.user.role === 'user') {
+    req.moduleAccessType = String(req.user.userAccessType || 'real');
+  }
+  return next();
+};
+
+exports.requireTestUserActionAccess = (moduleLabel = 'this module') => (req, res, next) => {
   if (req.user.role !== 'user') return next();
   if (String(req.user.userAccessType || 'real') === 'test') return next();
   return res.status(403).json({
     success: false,
-    code: 'MODULE_COMING_SOON',
-    message: `${moduleLabel} is coming soon for real users.`,
-    description: `We are onboarding ${moduleLabel.toLowerCase()} in phases. Your account will get access after rollout.`,
+    code: 'MODULE_PREVIEW_ONLY',
+    message: `${moduleLabel} is preview-only for real users.`,
+    description: `You can browse ${moduleLabel.toLowerCase()} options, but actions stay locked until rollout completes.`,
   });
 };

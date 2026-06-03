@@ -52,14 +52,15 @@ export default function CashTasksPage() {
     );
   }
 
-  const providers = providersData?.liveProviders || [];
+  const isPreviewUser = user?.role === 'user' && (user?.userAccessType || 'real') === 'real';
+  const liveProviders = providersData?.liveProviders || [];
   const plannedProviders = providersData?.plannedProviders || [];
   const tasks = tasksData?.tasks || [];
   const cashTasks = tasks.filter((task: any) => task.rewardUSD >= 0.5 || task.isPremium);
   const history = historyData?.transactions || [];
   const activeProvider = useMemo(
-    () => providers.find((provider: any) => provider.key === activeProviderKey) || null,
-    [providers, activeProviderKey]
+    () => liveProviders.find((provider: any) => provider.key === activeProviderKey) || null,
+    [liveProviders, activeProviderKey]
   );
 
   return (
@@ -79,7 +80,7 @@ export default function CashTasksPage() {
             <div className="flex flex-wrap gap-3">
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-xs text-slate-400">Live providers</div>
-                <div className="text-2xl font-black text-emerald-300">{providers.length}</div>
+                <div className="text-2xl font-black text-emerald-300">{liveProviders.length}</div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-xs text-slate-400">Planned providers</div>
@@ -115,7 +116,7 @@ export default function CashTasksPage() {
 
       <div className="grid gap-4 lg:grid-cols-[1.45fr_0.55fr]">
         <div className="grid gap-4 xl:grid-cols-2">
-          {providers.map((provider: any) => (
+          {liveProviders.map((provider: any) => (
             <div key={provider.key} className="group rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 transition-all hover:-translate-y-1 hover:border-emerald-400/30 hover:shadow-xl hover:shadow-emerald-950/20">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
@@ -149,6 +150,50 @@ export default function CashTasksPage() {
             </div>
           ))}
         </div>
+
+        {plannedProviders.length > 0 ? (
+          <div className="space-y-3 rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5">
+            <div>
+              <div className="mb-1 text-xs uppercase tracking-[0.25em] text-slate-500">Planned providers</div>
+              <h2 className="text-xl font-bold text-white">Preview slots</h2>
+            </div>
+            <div className="grid gap-4 xl:grid-cols-2">
+              {plannedProviders.map((provider: any) => (
+                <div key={provider.key} className={`group relative rounded-[1.5rem] border border-slate-700 bg-slate-950/80 p-5 transition-all ${isPreviewUser ? 'overflow-hidden' : ''}`}>
+                  {isPreviewUser ? <div className="absolute inset-0 rounded-[1.5rem] bg-slate-950/35 backdrop-blur-md" /> : null}
+                  <div className={isPreviewUser ? 'relative blur-sm select-none' : 'relative'}>
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div>
+                        <div className="mb-2 flex flex-wrap gap-2">
+                          <span className="badge-blue">{provider.badge}</span>
+                          <span className="badge" style={{ background: 'rgba(148,163,184,0.15)', color: '#cbd5e1' }}>
+                            Preview only
+                          </span>
+                        </div>
+                        <div className="text-xl font-bold text-white">{provider.name}</div>
+                      </div>
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-800 text-slate-400">
+                        <Briefcase size={18} />
+                      </div>
+                    </div>
+                    <p className="mb-4 text-sm leading-6 text-slate-300">{provider.description}</p>
+                    <div className="mb-5 flex items-center justify-between text-xs uppercase tracking-[0.2em] text-slate-500">
+                      <span>{provider.access.replace(/_/g, ' ')}</span>
+                      <span>{provider.integrationType}</span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled
+                      className="inline-flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-800/80 px-4 py-2.5 text-sm font-semibold text-slate-300 opacity-70"
+                    >
+                      Coming soon
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <div className="space-y-4 rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5">
           <div>

@@ -28,6 +28,7 @@ export default function JobsPage() {
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
+  const [view, setView] = useState<'unique' | 'all' | 'duplicates'>('unique');
   const [page, setPage] = useState(1);
   const [tab, setTab] = useState<'browse' | 'post'>('browse');
   const [posting, setPosting] = useState(false);
@@ -38,8 +39,8 @@ export default function JobsPage() {
   const isStaff = ['admin', 'superadmin', 'ledger'].includes(user?.role || '');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['jobs', search, category, page],
-    queryFn: () => api.get(`/jobs?search=${search}&category=${category}&page=${page}&limit=20`).then((r) => r.data),
+    queryKey: ['jobs', search, category, page, view],
+    queryFn: () => api.get(`/jobs?search=${search}&category=${category}&page=${page}&limit=20&view=${view}`).then((r) => r.data),
   });
   const { data: catData } = useQuery({
     queryKey: ['job-cats'],
@@ -57,6 +58,7 @@ export default function JobsPage() {
   const pagination = data?.pagination || {};
   const sourceCounts = isStaff ? (data?.sourceCounts || {}) : {};
   const sourceCount = Object.values(sourceCounts).filter((count: any) => Number(count) > 0).length;
+  const activeView = (isStaff ? data?.view : 'unique') || 'unique';
   const tokenPolicy = data?.tokenPolicy;
   const availableCategories: string[] = (catData && catData.length > 0) ? catData : ['Other'];
 
@@ -288,6 +290,20 @@ export default function JobsPage() {
                 <option value="">All Categories</option>
                 {availableCategories.map((c: string) => <option key={c} value={c}>{c}</option>)}
               </select>
+              {isStaff && (
+                <select
+                  value={view}
+                  onChange={(e) => {
+                    setView(e.target.value as 'unique' | 'all' | 'duplicates');
+                    setPage(1);
+                  }}
+                  className="input border-slate-700 bg-slate-950 lg:w-56"
+                >
+                  <option value="unique">Unique jobs</option>
+                  <option value="all">Raw feed</option>
+                  <option value="duplicates">Duplicate groups</option>
+                </select>
+              )}
               <button onClick={() => setTab('post')} className="btn-primary inline-flex items-center gap-2 lg:shrink-0">
                 <Plus size={16} /> Post Job
               </button>
@@ -304,6 +320,11 @@ export default function JobsPage() {
             </div>
             {Object.keys(sourceCounts).length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                {isStaff && (
+                  <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-emerald-200">
+                    View: {activeView}
+                  </span>
+                )}
                 {Object.entries(sourceCounts).map(([source, count]) => (
                   <span key={source} className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-slate-300">
                     {source}: {Number(count)}
@@ -327,6 +348,11 @@ export default function JobsPage() {
                         <span className="badge-green">Remote</span>
                         <span className="badge-blue">{job.category === 'Other' && job.categoryOther ? `Other (${job.categoryOther})` : job.category}</span>
                         {job.source === 'internal' && <span className="badge-yellow">{job.applicationTokenCost}T apply</span>}
+                        {isStaff && Number(job.duplicateCount || 1) > 1 && (
+                          <span className="rounded-full border border-yellow-400/30 bg-yellow-500/10 px-3 py-1 text-xs font-semibold text-yellow-200">
+                            {job.duplicateCount} duplicates
+                          </span>
+                        )}
                         {job.salary && <span className="badge" style={{ background: 'rgba(16,185,129,0.14)', color: '#6ee7b7' }}>{job.salary}</span>}
                       </div>
                       <div className="space-y-2">

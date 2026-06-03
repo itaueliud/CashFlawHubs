@@ -50,6 +50,7 @@ export default function SurveysPage() {
     );
   }
 
+  const isPreviewUser = user?.role === 'user' && (user?.userAccessType || 'real') === 'real';
   const surveys = feedData?.surveys || [];
   const providers = feedData?.providers || [];
   const history = historyData?.transactions || [];
@@ -82,8 +83,13 @@ export default function SurveysPage() {
 
       <div className="grid gap-4 xl:grid-cols-3">
         {surveys.map((survey: any) => (
-          <div key={survey.id} className="rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 shadow-lg shadow-emerald-950/10 transition hover:-translate-y-1 hover:border-emerald-400/30">
-            <div className="mb-4 flex items-start justify-between gap-3">
+          <div
+            key={survey.id}
+            className={`rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 shadow-lg shadow-emerald-950/10 transition hover:-translate-y-1 hover:border-emerald-400/30 ${!survey.canStart && isPreviewUser ? 'relative overflow-hidden' : ''}`}
+          >
+            {!survey.canStart && isPreviewUser ? <div className="absolute inset-0 rounded-[1.5rem] bg-slate-950/35 backdrop-blur-md" /> : null}
+            <div className={!survey.canStart && isPreviewUser ? 'relative blur-sm select-none' : 'relative'}>
+              <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <div className="mb-2 flex flex-wrap gap-2">
                   <span className="badge-blue">${survey.rewardUSD.toFixed(2)}</span>
@@ -119,6 +125,7 @@ export default function SurveysPage() {
                 This provider is not configured yet.
               </div>
             )}
+            </div>
           </div>
         ))}
       </div>
@@ -135,16 +142,19 @@ export default function SurveysPage() {
 
           <div className="grid gap-3 md:grid-cols-2">
             {providers.map((provider: any) => (
-              <div key={provider.key} className="rounded-2xl border border-slate-700 bg-slate-950/70 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-white">{provider.name}</div>
-                    <div className="mt-1 text-xs text-slate-500">{provider.integrationType.toUpperCase()} / {provider.access.replace(/_/g, ' ')}</div>
+              <div key={provider.key} className={`rounded-2xl border border-slate-700 bg-slate-950/70 p-4 ${!provider.live && isPreviewUser ? 'relative overflow-hidden' : ''}`}>
+                {!provider.live && isPreviewUser ? <div className="absolute inset-0 rounded-2xl bg-slate-950/35 backdrop-blur-md" /> : null}
+                <div className={!provider.live && isPreviewUser ? 'relative blur-sm select-none' : 'relative'}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-white">{provider.name}</div>
+                      <div className="mt-1 text-xs text-slate-500">{provider.integrationType.toUpperCase()} / {provider.access.replace(/_/g, ' ')}</div>
+                    </div>
+                    <span className={provider.live ? 'badge-green' : 'badge-blue'}>{provider.badge}</span>
                   </div>
-                  <span className={provider.live ? 'badge-green' : 'badge-blue'}>{provider.badge}</span>
+                  <p className="mt-3 text-sm leading-6 text-slate-300">{provider.description}</p>
+                  <div className="mt-3 text-xs text-slate-500">{provider.url ? 'Live and ready to open' : 'Credential setup pending'}</div>
                 </div>
-                <p className="mt-3 text-sm leading-6 text-slate-300">{provider.description}</p>
-                <div className="mt-3 text-xs text-slate-500">{provider.url ? 'Live and ready to open' : 'Credential setup pending'}</div>
               </div>
             ))}
           </div>

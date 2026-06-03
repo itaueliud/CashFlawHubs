@@ -49,7 +49,7 @@ const BASE_NAV = [
   { href: '/dashboard/profile', icon: User, label: 'Profile' },
 ];
 
-const REAL_USER_BLOCKED_ROUTES = ['/dashboard/surveys', '/dashboard/tasks', '/dashboard/ads-network', '/dashboard/offerwalls'];
+const REAL_USER_BLOCKED_ROUTES: string[] = [];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, logout, hasHydrated, refreshUser } = useAuthStore();

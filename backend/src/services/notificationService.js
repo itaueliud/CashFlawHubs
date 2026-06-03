@@ -1,4 +1,7 @@
 const logger = require('../utils/logger');
+
+const getCanonicalFrontendUrl = () =>
+  (process.env.CANONICAL_FRONTEND_URL || 'https://cashflowhubs.com').replace(/\/+$/, '');
 const axios = require('axios');
 
 const smsConfigured = () =>
@@ -140,7 +143,7 @@ const sendActivationNotification = async ({ userId, referredBy }) => {
     if (!user) return;
 
     await sendSMS(user.phone,
-      `🎉 Welcome to CashFlawHubs! Your account is now active. Start earning from surveys, tasks, and remote jobs. Earn 200 KES per referral: ${process.env.FRONTEND_URL}/signup?ref=${user.referralCode}`
+      `🎉 Welcome to CashFlawHubs! Your account is now active. Start earning from surveys, tasks, and remote jobs. Earn 200 KES per referral: ${getCanonicalFrontendUrl()}/register?ref=${user.referralCode}`
     );
 
     if (referredBy) {
