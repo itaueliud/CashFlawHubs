@@ -8,6 +8,7 @@ import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { TurnstileWidget } from '@/components/security/TurnstileWidget';
 import { ChevronLeft, Eye, EyeOff } from 'lucide-react';
+import { setAppLanguage, normalizeLanguage, detectBrowserLanguage } from '@/i18n';
 
 const langs = ['en', 'sw', 'fr'];
 const countries = [
@@ -204,7 +205,7 @@ function RegisterPageContent() {
     if (typeof navigator === 'undefined') return 'en';
     return navigator.language.split('-')[0].toLowerCase();
   }, []);
-  const storedLanguage = typeof window !== 'undefined' ? localStorage.getItem('cfh-user-language') || '' : '';
+  const storedLanguage = typeof window !== 'undefined' ? localStorage.getItem('cfh_language') || localStorage.getItem('cfh-user-language') || '' : '';
   const selectedLanguage = langs.includes(form.user_language)
     ? form.user_language
     : langs.includes(storedLanguage)
@@ -339,6 +340,7 @@ function RegisterPageContent() {
 
       const res = await api.post('/auth/register', payload);
       localStorage.setItem('cfh-user-language', res.data?.user?.userLanguage || payload.user_language);
+      localStorage.setItem('cfh_language', res.data?.user?.userLanguage || payload.user_language);
       document.documentElement.lang = res.data?.user?.userLanguage || payload.user_language;
       setToken(res.data.token);
       setUser(res.data.user);
@@ -461,7 +463,15 @@ function RegisterPageContent() {
             </div>
             <div>
               <label className="mb-1 block text-sm text-slate-300">{copy.languageLabel}</label>
-              <select className="input" value={form.user_language} onChange={(e) => setField('user_language', e.target.value)}>
+              <select
+                className="input"
+                value={form.user_language}
+                onChange={(e) => {
+                  const next = e.target.value ? normalizeLanguage(e.target.value) : detectBrowserLanguage();
+                  setField('user_language', next);
+                  void setAppLanguage(next);
+                }}
+              >
                 <option value="">{copy.autoDetectLanguage}</option>
                 <option value="en">{copy.languageEnglish}</option>
                 <option value="sw">{copy.languageSwahili}</option>

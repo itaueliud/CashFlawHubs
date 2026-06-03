@@ -1,7 +1,8 @@
-﻿'use client';
+'use client';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/store/authStore';
 import NotificationBell from '@/components/NotificationBell';
 import {
@@ -36,23 +37,24 @@ import {
 import clsx from 'clsx';
 
 const BASE_NAV = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/dashboard/jobs', icon: Briefcase, label: 'Remote Jobs' },
-  { href: '/dashboard/surveys', icon: ClipboardList, label: 'Paid Surveys' },
-  { href: '/dashboard/tasks', icon: Zap, label: 'Microtasks' },
-  { href: '/dashboard/ads-network', icon: Radio, label: 'Ads / Ad Network' },
-  { href: '/dashboard/offerwalls', icon: Gift, label: 'Offerwalls' },
-  { href: '/dashboard/cash-tasks', icon: TrendingUp, label: 'Cash Tasks' },
-  { href: '/dashboard/referrals', icon: Star, label: 'Referral Earnings' },
-  { href: '/dashboard/chat', icon: MessagesSquare, label: 'Job Chats' },
-  { href: '/dashboard#daily-challenges', icon: Trophy, label: 'Daily Challenges' },
-  { href: '/dashboard/wallet', icon: Wallet, label: 'Wallet' },
-  { href: '/dashboard/profile', icon: User, label: 'Profile' },
+  { href: '/dashboard', icon: LayoutDashboard, labelKey: 'nav.dashboard' },
+  { href: '/dashboard/jobs', icon: Briefcase, labelKey: 'nav.remoteJobs' },
+  { href: '/dashboard/surveys', icon: ClipboardList, labelKey: 'nav.paidSurveys' },
+  { href: '/dashboard/tasks', icon: Zap, labelKey: 'nav.microtasks' },
+  { href: '/dashboard/ads-network', icon: Radio, labelKey: 'nav.adsNetwork' },
+  { href: '/dashboard/offerwalls', icon: Gift, labelKey: 'nav.offerwalls' },
+  { href: '/dashboard/cash-tasks', icon: TrendingUp, labelKey: 'nav.cashTasks' },
+  { href: '/dashboard/referrals', icon: Star, labelKey: 'nav.referralEarnings' },
+  { href: '/dashboard/chat', icon: MessagesSquare, labelKey: 'nav.jobChats' },
+  { href: '/dashboard#daily-challenges', icon: Trophy, labelKey: 'nav.dailyChallenges' },
+  { href: '/dashboard/wallet', icon: Wallet, labelKey: 'nav.wallet' },
+  { href: '/dashboard/profile', icon: User, labelKey: 'nav.profile' },
 ];
 
 const REAL_USER_BLOCKED_ROUTES: string[] = [];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
   const { user, logout, hasHydrated, refreshUser } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname() ?? '';
@@ -113,7 +115,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!hasHydrated) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-950 text-slate-400">
-        Loading dashboard...
+        {t('common.loadingDashboard')}
       </div>
     );
   }
@@ -124,38 +126,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const nav = user.role === 'ledger'
     ? [
-        { href: '/dashboard/ledger', icon: Gauge, label: 'Overview' },
-        { href: '/dashboard/admin/ledger', icon: Landmark, label: 'Payout Control' },
-        { href: '/dashboard/admin/admins', icon: ShieldCheck, label: 'Admins' },
-        { href: '/dashboard/ledger/reports', icon: FileBarChart2, label: 'Reports' },
-        { href: '/dashboard/ledger/export', icon: Download, label: 'Export' },
-        { href: '/dashboard/ledger/transactions', icon: Receipt, label: 'Transactions' },
-        { href: '/dashboard/ledger/reconciliation', icon: ClipboardCheck, label: 'Reconciliation' },
-        { href: '/dashboard/admin/audit', icon: ShieldAlert, label: 'Audit' },
-        { href: '/dashboard/admin/config', icon: SlidersHorizontal, label: 'Config' },
-        { href: '/dashboard/ledger/profile', icon: KeyRound, label: 'Profile' },
+        { href: '/dashboard/ledger', icon: Gauge, labelKey: 'nav.overview' },
+        { href: '/dashboard/admin/ledger', icon: Landmark, labelKey: 'nav.payoutControl' },
+        { href: '/dashboard/admin/admins', icon: ShieldCheck, labelKey: 'nav.admins' },
+        { href: '/dashboard/ledger/reports', icon: FileBarChart2, labelKey: 'nav.reports' },
+        { href: '/dashboard/ledger/export', icon: Download, labelKey: 'nav.export' },
+        { href: '/dashboard/ledger/transactions', icon: Receipt, labelKey: 'nav.transactions' },
+        { href: '/dashboard/ledger/reconciliation', icon: ClipboardCheck, labelKey: 'nav.reconciliation' },
+        { href: '/dashboard/admin/audit', icon: ShieldAlert, labelKey: 'nav.audit' },
+        { href: '/dashboard/admin/config', icon: SlidersHorizontal, labelKey: 'nav.config' },
+        { href: '/dashboard/ledger/profile', icon: KeyRound, labelKey: 'nav.profile' },
       ]
     : user.role === 'admin'
     ? [
-        { href: '/dashboard/admin-console', icon: Gauge, label: 'Overview' },
-        { href: '/dashboard/jobs', icon: Briefcase, label: 'Remote Jobs' },
-        { href: '/dashboard/admin/users', icon: UsersRound, label: 'Users' },
-        { href: '/dashboard/admin/moderation', icon: ShieldCheck, label: 'Moderation' },
-        { href: '/dashboard/admin/support', icon: MessagesSquare, label: 'Support' },
-        { href: '/dashboard/admin/audit', icon: ShieldAlert, label: 'Audit' },
-        { href: '/dashboard/admin/provider-health', icon: Activity, label: 'Provider Health' },
+        { href: '/dashboard/admin-console', icon: Gauge, labelKey: 'nav.overview' },
+        { href: '/dashboard/jobs', icon: Briefcase, labelKey: 'nav.remoteJobs' },
+        { href: '/dashboard/admin/users', icon: UsersRound, labelKey: 'nav.users' },
+        { href: '/dashboard/admin/moderation', icon: ShieldCheck, labelKey: 'nav.moderation' },
+        { href: '/dashboard/admin/support', icon: MessagesSquare, labelKey: 'nav.support' },
+        { href: '/dashboard/admin/audit', icon: ShieldAlert, labelKey: 'nav.audit' },
+        { href: '/dashboard/admin/provider-health', icon: Activity, labelKey: 'nav.providerHealth' },
       ]
     : user.role === 'superadmin'
       ? [
-          { href: '/dashboard/superadmin', icon: Shield, label: 'Overview' },
-          { href: '/dashboard/jobs', icon: Briefcase, label: 'Remote Jobs' },
-          { href: '/dashboard/admin/users', icon: UsersRound, label: 'Users' },
-          { href: '/dashboard/admin/admins', icon: ShieldCheck, label: 'Admins' },
-          { href: '/dashboard/admin/moderation', icon: ShieldCheck, label: 'Moderation' },
-          { href: '/dashboard/admin/support', icon: MessagesSquare, label: 'Support' },
-          { href: '/dashboard/admin/audit', icon: ShieldAlert, label: 'Audit' },
-          { href: '/dashboard/admin/config', icon: SlidersHorizontal, label: 'Config' },
-          { href: '/dashboard/admin/provider-health', icon: Activity, label: 'Provider Health' },
+          { href: '/dashboard/superadmin', icon: Shield, labelKey: 'nav.overview' },
+          { href: '/dashboard/jobs', icon: Briefcase, labelKey: 'nav.remoteJobs' },
+          { href: '/dashboard/admin/users', icon: UsersRound, labelKey: 'nav.users' },
+          { href: '/dashboard/admin/admins', icon: ShieldCheck, labelKey: 'nav.admins' },
+          { href: '/dashboard/admin/moderation', icon: ShieldCheck, labelKey: 'nav.moderation' },
+          { href: '/dashboard/admin/support', icon: MessagesSquare, labelKey: 'nav.support' },
+          { href: '/dashboard/admin/audit', icon: ShieldAlert, labelKey: 'nav.audit' },
+          { href: '/dashboard/admin/config', icon: SlidersHorizontal, labelKey: 'nav.config' },
+          { href: '/dashboard/admin/provider-health', icon: Activity, labelKey: 'nav.providerHealth' },
         ]
       : userBaseNav;
 
@@ -182,16 +184,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="font-medium text-sm truncate">{user.name}</div>
             <div className="text-xs text-slate-400">
               {user.activationStatus
-                ? <span className="text-green-400">Active · Lvl {user.level}</span>
-                : <span className="text-yellow-400">Not Activated</span>}
+                ? <span className="text-green-400">{t('common.active')} · Lvl {user.level}</span>
+                : <span className="text-yellow-400">{t('common.notActivated')}</span>}
             </div>
-            <div className="text-xs text-yellow-300 mt-1">{user.tokenBalance || 0} Tokens</div>
+            <div className="text-xs text-yellow-300 mt-1">{user.tokenBalance || 0} {t('common.tokens')}</div>
           </div>
         </div>
       </div>
 
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {nav.map(({ href, icon: Icon, label }) => (
+        {nav.map(({ href, icon: Icon, labelKey }) => (
           <Link
             key={href}
             href={href}
@@ -202,16 +204,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
           >
             <Icon size={18} />
-            {label}
+            {t(labelKey)}
           </Link>
         ))}
       </nav>
 
       <div className="p-4 border-t border-slate-700">
         <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 text-center mb-3">
-          <div className="text-xs text-slate-400">Balance</div>
+          <div className="text-xs text-slate-400">{t('common.balance')}</div>
           <div className="text-xl font-black text-green-400">${(user.balanceUSD || 0).toFixed(2)}</div>
-          <div className="text-xs text-yellow-300 mt-1">{user.tokenBalance || 0} Tokens</div>
+          <div className="text-xs text-yellow-300 mt-1">{user.tokenBalance || 0} {t('common.tokens')}</div>
         </div>
         <button
           onClick={() => {
@@ -220,7 +222,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           }}
           className="w-full flex items-center gap-2 text-slate-400 hover:text-red-400 text-sm px-3 py-2 rounded-xl hover:bg-red-500/10 transition-all"
         >
-          <LogOut size={16} /> Logout
+          <LogOut size={16} /> {t('common.logout')}
         </button>
       </div>
     </div>
@@ -247,13 +249,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Menu size={20} />
           </button>
           <div className="hidden md:block text-sm text-slate-400">
-            Welcome back, <span className="text-white font-medium">{user.name}</span>
+            {t('common.welcomeBack', { name: user.name })}
           </div>
           <div className="flex items-center gap-3">
             <NotificationBell />
             {!user.activationStatus && (
               <Link href="/dashboard/activate" className="btn-primary text-xs py-1.5 px-3">
-                Activate Account
+                {t('common.activateNow')}
               </Link>
             )}
             <div className="flex items-center gap-1 text-xs bg-slate-700 rounded-full px-3 py-1.5">
@@ -274,5 +276,3 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
-
-

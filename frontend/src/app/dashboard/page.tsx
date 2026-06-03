@@ -1,7 +1,8 @@
-﻿'use client';
+'use client';
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
+import { useTranslation } from 'react-i18next';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import {
@@ -19,17 +20,18 @@ import {
 import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 
 const QUICK_ACTIONS = [
-  { href: '/dashboard/jobs', icon: Briefcase, label: 'Remote Jobs', color: 'bg-purple-500/20 text-purple-400', desc: 'Full-time / part-time' },
-  { href: '/dashboard/surveys', icon: ClipboardList, label: 'Paid Surveys', color: 'bg-blue-500/20 text-blue-400', desc: 'Up to $3 each' },
-  { href: '/dashboard/tasks', icon: Zap, label: 'Microtasks', color: 'bg-yellow-500/20 text-yellow-400', desc: '$0.10-$1 each' },
-  { href: '/dashboard/ads-network', icon: Radio, label: 'Ads / Ad Network', color: 'bg-cyan-500/20 text-cyan-400', desc: 'Ad-driven offers' },
-  { href: '/dashboard/offerwalls', icon: Gift, label: 'Offerwalls', color: 'bg-pink-500/20 text-pink-400', desc: 'Install & earn' },
-  { href: '/dashboard/cash-tasks', icon: TrendingUp, label: 'Cash Tasks', color: 'bg-orange-500/20 text-orange-400', desc: 'Higher-value tasks' },
-  { href: '/dashboard/referrals', icon: Star, label: 'Referral Earnings', color: 'bg-green-500/20 text-green-400', desc: '200 KES per activated referral' },
-  { href: '/dashboard#daily-challenges', icon: Trophy, label: 'Daily Challenges', color: 'bg-amber-500/20 text-amber-400', desc: 'Daily streak rewards' },
+  { href: '/dashboard/jobs', icon: Briefcase, labelKey: 'nav.remoteJobs', color: 'bg-purple-500/20 text-purple-400', descKey: 'dashboard.remoteJobsDesc' },
+  { href: '/dashboard/surveys', icon: ClipboardList, labelKey: 'nav.paidSurveys', color: 'bg-blue-500/20 text-blue-400', descKey: 'dashboard.paidSurveysDesc' },
+  { href: '/dashboard/tasks', icon: Zap, labelKey: 'nav.microtasks', color: 'bg-yellow-500/20 text-yellow-400', descKey: 'dashboard.microtasksDesc' },
+  { href: '/dashboard/ads-network', icon: Radio, labelKey: 'nav.adsNetwork', color: 'bg-cyan-500/20 text-cyan-400', descKey: 'dashboard.adsNetworkDesc' },
+  { href: '/dashboard/offerwalls', icon: Gift, labelKey: 'nav.offerwalls', color: 'bg-pink-500/20 text-pink-400', descKey: 'dashboard.offerwallsDesc' },
+  { href: '/dashboard/cash-tasks', icon: TrendingUp, labelKey: 'nav.cashTasks', color: 'bg-orange-500/20 text-orange-400', descKey: 'dashboard.cashTasksDesc' },
+  { href: '/dashboard/referrals', icon: Star, labelKey: 'nav.referralEarnings', color: 'bg-green-500/20 text-green-400', descKey: 'dashboard.referralsDesc' },
+  { href: '/dashboard#daily-challenges', icon: Trophy, labelKey: 'nav.dailyChallenges', color: 'bg-amber-500/20 text-amber-400', descKey: 'dashboard.dailyChallengesDesc' },
 ];
 
 export default function DashboardPage() {
+  const { t } = useTranslation();
   const { user, refreshUser } = useAuthStore();
   const isRealUser = user?.role === 'user' && (user?.userAccessType || 'real') === 'real';
   const blockedForRealUser = new Set(['/dashboard/surveys', '/dashboard/tasks', '/dashboard/ads-network', '/dashboard/offerwalls']);
@@ -73,30 +75,30 @@ export default function DashboardPage() {
       {!user?.activationStatus && (
         <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-4 flex items-center justify-between">
           <div>
-            <div className="font-semibold text-yellow-400">Account Not Activated</div>
-            <div className="text-sm text-slate-400 mt-0.5">Pay 500 KES to unlock the full earning stack and referral earnings</div>
+            <div className="font-semibold text-yellow-400">{t('dashboard.accountNotActivated')}</div>
+            <div className="text-sm text-slate-400 mt-0.5">{t('dashboard.payToUnlock')}</div>
           </div>
           <Link href="/dashboard/activate" className="btn-primary text-sm py-2 px-4 whitespace-nowrap">
-            Activate Now
+            {t('common.activateNow')}
           </Link>
         </div>
       )}
 
       <div className="grid md:grid-cols-3 gap-4">
         <div className="card md:col-span-1">
-          <div className="text-xs text-slate-400 mb-1">Total Balance</div>
+          <div className="text-xs text-slate-400 mb-1">{t('dashboard.totalBalance')}</div>
           <div className="text-4xl font-black text-green-400">${(wallet.balanceUSD || 0).toFixed(2)}</div>
           <div className="text-xs text-slate-500 mt-1">{wallet.symbol}{wallet.balanceLocal || 0} {wallet.currency}</div>
-          <div className="mt-3 text-xs text-yellow-300">{user?.tokenBalance || 0} Tokens available</div>
+          <div className="mt-3 text-xs text-yellow-300">{user?.tokenBalance || 0} {t('dashboard.tokensAvailable')}</div>
           <div className="mt-3 flex gap-2">
-            <Link href="/dashboard/wallet" className="btn-secondary text-xs py-1.5 px-3">View Wallet</Link>
-            <Link href="/dashboard/wallet#withdraw" className="btn-primary text-xs py-1.5 px-3">Withdraw</Link>
+            <Link href="/dashboard/wallet" className="btn-secondary text-xs py-1.5 px-3">{t('nav.wallet')}</Link>
+            <Link href="/dashboard/wallet#withdraw" className="btn-primary text-xs py-1.5 px-3">{t('common.withdraw')}</Link>
           </div>
         </div>
 
         <div className="card md:col-span-2">
           <div className="flex items-center justify-between mb-3">
-            <div className="text-sm font-medium">This Week&apos;s Earnings</div>
+            <div className="text-sm font-medium">{t('dashboard.thisWeeksEarnings')}</div>
             <div className="text-xs text-green-400">+$9.00</div>
           </div>
           <ResponsiveContainer width="100%" height={80}>
@@ -117,11 +119,11 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
-          { label: 'Surveys Done', value: user?.surveysCompleted || 0, icon: ClipboardList, color: 'text-blue-400' },
-          { label: 'Tasks Done', value: user?.tasksCompleted || 0, icon: Zap, color: 'text-yellow-400' },
-          { label: 'Referrals', value: user?.totalReferrals || 0, icon: Star, color: 'text-green-400' },
-          { label: 'Tokens', value: user?.tokenBalance || 0, icon: TrendingUp, color: 'text-cyan-400' },
-          { label: 'Day Streak', value: `${user?.streak || 0}`, icon: Flame, color: 'text-orange-400' },
+          { label: t('dashboard.surveysDone'), value: user?.surveysCompleted || 0, icon: ClipboardList, color: 'text-blue-400' },
+          { label: t('dashboard.tasksDone'), value: user?.tasksCompleted || 0, icon: Zap, color: 'text-yellow-400' },
+          { label: t('dashboard.referrals'), value: user?.totalReferrals || 0, icon: Star, color: 'text-green-400' },
+          { label: t('common.tokens'), value: user?.tokenBalance || 0, icon: TrendingUp, color: 'text-cyan-400' },
+          { label: t('dashboard.dayStreak'), value: `${user?.streak || 0}`, icon: Flame, color: 'text-orange-400' },
         ].map((stat) => (
           <div key={stat.label} className="card">
             <stat.icon size={18} className={`${stat.color} mb-2`} />
@@ -132,7 +134,7 @@ export default function DashboardPage() {
       </div>
 
       <div>
-        <h2 className="font-bold text-lg mb-3">Earning Modules</h2>
+        <h2 className="font-bold text-lg mb-3">{t('dashboard.earningModules')}</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {QUICK_ACTIONS.map((action, index) => {
             const isBlocked = isRealUser && blockedForRealUser.has(action.href);
@@ -147,12 +149,12 @@ export default function DashboardPage() {
                   <action.icon size={18} />
                 </div>
                 <div className={`relative ${isBlocked ? 'blur-sm select-none' : ''}`}>
-                  <div className="font-medium text-sm">{index + 1}. {action.label}</div>
-                  <div className="text-xs text-slate-400">{action.desc}</div>
+                  <div className="font-medium text-sm">{index + 1}. {t(action.labelKey)}</div>
+                  <div className="text-xs text-slate-400">{t(action.descKey)}</div>
                 </div>
                 {isBlocked ? (
                   <span className="absolute right-3 top-3 rounded-full border border-slate-600 bg-slate-900/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-300">
-                    Preview
+                    {t('common.preview')}
                   </span>
                 ) : null}
               </Link>
@@ -164,8 +166,8 @@ export default function DashboardPage() {
       {challenges.length > 0 && (
         <div id="daily-challenges">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-lg flex items-center gap-2"><Trophy size={18} className="text-yellow-400" /> Daily Challenges</h2>
-            <span className="text-xs text-slate-400">Resets at midnight</span>
+            <h2 className="font-bold text-lg flex items-center gap-2"><Trophy size={18} className="text-yellow-400" /> {t('dashboard.dailyChallenges')}</h2>
+            <span className="text-xs text-slate-400">{t('dashboard.resetsAtMidnight')}</span>
           </div>
           <div className="grid md:grid-cols-2 gap-3">
             {challenges.slice(0, 4).map((challenge: any) => (
@@ -184,9 +186,9 @@ export default function DashboardPage() {
                   </div>
                   <span className="text-xs text-slate-400">{challenge.progress}/{challenge.targetCount}</span>
                   {challenge.completed && !challenge.rewardClaimed && (
-                    <button className="btn-primary text-xs py-1 px-2">Claim!</button>
+                    <button className="btn-primary text-xs py-1 px-2">{t('common.claim')}</button>
                   )}
-                  {challenge.rewardClaimed && <span className="text-xs text-green-400">Claimed</span>}
+                  {challenge.rewardClaimed && <span className="text-xs text-green-400">{t('common.claimed')}</span>}
                 </div>
               </div>
             ))}
@@ -197,9 +199,9 @@ export default function DashboardPage() {
       {transactions.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-lg">Recent Activity</h2>
+            <h2 className="font-bold text-lg">{t('dashboard.recentActivity')}</h2>
             <Link href="/dashboard/wallet" className="text-xs text-green-400 hover:text-green-300 flex items-center gap-1">
-              View All <ArrowRight size={12} />
+              {t('common.viewAll')} <ArrowRight size={12} />
             </Link>
           </div>
           <div className="card space-y-3">
@@ -207,7 +209,7 @@ export default function DashboardPage() {
               <div key={tx._id} className="flex items-center justify-between py-2 border-b border-slate-700 last:border-0">
                 <div className="flex items-center gap-3">
                   <div className={`${tx.direction === 'credit' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'} w-8 h-8 rounded-full flex items-center justify-center text-sm`}>
-                    {tx.direction === 'credit' ? 'â†“' : 'â†‘'}
+                    {tx.direction === 'credit' ? '↓' : '↑'}
                   </div>
                   <div>
                     <div className="text-sm font-medium capitalize">{tx.type.replace('_', ' ')}</div>
@@ -225,4 +227,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

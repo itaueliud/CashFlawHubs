@@ -1,8 +1,9 @@
 'use client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/api';
+import { detectBrowserLanguage, getStoredLanguage, normalizeLanguage, setAppLanguage } from '@/i18n';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,8 +22,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const chosen = user?.userLanguage || localStorage.getItem('cfh-user-language') || navigator.language.split('-')[0].toLowerCase() || 'en';
-    document.documentElement.lang = chosen;
+    const chosen = normalizeLanguage(user?.userLanguage || getStoredLanguage() || detectBrowserLanguage());
+    void setAppLanguage(chosen);
   }, [user?.userLanguage]);
 
   useEffect(() => {

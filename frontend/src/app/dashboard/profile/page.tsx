@@ -1,6 +1,7 @@
 ﻿'use client';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import {
   BadgeCheck,
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import LanguageSelect from '@/components/LanguageSelect';
 
 const LEVELS = ['Beginner', 'Active Worker', 'Power Earner', 'Expert', 'Master Earner', 'Champion', 'Legend', 'Icon'];
 const XP_TARGETS = [100, 300, 600, 1000, 1500, 2200, 3000, 5000];
@@ -38,6 +40,7 @@ type ProfileForm = {
 };
 
 export default function ProfilePage() {
+  const { t } = useTranslation();
   const { user, refreshUser } = useAuthStore();
   const [isSendingVerification, setIsSendingVerification] = useState(false);
   const [verificationCooldown, setVerificationCooldown] = useState(0);
@@ -86,7 +89,7 @@ export default function ProfilePage() {
   const requestEmailVerification = async () => {
     const trimmedEmail = emailDraft.trim().toLowerCase();
     if (!trimmedEmail) {
-      toast.error('Add an email address first');
+      toast.error(t('profile.addEmailFirst'));
       return;
     }
 
@@ -94,7 +97,7 @@ export default function ProfilePage() {
       setIsSendingVerification(true);
       if (user?.email && trimmedEmail === user.email.toLowerCase()) {
         if (user.emailVerified) {
-          toast.success('Email is already verified');
+          toast.success(t('profile.emailAlreadyVerified'));
           return;
         }
         await api.post('/auth/request-email-verification');
@@ -103,9 +106,9 @@ export default function ProfilePage() {
       }
       setVerificationCooldown(60);
       await refreshUser();
-      toast.success('Verification link sent to your email');
+      toast.success(t('profile.verificationLinkSent'));
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to send verification email');
+      toast.error(error?.response?.data?.message || t('profile.failedToSendVerification'));
     } finally {
       setIsSendingVerification(false);
     }
@@ -121,13 +124,14 @@ export default function ProfilePage() {
       await api.put('/users/profile', payload);
       if (data.userLanguage) {
         localStorage.setItem('cfh-user-language', data.userLanguage);
+        localStorage.setItem('cfh_language', data.userLanguage);
         document.documentElement.lang = data.userLanguage;
       }
       await refreshUser();
-      toast.success('Profile updated!');
+      toast.success(t('profile.profileUpdated'));
       return true;
     } catch {
-      toast.error('Update failed');
+      toast.error(t('profile.updateFailed'));
       return false;
     }
   };
@@ -382,44 +386,46 @@ export default function ProfilePage() {
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_18px_60px_rgba(2,6,23,0.35)]">
           <div className="mb-4">
-            <h3 className="text-xl font-bold text-white">Edit Profile</h3>
-            <p className="mt-1 text-sm text-slate-400">Update the public-facing profile information stored on your account.</p>
+            <h3 className="text-xl font-bold text-white">{t('profile.editProfileTitle')}</h3>
+            <p className="mt-1 text-sm text-slate-400">{t('profile.editProfileSubtitle')}</p>
           </div>
 
           <form onSubmit={handleSubmit((data) => void saveProfile(data))} className="space-y-5">
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-300">Display Name</label>
-              <input {...register('name')} className="input" placeholder="Your full display name" />
+              <label className="mb-2 block text-sm font-medium text-slate-300">{t('profile.displayName')}</label>
+              <input {...register('name')} className="input" placeholder={t('profile.displayNamePlaceholder')} />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-300">Bio</label>
+              <label className="mb-2 block text-sm font-medium text-slate-300">{t('profile.bio')}</label>
               <textarea
                 {...register('bio')}
                 rows={5}
                 className="input resize-none"
-                placeholder="Tell people what you do, what you like, or how you use CashFlowHubs..."
+                placeholder={t('profile.bioPlaceholder')}
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-300">Language</label>
-              <select {...register('userLanguage')} className="input">
-                <option value="">Auto detect</option>
-                <option value="en">English</option>
-                <option value="sw">Swahili</option>
-                <option value="fr">French</option>
-              </select>
+              <LanguageSelect
+                label={t('language.language')}
+                value={watch('userLanguage') || ''}
+                showAuto
+                onSave={(language) => {
+                  setTimeout(() => {
+                    reset({ ...getValues(), userLanguage: language });
+                  }, 0);
+                }}
+              />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-300">Phone Number</label>
-              <input {...register('phone')} className="input" placeholder="Enter phone number" />
+              <label className="mb-2 block text-sm font-medium text-slate-300">{t('profile.phoneNumber')}</label>
+              <input {...register('phone')} className="input" placeholder={t('profile.phonePlaceholder')} />
             </div>
 
             <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-400">
-              Editable now: display name, bio, language, and phone.
-              Save the phone first, then use the verification panel below to confirm it.
+              {t('profile.editableNow')}
             </div>
 
             <button type="submit" className="btn-primary px-6">Save Changes</button>
@@ -428,12 +434,12 @@ export default function ProfilePage() {
 
         <div className="space-y-6">
           <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
-            <h3 className="mb-4 flex items-center gap-2 text-xl font-bold text-white">
-              <Star size={18} className="text-yellow-400" /> Badges
+              <h3 className="mb-4 flex items-center gap-2 text-xl font-bold text-white">
+              <Star size={18} className="text-yellow-400" /> {t('profile.badges')}
             </h3>
             {(user?.badges || []).length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/50 p-4 text-sm text-slate-400">
-                No badges yet. Complete challenges, earn more XP, and stay active to unlock them.
+                {t('profile.noBadgesYet')}
               </div>
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -447,8 +453,8 @@ export default function ProfilePage() {
           </section>
 
           <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
-            <h3 className="mb-4 flex items-center gap-2 text-xl font-bold text-white">
-              <Shield size={18} className="text-blue-400" /> Verification & Status
+              <h3 className="mb-4 flex items-center gap-2 text-xl font-bold text-white">
+              <Shield size={18} className="text-blue-400" /> {t('profile.verificationStatus')}
             </h3>
             <div className="space-y-3">
               {statusRows.map((row) => (
@@ -460,14 +466,14 @@ export default function ProfilePage() {
             </div>
 
             <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4">
-              <div className="text-sm font-semibold text-amber-200">Email verification</div>
+              <div className="text-sm font-semibold text-amber-200">{t('profile.emailVerification')}</div>
               <p className="mt-1 text-sm text-slate-300">
                 {user?.emailVerified
-                  ? 'Update your email here if you want to switch to a new address.'
-                  : 'Add an email address or resend the verification link to confirm ownership.'}
+                  ? t('profile.emailVerifiedHelp')
+                  : t('profile.emailPendingHelp')}
               </p>
               <div className="mt-3 space-y-2">
-                <label className="block text-xs uppercase tracking-wide text-slate-400">Email address</label>
+                <label className="block text-xs uppercase tracking-wide text-slate-400">{t('profile.emailAddress')}</label>
                 <input
                   className="input"
                   type="email"
@@ -479,38 +485,38 @@ export default function ProfilePage() {
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 <button type="button" onClick={requestEmailVerification} className="btn-primary" disabled={isSendingVerification || verificationCooldown > 0}>
                   {isSendingVerification
-                    ? 'Sending...'
+                    ? t('common.loading')
                     : verificationCooldown > 0
                       ? `Resend available in ${verificationCooldown}s`
                       : user?.email && emailDraft.trim().toLowerCase() === user.email.toLowerCase() && !user.emailVerified
-                        ? 'Send verification'
-                        : 'Save & verify'}
+                        ? t('profile.sendVerification')
+                        : t('profile.saveAndVerify')}
                 </button>
-                <span className="text-xs text-slate-400">Current: {currentEmailLabel}</span>
+                <span className="text-xs text-slate-400">{t('profile.current')}: {currentEmailLabel}</span>
               </div>
               {verificationCooldown > 0 ? (
-                <p className="mt-2 text-xs text-amber-200/80">You can request another link after the timer expires.</p>
+                <p className="mt-2 text-xs text-amber-200/80">{t('profile.verificationCooldown')}</p>
               ) : null}
             </div>
 
             <div className="mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4">
-              <div className="text-sm font-semibold text-cyan-200">Phone verification</div>
+              <div className="text-sm font-semibold text-cyan-200">{t('profile.phoneVerification')}</div>
               <p className="mt-1 text-sm text-slate-300">
-                Phone numbers are optional during registration. Add one above, save it, then request an OTP to verify it here.
+                {t('profile.phoneVerificationHelp')}
               </p>
               <div className="mt-3 space-y-2">
-                <label className="block text-xs uppercase tracking-wide text-slate-400">Phone OTP</label>
+                <label className="block text-xs uppercase tracking-wide text-slate-400">{t('profile.phoneOtp')}</label>
                 <input
                   className="input"
                   type="text"
                   value={phoneOtp}
                   onChange={(event) => setPhoneOtp(event.target.value)}
-                  placeholder="Enter OTP"
+                  placeholder={t('profile.enterOtp')}
                 />
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 <button type="button" onClick={requestPhoneOtp} className="btn-primary" disabled={isSendingPhoneOtp || !phoneVerificationReady}>
-                  {isSendingPhoneOtp ? 'Sending...' : user?.phoneVerified ? 'Resend OTP' : 'Send OTP'}
+                  {isSendingPhoneOtp ? t('common.loading') : user?.phoneVerified ? t('profile.resendOtp') : t('profile.sendOtp')}
                 </button>
                 <button
                   type="button"
@@ -518,9 +524,9 @@ export default function ProfilePage() {
                   className="btn-secondary"
                   disabled={isVerifyingPhoneOtp || !phoneVerificationReady || !phoneOtp.trim()}
                 >
-                  {isVerifyingPhoneOtp ? 'Verifying...' : user?.phoneVerified ? 'Verified' : 'Verify phone'}
+                  {isVerifyingPhoneOtp ? t('common.loading') : user?.phoneVerified ? t('profile.verified') : t('profile.verifyPhone')}
                 </button>
-                <span className="text-xs text-slate-400">Current: {user?.phone || 'Not added'}</span>
+                <span className="text-xs text-slate-400">{t('profile.current')}: {user?.phone || t('common.notAdded')}</span>
               </div>
             </div>
           </section>

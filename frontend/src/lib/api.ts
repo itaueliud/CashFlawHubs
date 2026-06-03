@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { normalizeLanguage } from '@/i18n';
 
 const getApiBaseUrl = () => {
   const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
@@ -41,7 +42,8 @@ api.interceptors.request.use((config) => {
       const token = stored?.state?.token;
       if (token) config.headers.Authorization = `Bearer ${token}`;
     } catch {}
-    config.headers['Accept-Language'] = navigator.language || 'en';
+    const language = normalizeLanguage(localStorage.getItem('cfh_language') || localStorage.getItem('cfh-user-language') || navigator.language);
+    config.headers['Accept-Language'] = language || navigator.language || 'en';
     config.headers['x-timezone'] = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
     config.headers['x-device-fingerprint'] = getDeviceFingerprint();
   }
