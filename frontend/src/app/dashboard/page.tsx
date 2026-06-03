@@ -134,17 +134,30 @@ export default function DashboardPage() {
       <div>
         <h2 className="font-bold text-lg mb-3">Earning Modules</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {QUICK_ACTIONS.filter((action) => !(isRealUser && blockedForRealUser.has(action.href))).map((action, index) => (
-            <Link key={action.href} href={action.href} className="card hover:border-slate-500 transition-all group flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl ${action.color} flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
-                <action.icon size={18} />
-              </div>
-              <div>
-                <div className="font-medium text-sm">{index + 1}. {action.label}</div>
-                <div className="text-xs text-slate-400">{action.desc}</div>
-              </div>
-            </Link>
-          ))}
+          {QUICK_ACTIONS.map((action, index) => {
+            const isBlocked = isRealUser && blockedForRealUser.has(action.href);
+            return (
+              <Link
+                key={action.href}
+                href={action.href}
+                className={`card group relative flex items-center gap-3 transition-all hover:border-slate-500 ${isBlocked ? 'overflow-hidden' : ''}`}
+              >
+                {isBlocked ? <div className="absolute inset-0 bg-slate-950/35 backdrop-blur-md" /> : null}
+                <div className={`relative w-10 h-10 rounded-xl ${action.color} flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform ${isBlocked ? 'blur-sm' : ''}`}>
+                  <action.icon size={18} />
+                </div>
+                <div className={`relative ${isBlocked ? 'blur-sm select-none' : ''}`}>
+                  <div className="font-medium text-sm">{index + 1}. {action.label}</div>
+                  <div className="text-xs text-slate-400">{action.desc}</div>
+                </div>
+                {isBlocked ? (
+                  <span className="absolute right-3 top-3 rounded-full border border-slate-600 bg-slate-900/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-300">
+                    Preview
+                  </span>
+                ) : null}
+              </Link>
+            );
+          })}
         </div>
       </div>
 

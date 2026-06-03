@@ -50,7 +50,6 @@ export default function SurveysPage() {
     );
   }
 
-  const isPreviewUser = user?.role === 'user' && (user?.userAccessType || 'real') === 'real';
   const surveys = feedData?.surveys || [];
   const providers = feedData?.providers || [];
   const history = historyData?.transactions || [];
@@ -83,12 +82,8 @@ export default function SurveysPage() {
 
       <div className="grid gap-4 xl:grid-cols-3">
         {surveys.map((survey: any) => (
-          <div
-            key={survey.id}
-            className={`rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 shadow-lg shadow-emerald-950/10 transition hover:-translate-y-1 hover:border-emerald-400/30 ${!survey.canStart && isPreviewUser ? 'relative overflow-hidden' : ''}`}
-          >
-            {!survey.canStart && isPreviewUser ? <div className="absolute inset-0 rounded-[1.5rem] bg-slate-950/35 backdrop-blur-md" /> : null}
-            <div className={!survey.canStart && isPreviewUser ? 'relative blur-sm select-none' : 'relative'}>
+          <div key={survey.id} className="rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 shadow-lg shadow-emerald-950/10 transition hover:-translate-y-1 hover:border-emerald-400/30">
+            <div className="relative">
               <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <div className="mb-2 flex flex-wrap gap-2">
@@ -142,9 +137,8 @@ export default function SurveysPage() {
 
           <div className="grid gap-3 md:grid-cols-2">
             {providers.map((provider: any) => (
-              <div key={provider.key} className={`rounded-2xl border border-slate-700 bg-slate-950/70 p-4 ${!provider.live && isPreviewUser ? 'relative overflow-hidden' : ''}`}>
-                {!provider.live && isPreviewUser ? <div className="absolute inset-0 rounded-2xl bg-slate-950/35 backdrop-blur-md" /> : null}
-                <div className={!provider.live && isPreviewUser ? 'relative blur-sm select-none' : 'relative'}>
+              <div key={provider.key} className="rounded-2xl border border-slate-700 bg-slate-950/70 p-4">
+                <div className="relative">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-sm font-semibold text-white">{provider.name}</div>

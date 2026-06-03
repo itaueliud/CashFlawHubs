@@ -52,7 +52,6 @@ export default function CashTasksPage() {
     );
   }
 
-  const isPreviewUser = user?.role === 'user' && (user?.userAccessType || 'real') === 'real';
   const liveProviders = providersData?.liveProviders || [];
   const plannedProviders = providersData?.plannedProviders || [];
   const tasks = tasksData?.tasks || [];
@@ -159,9 +158,8 @@ export default function CashTasksPage() {
             </div>
             <div className="grid gap-4 xl:grid-cols-2">
               {plannedProviders.map((provider: any) => (
-                <div key={provider.key} className={`group relative rounded-[1.5rem] border border-slate-700 bg-slate-950/80 p-5 transition-all ${isPreviewUser ? 'overflow-hidden' : ''}`}>
-                  {isPreviewUser ? <div className="absolute inset-0 rounded-[1.5rem] bg-slate-950/35 backdrop-blur-md" /> : null}
-                  <div className={isPreviewUser ? 'relative blur-sm select-none' : 'relative'}>
+                <div key={provider.key} className="group rounded-[1.5rem] border border-slate-700 bg-slate-950/80 p-5 transition-all">
+                  <div className="relative">
                     <div className="mb-4 flex items-start justify-between gap-3">
                       <div>
                         <div className="mb-2 flex flex-wrap gap-2">

@@ -49,7 +49,6 @@ export default function AdsNetworkPage() {
     );
   }
 
-  const isPreviewUser = user?.role === 'user' && (user?.userAccessType || 'real') === 'real';
   const liveProviders = data?.liveProviders || [];
   const plannedProviders = data?.plannedProviders || [];
   const history = historyData?.transactions || [];
@@ -107,9 +106,8 @@ export default function AdsNetworkPage() {
         <h2 className="text-lg font-bold">Coming Soon</h2>
         <div className="grid md:grid-cols-2 gap-4">
           {plannedProviders.map((provider: any) => (
-            <div key={provider.key} className={`card relative ${isPreviewUser ? 'overflow-hidden' : 'opacity-90'}`}>
-              {isPreviewUser ? <div className="absolute inset-0 rounded-[1.5rem] bg-slate-950/40 backdrop-blur-md" /> : null}
-              <div className={isPreviewUser ? 'relative blur-sm select-none' : 'relative'}>
+            <div key={provider.key} className="card opacity-90">
+              <div className="relative">
                 <div className="flex items-start justify-between mb-3">
                   <Radio className="text-slate-500" size={28} />
                   <span className="badge-blue">{provider.badge}</span>
