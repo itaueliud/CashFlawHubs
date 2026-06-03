@@ -34,6 +34,7 @@ type ProfileForm = {
   name: string;
   bio: string;
   userLanguage: string;
+  phone: string;
 };
 
 export default function ProfilePage() {
@@ -41,11 +42,15 @@ export default function ProfilePage() {
   const [isSendingVerification, setIsSendingVerification] = useState(false);
   const [verificationCooldown, setVerificationCooldown] = useState(0);
   const [emailDraft, setEmailDraft] = useState('');
-  const { register, handleSubmit, reset } = useForm<ProfileForm>({
+  const [isSendingPhoneOtp, setIsSendingPhoneOtp] = useState(false);
+  const [isVerifyingPhoneOtp, setIsVerifyingPhoneOtp] = useState(false);
+  const [phoneOtp, setPhoneOtp] = useState('');
+  const { register, handleSubmit, reset, getValues, watch } = useForm<ProfileForm>({
     defaultValues: {
       name: user?.name || '',
       bio: (user as any)?.bio || '',
       userLanguage: (user as any)?.userLanguage || '',
+      phone: user?.phone || '',
     },
   });
 
@@ -54,6 +59,7 @@ export default function ProfilePage() {
       name: user?.name || '',
       bio: (user as any)?.bio || '',
       userLanguage: (user as any)?.userLanguage || '',
+      phone: user?.phone || '',
     });
   }, [reset, user]);
 
@@ -105,7 +111,7 @@ export default function ProfilePage() {
     }
   };
 
-  const onSave = async (data: ProfileForm) => {
+  const onSave = async (data: ProfileForm, notify = true) => {
     try {
       const payload = {
         ...data,
@@ -118,9 +124,11 @@ export default function ProfilePage() {
         document.documentElement.lang = data.userLanguage;
       }
       await refreshUser();
-      toast.success('Profile updated!');
+      if (notify) toast.success('Profile updated!');
+      return true;
     } catch {
-      toast.error('Update failed');
+      if (notify) toast.error('Update failed');
+      return false;
     }
   };
 
@@ -154,6 +162,7 @@ export default function ProfilePage() {
   const accountEmailLabel = user?.pending_email
     ? `Pending: ${user.pending_email}`
     : user?.email || 'Not added';
+  const phoneDraft = watch('phone') || '';
 
   const accountDetails = [
     { label: 'Email', value: accountEmailLabel, icon: Mail },
@@ -199,6 +208,67 @@ export default function ProfilePage() {
 
   const showEmailVerificationAction = Boolean(user?.email && !user?.emailVerified);
   const currentEmailLabel = user?.pending_email ? `Pending: ${user.pending_email}` : user?.email || 'No email added';
+  const phoneVerificationReady = Boolean(phoneDraft.trim());
+
+  const requestPhoneOtp = async () => {
+    const currentValues = getValues();
+    const trimmedPhone = String(currentValues.phone || '').trim();
+
+    if (!trimmedPhone) {
+      toast.error('Add a phone number first');
+      return;
+    }
+
+    const saved = await onSave({
+      ...currentValues,
+      phone: trimmedPhone,
+    }, false);
+    if (!saved) return;
+
+    try {
+      setIsSendingPhoneOtp(true);
+      await api.post('/auth/send-otp', { phone: trimmedPhone, country: user?.country });
+      await refreshUser();
+      toast.success('Phone OTP sent');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to send phone OTP');
+    } finally {
+      setIsSendingPhoneOtp(false);
+    }
+  };
+
+  const verifyPhoneOtp = async () => {
+    const currentValues = getValues();
+    const trimmedPhone = String(currentValues.phone || '').trim();
+    const trimmedOtp = phoneOtp.trim();
+
+    if (!trimmedPhone) {
+      toast.error('Add a phone number first');
+      return;
+    }
+    if (!trimmedOtp) {
+      toast.error('Enter the OTP sent to your phone');
+      return;
+    }
+
+    const saved = await onSave({
+      ...currentValues,
+      phone: trimmedPhone,
+    }, false);
+    if (!saved) return;
+
+    try {
+      setIsVerifyingPhoneOtp(true);
+      await api.post('/auth/verify-phone-otp', { phone: trimmedPhone, otp: trimmedOtp });
+      await refreshUser();
+      setPhoneOtp('');
+      toast.success('Phone verified successfully');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to verify phone OTP');
+    } finally {
+      setIsVerifyingPhoneOtp(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -342,9 +412,14 @@ export default function ProfilePage() {
               </select>
             </div>
 
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-300">Phone Number</label>
+              <input {...register('phone')} className="input" placeholder="Enter phone number" />
+            </div>
+
             <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-400">
-              Editable now: display name and bio.
-              Profile phone, email, country, and account identifiers are shown above for reference.
+              Editable now: display name, bio, language, and phone.
+              Save the phone first, then use the verification panel below to confirm it.
             </div>
 
             <button type="submit" className="btn-primary px-6">Save Changes</button>
@@ -416,6 +491,37 @@ export default function ProfilePage() {
               {verificationCooldown > 0 ? (
                 <p className="mt-2 text-xs text-amber-200/80">You can request another link after the timer expires.</p>
               ) : null}
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4">
+              <div className="text-sm font-semibold text-cyan-200">Phone verification</div>
+              <p className="mt-1 text-sm text-slate-300">
+                Phone numbers are optional during registration. Add one above, save it, then request an OTP to verify it here.
+              </p>
+              <div className="mt-3 space-y-2">
+                <label className="block text-xs uppercase tracking-wide text-slate-400">Phone OTP</label>
+                <input
+                  className="input"
+                  type="text"
+                  value={phoneOtp}
+                  onChange={(event) => setPhoneOtp(event.target.value)}
+                  placeholder="Enter OTP"
+                />
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <button type="button" onClick={requestPhoneOtp} className="btn-primary" disabled={isSendingPhoneOtp || !phoneVerificationReady}>
+                  {isSendingPhoneOtp ? 'Sending...' : user?.phoneVerified ? 'Resend OTP' : 'Send OTP'}
+                </button>
+                <button
+                  type="button"
+                  onClick={verifyPhoneOtp}
+                  className="btn-secondary"
+                  disabled={isVerifyingPhoneOtp || !phoneVerificationReady || !phoneOtp.trim()}
+                >
+                  {isVerifyingPhoneOtp ? 'Verifying...' : user?.phoneVerified ? 'Verified' : 'Verify phone'}
+                </button>
+                <span className="text-xs text-slate-400">Current: {user?.phone || 'Not added'}</span>
+              </div>
             </div>
           </section>
         </div>

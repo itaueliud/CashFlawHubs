@@ -10,8 +10,28 @@ router.get('/profile', protect, async (req, res) => {
 });
 
 router.put('/profile', protect, async (req, res) => {
-  const { name, bio, avatar, userLanguage, browserLanguage, timezone } = req.body;
-  const updates = { name, bio, avatar };
+  const { name, bio, avatar, phone, userLanguage, browserLanguage, timezone } = req.body;
+  const currentUser = await User.findById(req.user.id).select('phone phoneVerified');
+  if (!currentUser) {
+    return res.status(404).json({ success: false, message: 'User not found' });
+  }
+  const updates = {};
+
+  if (name !== undefined) updates.name = name;
+  if (bio !== undefined) updates.bio = bio;
+  if (avatar !== undefined) updates.avatar = avatar;
+  if (phone !== undefined) {
+    const normalizedPhone = String(phone).trim();
+    if (!normalizedPhone) {
+      return res.status(400).json({ success: false, message: 'Phone number cannot be empty' });
+    }
+    const existingPhone = await User.findOne({ phone: normalizedPhone, _id: { $ne: req.user.id } });
+    if (existingPhone) {
+      return res.status(409).json({ success: false, message: 'Phone number already in use' });
+    }
+    updates.phone = normalizedPhone;
+    updates.phoneVerified = normalizedPhone === currentUser.phone ? currentUser.phoneVerified : false;
+  }
   if (userLanguage) updates.userLanguage = String(userLanguage).toLowerCase().slice(0, 10);
   if (browserLanguage) updates.browserLanguage = String(browserLanguage).toLowerCase().slice(0, 20);
   if (timezone) updates.timezone = String(timezone).slice(0, 64);
