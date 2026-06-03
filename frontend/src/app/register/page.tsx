@@ -6,6 +6,7 @@ import Link from 'next/link';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import LanguageSelect from '@/components/LanguageSelect';
 import { TurnstileWidget } from '@/components/security/TurnstileWidget';
 import { ChevronLeft, Eye, EyeOff } from 'lucide-react';
 import { setAppLanguage, normalizeLanguage, detectBrowserLanguage } from '@/i18n';
@@ -23,7 +24,8 @@ const countries = [
 const translations: Record<string, Record<string, string>> = {
   en: {
     title: 'Create Your Account',
-    stepOf: 'Step {step} of 5',
+    stepOf: 'Step {step} of 6',
+    languageIntro: 'Choose your language first so every step and email matches how you want to read CashFlawHubs.',
     referralLabel: 'Referral Code (Required)',
     verifyReferral: 'Verify Referral Code',
     referralVerified: 'Referral code verified',
@@ -69,7 +71,8 @@ const translations: Record<string, Record<string, string>> = {
   },
   sw: {
     title: 'Fungua Akaunti Yako',
-    stepOf: 'Hatua {step} kati ya 5',
+    stepOf: 'Hatua {step} kati ya 6',
+    languageIntro: 'Chagua lugha yako kwanza ili kila hatua na barua pepe viendane na jinsi unavyotaka kusoma CashFlawHubs.',
     referralLabel: 'Msimbo wa Rejeleo (Lazima)',
     verifyReferral: 'Thibitisha Msimbo',
     referralVerified: 'Msimbo wa rejeleo umethibitishwa',
@@ -115,18 +118,19 @@ const translations: Record<string, Record<string, string>> = {
   },
   fr: {
     title: 'Créer votre compte',
-    stepOf: 'Étape {step} sur 5',
+    stepOf: 'Étape {step} sur 6',
+    languageIntro: 'Choisissez d’abord votre langue pour que chaque étape et chaque e-mail correspondent à votre façon de lire CashFlawHubs.',
     referralLabel: 'Code de parrainage (obligatoire)',
-    verifyReferral: 'Vérifier le code',
-    referralVerified: 'Code de parrainage vérifié',
-    firstName: 'Prénom',
+    verifyReferral: 'VÃ©rifier le code',
+    referralVerified: 'Code de parrainage vÃ©rifiÃ©',
+    firstName: 'PrÃ©nom',
     lastName: 'Nom de famille',
-    idNumber: "Numéro d'identité",
+    idNumber: "NumÃ©ro d'identitÃ©",
     country: 'Pays',
     continue: 'Continuer',
     back: 'Retour',
-    phoneLabel: 'Numéro de téléphone',
-    phonePlaceholder: 'Numéro de téléphone',
+    phoneLabel: 'NumÃ©ro de tÃ©lÃ©phone',
+    phonePlaceholder: 'NumÃ©ro de tÃ©lÃ©phone',
     emailLabel: 'Adresse e-mail',
     emailPlaceholder: 'Adresse e-mail',
     passwordLabel: 'Mot de passe',
@@ -134,28 +138,28 @@ const translations: Record<string, Record<string, string>> = {
     passwordPlaceholder: 'Mot de passe',
     confirmPasswordPlaceholder: 'Confirmer le mot de passe',
     languageLabel: 'Langue',
-    autoDetectLanguage: 'Détection automatique',
-    review: 'Vérifier',
-    createAccount: 'Terminer la création du compte',
-    alreadyHaveAccount: 'Vous avez déjà un compte ?',
+    autoDetectLanguage: 'DÃ©tection automatique',
+    review: 'VÃ©rifier',
+    createAccount: 'Terminer la crÃ©ation du compte',
+    alreadyHaveAccount: 'Vous avez dÃ©jÃ  un compte ?',
     login: 'Connexion',
-    emailVerifiedSuccess: 'E-mail vérifié avec succès',
-    emailInvalid: "Le lien de vérification de l'e-mail est invalide ou expiré",
-    securityCheck: 'Terminez la vérification de sécurité',
-    passwordCheckFailed: 'La vérification du mot de passe a échoué',
+    emailVerifiedSuccess: 'E-mail vÃ©rifiÃ© avec succÃ¨s',
+    emailInvalid: "Le lien de vÃ©rification de l'e-mail est invalide ou expirÃ©",
+    securityCheck: 'Terminez la vÃ©rification de sÃ©curitÃ©',
+    passwordCheckFailed: 'La vÃ©rification du mot de passe a Ã©chouÃ©',
     referralRequired: 'Le code de parrainage est requis',
-    completePersonal: 'Complétez vos informations personnelles',
+    completePersonal: 'ComplÃ©tez vos informations personnelles',
     emailRequired: "L'e-mail est requis",
-    verifyReferralFirst: 'Vérifiez d’abord le code de parrainage',
-    created: 'Compte créé',
-    registrationFailed: "L'inscription a échoué",
+    verifyReferralFirst: 'VÃ©rifiez dâ€™abord le code de parrainage',
+    created: 'Compte crÃ©Ã©',
+    registrationFailed: "L'inscription a Ã©chouÃ©",
     phoneNote: '',
     emailNote: '',
-    selected: 'Sélectionné',
+    selected: 'SÃ©lectionnÃ©',
     languageEnglish: 'Anglais',
     languageSwahili: 'Swahili',
-    languageFrench: 'Français',
-    summaryNote: 'L’identifiant de l’appareil, IP, navigateur/OS, fuseau horaire, date d’inscription, Accept-Language et les en-têtes CF-IPCountry sont collectés automatiquement pour la sécurité et la prévention de la fraude.',
+    languageFrench: 'FranÃ§ais',
+    summaryNote: 'Lâ€™identifiant de lâ€™appareil, IP, navigateur/OS, fuseau horaire, date dâ€™inscription, Accept-Language et les en-tÃªtes CF-IPCountry sont collectÃ©s automatiquement pour la sÃ©curitÃ© et la prÃ©vention de la fraude.',
   },
 };
 
@@ -200,7 +204,7 @@ function RegisterPageContent() {
   });
 
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || '';
-  const progress = useMemo(() => (step / 5) * 100, [step]);
+  const progress = useMemo(() => (step / 6) * 100, [step]);
   const browserLanguage = useMemo(() => {
     if (typeof navigator === 'undefined') return 'en';
     return navigator.language.split('-')[0].toLowerCase();
@@ -224,7 +228,7 @@ function RegisterPageContent() {
       await api.get(`/referrals/validate/${encodeURIComponent(form.referralCode.trim())}`);
       setReferralVerified(true);
       toast.success(copy.referralVerified);
-      setStep(2);
+      setStep(3);
     } catch (err: any) {
       setReferralVerified(false);
       toast.error(err?.response?.data?.message || copy.invalidReferral || 'Invalid referral code');
@@ -234,7 +238,7 @@ function RegisterPageContent() {
   };
 
   useEffect(() => {
-    if (!form.referralCode || referralVerified || step !== 1) return;
+    if (!form.referralCode || referralVerified || step !== 2) return;
     verifyReferral();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.referralCode, referralVerified, step]);
@@ -246,10 +250,10 @@ function RegisterPageContent() {
     const reasonParam = searchParams?.get('reason');
 
     // prefer explicit step in URL, otherwise restore saved step from sessionStorage
-    if (stepParam === '3') setStep(3);
+    if (stepParam === '4') setStep(4);
     else {
       const savedStep = typeof window !== 'undefined' ? sessionStorage.getItem('register-step') : null;
-      if (savedStep && ['1', '2', '3', '4', '5'].includes(savedStep)) {
+      if (savedStep && ['1', '2', '3', '4', '5', '6'].includes(savedStep)) {
         setStep(Number(savedStep));
       }
     }
@@ -295,7 +299,7 @@ function RegisterPageContent() {
         const res = await api.get(`/auth/email-verified-status?email=${encodeURIComponent(email)}`);
         if (res.data?.verified) {
           toast.success(copy.emailVerifiedSuccess);
-          // If referral code exists, ensure it's verified before moving to step 3
+          // If referral code exists, ensure it's verified before moving to step 4
           if (form.referralCode && !referralVerified) {
             try {
               await verifyReferral();
@@ -303,7 +307,7 @@ function RegisterPageContent() {
               // ignore - verifyReferral already shows toast
             }
           }
-          setStep(3);
+          setStep(4);
         }
       } catch (err: any) {
         // ignore
@@ -362,13 +366,44 @@ function RegisterPageContent() {
 
         {step === 1 && (
           <div className="mt-5 space-y-3">
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <div className="text-sm font-semibold text-white">{copy.languageLabel}</div>
+              <p className="mt-1 text-xs leading-5 text-slate-400">{copy.languageIntro}</p>
+              <div className="mt-3">
+                <LanguageSelect
+                  value={form.user_language || selectedLanguage}
+                  label={copy.languageLabel}
+                  showAuto
+                  onSave={(language) => {
+                    setField('user_language', language);
+                    void setAppLanguage(language);
+                  }}
+                />
+              </div>
+            </div>
+            <button
+              className="btn-primary"
+              onClick={() => {
+                const nextLanguage = normalizeLanguage(form.user_language || selectedLanguage);
+                setField('user_language', nextLanguage);
+                void setAppLanguage(nextLanguage);
+                setStep(2);
+              }}
+            >
+              {copy.continue}
+            </button>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="mt-5 space-y-3">
             <label className="block text-sm">{copy.referralLabel}</label>
             <input className="input" value={form.referralCode} onChange={(e) => setField('referralCode', e.target.value.toUpperCase())} />
             <button className="btn-primary" disabled={loading} onClick={verifyReferral}>{copy.verifyReferral}</button>
           </div>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <div className="mt-5 grid gap-3 md:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm text-slate-300">{copy.firstName}</label>
@@ -393,12 +428,12 @@ function RegisterPageContent() {
                 <ChevronLeft size={16} />
                 {copy.back}
               </button>
-              <button type="button" className="btn-primary" onClick={() => setStep(3)}>{copy.continue}</button>
+              <button type="button" className="btn-primary" onClick={() => setStep(4)}>{copy.continue}</button>
             </div>
           </div>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <div className="mt-5 space-y-4">
             <TurnstileWidget siteKey={turnstileSiteKey} onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} onError={() => setTurnstileToken('')} className="flex justify-center" />
             <div>
@@ -414,12 +449,12 @@ function RegisterPageContent() {
                 <ChevronLeft size={16} />
                 {copy.back}
               </button>
-              <button className="btn-primary" onClick={() => setStep(4)}>{copy.continue}</button>
+              <button className="btn-primary" onClick={() => setStep(5)}>{copy.continue}</button>
             </div>
           </div>
         )}
 
-        {step === 4 && (
+        {step === 5 && (
           <div className="mt-5 space-y-3">
             <div>
               <label className="mb-1 block text-sm text-slate-300">{copy.passwordLabel}</label>
@@ -461,34 +496,17 @@ function RegisterPageContent() {
                 </button>
               </div>
             </div>
-            <div>
-              <label className="mb-1 block text-sm text-slate-300">{copy.languageLabel}</label>
-              <select
-                className="input"
-                value={form.user_language}
-                onChange={(e) => {
-                  const next = e.target.value ? normalizeLanguage(e.target.value) : detectBrowserLanguage();
-                  setField('user_language', next);
-                  void setAppLanguage(next);
-                }}
-              >
-                <option value="">{copy.autoDetectLanguage}</option>
-                <option value="en">{copy.languageEnglish}</option>
-                <option value="sw">{copy.languageSwahili}</option>
-                <option value="fr">{copy.languageFrench}</option>
-              </select>
-            </div>
             <div className="flex items-center justify-between gap-3">
               <button type="button" className="btn-secondary inline-flex items-center gap-2" onClick={goBack}>
                 <ChevronLeft size={16} />
                 {copy.back}
               </button>
-              <button className="btn-primary" onClick={() => setStep(5)}>{copy.review}</button>
+              <button className="btn-primary" onClick={() => setStep(6)}>{copy.review}</button>
             </div>
           </div>
         )}
 
-        {step === 5 && (
+        {step === 6 && (
           <div className="mt-5 space-y-3">
             <div className="rounded border border-white/10 p-3 text-sm text-slate-300">{copy.summaryNote}</div>
             <div className="flex items-center justify-between gap-3">
@@ -514,3 +532,4 @@ export default function RegisterPage() {
     </Suspense>
   );
 }
+

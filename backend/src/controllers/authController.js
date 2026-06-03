@@ -247,22 +247,22 @@ exports.verifyEmailLink = async (req, res) => {
   try {
     const token = String(req.query.token || '').trim();
     if (!token) {
-      return res.redirect(`${redirectBase}/register?step=3&emailVerified=0&reason=missing_token`);
+      return res.redirect(`${redirectBase}/register?step=4&emailVerified=0&reason=missing_token`);
     }
 
     const email = await getCode('email_verify_token', token);
     if (!email) {
-      return res.redirect(`${redirectBase}/register?step=3&emailVerified=0&reason=invalid_or_expired`);
+      return res.redirect(`${redirectBase}/register?step=4&emailVerified=0&reason=invalid_or_expired`);
     }
 
     const normalizedEmail = normalizeEmail(email);
     await clearCode('email_verify_token', token);
     await setCode('email_verified', normalizedEmail, 'true');
 
-    return res.redirect(`${redirectBase}/register?step=3&emailVerified=1&email=${encodeURIComponent(normalizedEmail)}`);
+    return res.redirect(`${redirectBase}/register?step=4&emailVerified=1&email=${encodeURIComponent(normalizedEmail)}`);
   } catch (error) {
     logger.error(`verifyEmailLink error: ${error.message}`);
-    return res.redirect(`${redirectBase}/register?step=3&emailVerified=0&reason=server_error`);
+    return res.redirect(`${redirectBase}/register?step=4&emailVerified=0&reason=server_error`);
   }
 };
 
