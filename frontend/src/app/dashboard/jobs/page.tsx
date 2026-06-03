@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 import api from '@/lib/api';
 import { Search, Building2, Clock, Plus, Loader2, ArrowRight, Briefcase, Filter, SearchCheck, ShieldCheck, Sparkles, TrendingUp } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
@@ -25,6 +26,7 @@ const JOB_LOCATIONS = ['Remote', 'Hybrid', 'On-site'];
 const BUDGET_CURRENCIES = ['KES', 'USD', 'UGX', 'TZS', 'GHS', 'NGN', 'ETB'];
 
 export default function JobsPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
@@ -68,14 +70,14 @@ export default function JobsPage() {
 
   const onPostJob = async () => {
     if (!form.category) {
-      toast.error('Please select a category');
+      toast.error(t('jobs.board.labels.category'));
       return;
     }
 
     if (form.category === 'Other') {
       const custom = String(form.categoryOther || '').trim();
       if (custom.length < 3 || custom.length > 60) {
-        toast.error('Please specify Other category using 3 to 60 characters');
+        toast.error(t('jobs.board.labels.otherCategory'));
         return;
       }
     }
@@ -93,10 +95,10 @@ export default function JobsPage() {
       }
       setForm(EMPTY_FORM);
       setTab('browse');
-      toast.success(`Job posted. ${response.data.tokensSpent} tokens were used.`);
+      toast.success(t('jobs.board.actions.postJob', { tokens: response.data.tokensSpent }));
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to post job');
+      toast.error(error.response?.data?.message || t('jobs.board.actions.postJobShort'));
     } finally {
       setPosting(false);
     }
@@ -113,11 +115,11 @@ export default function JobsPage() {
       const jsearchText = jsearch ? ` JSearch: ${jsearch.status}${typeof jsearch.synced === 'number' ? ` (${jsearch.synced})` : ''}.` : '';
       const careerjet = response.data?.providers?.careerjet;
       const careerjetText = careerjet ? ` Careerjet: ${careerjet.status}${typeof careerjet.synced === 'number' ? ` (${careerjet.synced})` : ''}.` : '';
-      toast.success(`${response.data?.message || 'Job sync completed'}${adzunaText}${jsearchText}${careerjetText}`);
+      toast.success(`${response.data?.message || t('jobs.board.actions.syncSources')}${adzunaText}${jsearchText}${careerjetText}`);
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['job-cats'] });
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to sync jobs');
+      toast.error(error.response?.data?.message || t('jobs.board.actions.syncSources'));
     } finally {
       setSyncingJobs(false);
     }
@@ -129,27 +131,27 @@ export default function JobsPage() {
         <div className="grid gap-8 p-6 lg:grid-cols-[1.4fr_0.8fr] lg:p-8">
           <div className="space-y-5">
             <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-emerald-300">
-              <Sparkles size={12} /> CashFlowHubs remote board
+              <Sparkles size={12} /> {t('jobs.board.badge')}
             </div>
             <div>
-              <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">Remote Jobs</h1>
+              <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">{t('jobs.board.title')}</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-                Discover remote roles in a clean, search-first board designed for the CashFlowHubs community.
+                {t('jobs.board.description')}
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <div className="text-xs text-slate-400">Visible jobs</div>
+                <div className="text-xs text-slate-400">{t('jobs.board.visibleJobs')}</div>
                 <div className="text-2xl font-black text-emerald-300">{pagination.total ?? '—'}</div>
               </div>
               {isStaff && (
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <div className="text-xs text-slate-400">Sources</div>
+                  <div className="text-xs text-slate-400">{t('jobs.board.sources')}</div>
                   <div className="text-2xl font-black text-white">{sourceCount || 0}</div>
                 </div>
               )}
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <div className="text-xs text-slate-400">Token balance</div>
+                <div className="text-xs text-slate-400">{t('jobs.board.tokenBalance')}</div>
                 <div className="text-2xl font-black text-white">{user?.tokenBalance || 0}T</div>
               </div>
             </div>
@@ -157,10 +159,10 @@ export default function JobsPage() {
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
             {[
-              { label: 'Fast apply', value: 'Internal application flow', icon: SearchCheck },
-              { label: 'Remote-first', value: 'Location is always remote', icon: Briefcase },
-              { label: 'Trusted flow', value: 'Apply inside the platform', icon: ShieldCheck },
-              { label: 'Marketplace feel', value: 'Clean cards and focused CTAs', icon: TrendingUp },
+              { label: t('jobs.board.fastApply'), value: t('jobs.board.fastApplyValue'), icon: SearchCheck },
+              { label: t('jobs.board.remoteFirst'), value: t('jobs.board.remoteFirstValue'), icon: Briefcase },
+              { label: t('jobs.board.trustedFlow'), value: t('jobs.board.trustedFlowValue'), icon: ShieldCheck },
+              { label: t('jobs.board.marketplaceFeel'), value: t('jobs.board.marketplaceFeelValue'), icon: TrendingUp },
             ].map((item) => (
               <div key={item.label} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/70 p-4">
                 <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-300">
@@ -189,43 +191,43 @@ export default function JobsPage() {
           ))}
         </div>
         <div className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950 px-4 py-2 text-xs text-slate-400">
-          <Filter size={12} /> Search-first job board
+          <Filter size={12} /> {t('jobs.board.searchLabel')}
         </div>
       </div>
 
       {tab === 'post' ? (
         <div className="mx-auto max-w-4xl space-y-4 rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 shadow-xl shadow-emerald-950/10 md:p-6">
           <div className="mb-2">
-            <h2 className="text-2xl font-black text-white">Post a remote role</h2>
-            <p className="mt-1 text-sm text-slate-400">Use a clean CashFlowHubs layout for internal job listings.</p>
+            <h2 className="text-2xl font-black text-white">{t('jobs.board.postRole')}</h2>
+            <p className="mt-1 text-sm text-slate-400">{t('jobs.board.postRoleDescription')}</p>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-slate-300 mb-1 block">Job Title</label>
+              <label className="text-sm text-slate-300 mb-1 block">{t('jobs.board.labels.jobTitle')}</label>
               <input className="input" value={form.title} onChange={(e) => updateField('title', e.target.value)} />
             </div>
             <div>
-              <label className="text-sm text-slate-300 mb-1 block">Company</label>
+              <label className="text-sm text-slate-300 mb-1 block">{t('jobs.board.labels.company')}</label>
               <input className="input" value={form.company} onChange={(e) => updateField('company', e.target.value)} />
             </div>
           </div>
 
           <div className="grid md:grid-cols-3 gap-4">
             <div>
-              <label className="text-sm text-slate-300 mb-1 block">Category</label>
+              <label className="text-sm text-slate-300 mb-1 block">{t('jobs.board.labels.category')}</label>
               <select className="input" value={form.category} onChange={(e) => updateField('category', e.target.value)}>
-                <option value="">Select Category</option>
+                <option value="">{t('jobs.board.filters.allCategories')}</option>
                 {availableCategories.map((option: string) => <option key={option} value={option}>{option}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-sm text-slate-300 mb-1 block">Job Type</label>
+              <label className="text-sm text-slate-300 mb-1 block">{t('jobs.board.labels.jobType')}</label>
               <select className="input" value={form.jobType} onChange={(e) => updateField('jobType', e.target.value)}>
                 {JOB_TYPES.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-sm text-slate-300 mb-1 block">Location</label>
+              <label className="text-sm text-slate-300 mb-1 block">{t('jobs.board.labels.location')}</label>
               <select className="input" value={form.location} onChange={(e) => updateField('location', e.target.value)}>
                 {JOB_LOCATIONS.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
@@ -234,15 +236,15 @@ export default function JobsPage() {
 
           <div className="grid md:grid-cols-3 gap-4">
             <div>
-              <label className="text-sm text-slate-300 mb-1 block">Salary</label>
+              <label className="text-sm text-slate-300 mb-1 block">{t('jobs.board.labels.salary')}</label>
               <input className="input" value={form.salary} onChange={(e) => updateField('salary', e.target.value)} />
             </div>
             <div>
-              <label className="text-sm text-slate-300 mb-1 block">Budget Amount</label>
+              <label className="text-sm text-slate-300 mb-1 block">{t('jobs.board.labels.budgetAmount')}</label>
               <input className="input" type="number" value={form.budgetAmount} onChange={(e) => updateField('budgetAmount', e.target.value)} />
             </div>
             <div>
-              <label className="text-sm text-slate-300 mb-1 block">Budget Currency</label>
+              <label className="text-sm text-slate-300 mb-1 block">{t('jobs.board.labels.budgetCurrency')}</label>
               <select className="input" value={form.budgetCurrency} onChange={(e) => updateField('budgetCurrency', e.target.value)}>
                 {BUDGET_CURRENCIES.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
@@ -251,31 +253,31 @@ export default function JobsPage() {
 
           {form.category === 'Other' && (
             <div>
-              <label className="text-sm text-slate-300 mb-1 block">Specify Category (3-60 characters)</label>
+              <label className="text-sm text-slate-300 mb-1 block">{t('jobs.board.labels.otherCategory')}</label>
               <input
                 className="input"
                 maxLength={60}
                 value={form.categoryOther}
                 onChange={(e) => updateField('categoryOther', e.target.value)}
-                placeholder="Example: Healthcare Administration"
+                placeholder={t('jobs.board.placeholders.otherCategory')}
               />
               <div className="mt-1 text-xs text-slate-500">{form.categoryOther.length}/60</div>
             </div>
           )}
 
           <div>
-            <label className="text-sm text-slate-300 mb-1 block">Application URL</label>
+            <label className="text-sm text-slate-300 mb-1 block">{t('jobs.board.labels.applicationUrl')}</label>
             <input className="input" value={form.applicationUrl} onChange={(e) => updateField('applicationUrl', e.target.value)} />
           </div>
 
           <div>
-            <label className="text-sm text-slate-300 mb-1 block">Description</label>
+            <label className="text-sm text-slate-300 mb-1 block">{t('jobs.board.labels.description')}</label>
             <textarea className="input min-h-32" value={form.description} onChange={(e) => updateField('description', e.target.value)} />
           </div>
 
           <button onClick={onPostJob} disabled={posting} className="btn-primary flex items-center gap-2">
             {posting && <Loader2 size={16} className="animate-spin" />}
-            Post Job for {tokenPolicy?.postingCost || 10} Tokens
+            {t('jobs.board.actions.postJob', { tokens: tokenPolicy?.postingCost || 10 })}
           </button>
         </div>
       ) : (
@@ -284,10 +286,10 @@ export default function JobsPage() {
             <div className="flex flex-col gap-3 lg:flex-row">
               <div className="relative flex-1">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search remote jobs..." className="input border-slate-700 bg-slate-950 pl-9" />
+                <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder={t('jobs.board.placeholders.search')} className="input border-slate-700 bg-slate-950 pl-9" />
               </div>
               <select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }} className="input border-slate-700 bg-slate-950 lg:w-56">
-                <option value="">All Categories</option>
+                <option value="">{t('jobs.board.filters.allCategories')}</option>
                 {availableCategories.map((c: string) => <option key={c} value={c}>{c}</option>)}
               </select>
               {isStaff && (
@@ -299,13 +301,13 @@ export default function JobsPage() {
                   }}
                   className="input border-slate-700 bg-slate-950 lg:w-56"
                 >
-                  <option value="unique">Unique jobs</option>
-                  <option value="all">Raw feed</option>
-                  <option value="duplicates">Duplicate groups</option>
+                  <option value="unique">{t('jobs.board.filters.uniqueJobs')}</option>
+                  <option value="all">{t('jobs.board.filters.rawFeed')}</option>
+                  <option value="duplicates">{t('jobs.board.filters.duplicateGroups')}</option>
                 </select>
               )}
               <button onClick={() => setTab('post')} className="btn-primary inline-flex items-center gap-2 lg:shrink-0">
-                <Plus size={16} /> Post Job
+                <Plus size={16} /> {t('jobs.board.actions.postJobShort')}
               </button>
               {isStaff && (
                 <button
@@ -314,12 +316,12 @@ export default function JobsPage() {
                   className="btn-secondary inline-flex items-center gap-2 lg:shrink-0 disabled:opacity-60"
                 >
                   {syncingJobs && <Loader2 size={16} className="animate-spin" />}
-                  Sync Sources
+                  {t('jobs.board.actions.syncSources')}
                 </button>
               )}
             </div>
             {Object.keys(sourceCounts).length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
                 {isStaff && (
                   <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-emerald-200">
                     View: {activeView}
@@ -337,7 +339,7 @@ export default function JobsPage() {
           {isLoading ? (
             <div className="space-y-3">{Array(5).fill(0).map((_, i) => <div key={i} className="card h-20 animate-pulse" />)}</div>
           ) : jobs.length === 0 ? (
-            <div className="card text-center py-12 text-slate-400">No jobs found. Try a different search.</div>
+            <div className="card text-center py-12 text-slate-400">{t('jobs.board.filters.noJobs')}</div>
           ) : (
             <div className="grid gap-3">
               {jobs.map((job: any) => (
@@ -345,12 +347,12 @@ export default function JobsPage() {
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0 flex-1 space-y-4">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="badge-green">Remote</span>
-                        <span className="badge-blue">{job.category === 'Other' && job.categoryOther ? `Other (${job.categoryOther})` : job.category}</span>
-                        {job.source === 'internal' && <span className="badge-yellow">{job.applicationTokenCost}T apply</span>}
+                        <span className="badge-green">{t('jobs.board.badges.remote')}</span>
+                        <span className="badge-blue">{job.category === 'Other' && job.categoryOther ? t('jobs.board.badges.other', { category: job.categoryOther }) : job.category}</span>
+                        {job.source === 'internal' && <span className="badge-yellow">{t('jobs.board.badges.applyCost', { cost: job.applicationTokenCost })}</span>}
                         {isStaff && Number(job.duplicateCount || 1) > 1 && (
                           <span className="rounded-full border border-yellow-400/30 bg-yellow-500/10 px-3 py-1 text-xs font-semibold text-yellow-200">
-                            {job.duplicateCount} duplicates
+                            {t('jobs.board.badges.duplicates', { count: job.duplicateCount })}
                           </span>
                         )}
                         {job.salary && <span className="badge" style={{ background: 'rgba(16,185,129,0.14)', color: '#6ee7b7' }}>{job.salary}</span>}
@@ -370,16 +372,16 @@ export default function JobsPage() {
                         type="button"
                         onClick={() => {
                           if (!job?._id) {
-                            toast.error('This job cannot be opened right now');
+                            toast.error(t('jobs.board.actions.openThisJob'));
                             return;
                           }
                           router.push(`/dashboard/jobs/${job._id}`);
                         }}
                         className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
                       >
-                        Apply on site <ArrowRight size={14} />
+                        {t('jobs.board.actions.applyOnSite')} <ArrowRight size={14} />
                       </button>
-                      <div className="text-xs uppercase tracking-[0.2em] text-slate-500">CashFlowHubs remote board</div>
+                      <div className="text-xs uppercase tracking-[0.2em] text-slate-500">{t('jobs.board.badge')}</div>
                     </div>
                   </div>
                 </div>
@@ -388,9 +390,9 @@ export default function JobsPage() {
           )}
           {pagination.pages > 1 && (
             <div className="flex justify-center gap-2">
-              <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="btn-secondary text-sm py-1.5 px-4 disabled:opacity-40">Prev</button>
+              <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="btn-secondary text-sm py-1.5 px-4 disabled:opacity-40">{t('common.previous')}</button>
               <span className="text-slate-400 text-sm py-1.5 px-3">{page} / {pagination.pages}</span>
-              <button disabled={page === pagination.pages} onClick={() => setPage((p) => p + 1)} className="btn-secondary text-sm py-1.5 px-4 disabled:opacity-40">Next</button>
+              <button disabled={page === pagination.pages} onClick={() => setPage((p) => p + 1)} className="btn-secondary text-sm py-1.5 px-4 disabled:opacity-40">{t('common.next')}</button>
             </div>
           )}
         </>

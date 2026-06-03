@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Briefcase, CalendarDays, CheckCircle2, ExternalLink, Loader2, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
@@ -55,6 +56,7 @@ const STATUS_LABELS: Record<JobApplicationStatus, string> = {
 };
 
 export default function JobApplicationsPage() {
+  const { t } = useTranslation();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<'all' | JobApplicationStatus>('all');
   const [draftStatuses, setDraftStatuses] = useState<Record<string, JobApplicationStatus>>({});
@@ -80,7 +82,7 @@ export default function JobApplicationsPage() {
       return response.data as { message?: string; xpPoints?: number | null; xpEarned?: number };
     },
     onSuccess: async (response) => {
-      toast.success(response.message || 'Application status updated');
+      toast.success(response.message || t('jobs.applications.statusUpdated'));
       setDraftStatuses({});
       await refetch();
     },
@@ -92,7 +94,7 @@ export default function JobApplicationsPage() {
         typeof (error as { response?: { data?: { message?: string } } }).response?.data?.message === 'string'
           ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
           : null;
-      toast.error(message || 'Failed to update status');
+      toast.error(message || t('jobs.applications.statusUpdateFailed'));
     },
   });
 
@@ -100,21 +102,21 @@ export default function JobApplicationsPage() {
     <div className="mx-auto max-w-6xl space-y-6 animate-fade-in">
       <div className="flex items-center justify-between gap-3">
         <Link href="/dashboard/jobs" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white">
-          <ArrowLeft size={16} /> Back to jobs
+          <ArrowLeft size={16} /> {t('jobs.applications.backToJobs')}
         </Link>
-        <div className="text-xs uppercase tracking-[0.2em] text-slate-500">My applications</div>
+        <div className="text-xs uppercase tracking-[0.2em] text-slate-500">{t('jobs.applications.title')}</div>
       </div>
 
       <div className="rounded-[1.75rem] border border-emerald-500/15 bg-gradient-to-br from-emerald-950/70 via-slate-950 to-slate-900 p-6 shadow-xl shadow-emerald-950/20">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-white">Application Tracker</h1>
+            <h1 className="text-3xl font-black tracking-tight text-white">{t('jobs.applications.heading')}</h1>
             <p className="mt-2 text-sm text-slate-300">
-              Keep every application updated here. CashFlawHubs is the source of truth for your status history.
+              {t('jobs.applications.description')}
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center">
-            <div className="text-xs text-slate-400">Total applications</div>
+            <div className="text-xs text-slate-400">{t('jobs.applications.totalApplications')}</div>
             <div className="text-2xl font-black text-emerald-300">{data?.pagination?.total || 0}</div>
           </div>
         </div>
@@ -123,7 +125,7 @@ export default function JobApplicationsPage() {
       <div className="flex flex-wrap gap-2">
         {STATUS_FILTERS.map((status) => {
           const active = statusFilter === status;
-          const label = status === 'all' ? 'All statuses' : STATUS_LABELS[status];
+          const label = status === 'all' ? t('jobs.applications.allStatuses') : t(`jobs.applications.statuses.${status}`);
           return (
             <button
               key={status}
@@ -144,11 +146,11 @@ export default function JobApplicationsPage() {
 
       {isLoading ? (
         <div className="card flex h-56 items-center justify-center text-slate-400">
-          <Loader2 size={18} className="mr-2 animate-spin" /> Loading applications...
+          <Loader2 size={18} className="mr-2 animate-spin" /> {t('jobs.applications.loading')}
         </div>
       ) : filteredApplications.length === 0 ? (
         <div className="card py-16 text-center text-slate-400">
-          No applications match this filter yet.
+          {t('jobs.applications.none')}
         </div>
       ) : (
         <div className="grid gap-3">
@@ -161,37 +163,37 @@ export default function JobApplicationsPage() {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0 space-y-3">
                     <div className="flex flex-wrap gap-2">
-                      <span className="badge-blue capitalize">{application.statusLabel || STATUS_LABELS[application.status]}</span>
+                      <span className="badge-blue capitalize">{application.statusLabel || t(`jobs.applications.statuses.${application.status}`)}</span>
                       {application.tokenCost > 0 ? <span className="badge-yellow">{application.tokenCost}T spent</span> : null}
-                      <span className="badge-green">{application.jobAvailable ? 'Open' : 'Closed'}</span>
+                      <span className="badge-green">{application.jobAvailable ? t('common.open') : t('common.closed')}</span>
                       <ApplicantEmailBadge sent={Boolean(application.applicantEmailSent)} />
                     </div>
-                    <h2 className="truncate text-lg font-bold text-white">{job?.title || 'Job unavailable'}</h2>
+                    <h2 className="truncate text-lg font-bold text-white">{job?.title || t('jobs.detail.jobUnavailable')}</h2>
                     <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400">
-                      <span className="inline-flex items-center gap-1"><Briefcase size={12} /> {job?.company || 'Unknown company'}</span>
+                      <span className="inline-flex items-center gap-1"><Briefcase size={12} /> {job?.company || t('jobs.detail.unknownCompany')}</span>
                       <span className="inline-flex items-center gap-1"><CalendarDays size={12} /> {new Date(application.appliedAt || application.createdAt).toLocaleString()}</span>
-                      <span>{job?.location || 'Remote'}</span>
+                      <span>{job?.location || t('jobs.board.badges.remote')}</span>
                     </div>
                     {application.coverLetter ? (
                       <p className="line-clamp-2 text-sm text-slate-300">{application.coverLetter}</p>
                     ) : (
-                      <p className="text-sm text-slate-500">No cover letter submitted.</p>
+                      <p className="text-sm text-slate-500">{t('jobs.applications.noCoverLetter')}</p>
                     )}
                     <div className="flex flex-wrap gap-2 text-xs text-slate-400">
-                      <span className="rounded-full border border-slate-700 px-2 py-1">24h reminder: {application.reminder24At ? 'Scheduled' : 'Not set'}</span>
-                      <span className="rounded-full border border-slate-700 px-2 py-1">7-day nudge: {application.reminder7At ? 'Scheduled' : 'Not set'}</span>
+                      <span className="rounded-full border border-slate-700 px-2 py-1">{t('jobs.applications.reminder24', { state: application.reminder24At ? t('jobs.applications.scheduled') : t('jobs.applications.notSet') })}</span>
+                      <span className="rounded-full border border-slate-700 px-2 py-1">{t('jobs.applications.reminder7', { state: application.reminder7At ? t('jobs.applications.scheduled') : t('jobs.applications.notSet') })}</span>
                     </div>
                   </div>
 
                   <div className="flex w-full max-w-sm flex-col gap-3 lg:justify-end">
-                    <label className="text-xs uppercase tracking-[0.2em] text-slate-500">Update status</label>
+                    <label className="text-xs uppercase tracking-[0.2em] text-slate-500">{t('jobs.applications.saveStatus')}</label>
                     <select
                       value={draftStatus}
                       onChange={(e) => setDraftStatuses((current) => ({ ...current, [application._id]: e.target.value as JobApplicationStatus }))}
                       className="input w-full"
                     >
-                      {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
+                      {Object.entries(STATUS_LABELS).map(([value]) => (
+                        <option key={value} value={value}>{t(`jobs.applications.statuses.${value}`)}</option>
                       ))}
                     </select>
                     <button
@@ -201,17 +203,17 @@ export default function JobApplicationsPage() {
                       className="btn-primary inline-flex items-center justify-center gap-2 disabled:opacity-60"
                     >
                       {updateStatusMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                      Save status
+                      {t('jobs.applications.saveStatus')}
                     </button>
                     <div className="flex flex-wrap gap-2">
                       {job?._id && application.jobAvailable ? (
                         <Link href={`/dashboard/jobs/${job._id}`} className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200 hover:border-emerald-300/50 hover:bg-emerald-500/15">
-                          Open job <ExternalLink size={14} />
+                          {t('jobs.applications.openJob')} <ExternalLink size={14} />
                         </Link>
                       ) : null}
                       {isStaff && job?.applicationUrl ? (
                         <a href={job.applicationUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-slate-500 hover:text-white">
-                          Source link <ExternalLink size={14} />
+                          {t('jobs.applications.sourceLink')} <ExternalLink size={14} />
                         </a>
                       ) : null}
                     </div>
@@ -231,7 +233,7 @@ export default function JobApplicationsPage() {
             onClick={() => setPage((current) => current - 1)}
             className="btn-secondary px-4 py-2 text-sm disabled:opacity-50"
           >
-            Prev
+            {t('common.previous')}
           </button>
           <span className="px-3 py-2 text-sm text-slate-400">{pagination.page} / {pagination.pages}</span>
           <button
@@ -240,7 +242,7 @@ export default function JobApplicationsPage() {
             onClick={() => setPage((current) => current + 1)}
             className="btn-secondary px-4 py-2 text-sm disabled:opacity-50"
           >
-            Next
+            {t('common.next')}
           </button>
         </div>
       ) : null}

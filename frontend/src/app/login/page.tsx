@@ -37,11 +37,11 @@ export default function LoginPage() {
 
   const portalLabel =
     portal === 'ledger'
-      ? 'Ledger Dashboard'
+      ? t('auth.ledgerDashboard')
       : portal === 'superadmin'
-        ? 'Superadmin Dashboard'
+        ? t('auth.superadminDashboard')
         : portal === 'admin'
-          ? 'Admin Dashboard'
+          ? t('auth.adminDashboard')
           : '';
   const hideSignup = portal === 'admin' || portal === 'superadmin';
 
@@ -66,7 +66,7 @@ export default function LoginPage() {
       };
       router.push(targetByPortal[portal] || '/dashboard');
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Login failed');
+      toast.error(err.response?.data?.message || t('auth.loginFailed'));
     } finally {
       setIsLoading(false);
     }

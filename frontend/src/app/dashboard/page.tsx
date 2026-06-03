@@ -152,11 +152,6 @@ export default function DashboardPage() {
                   <div className="font-medium text-sm">{index + 1}. {t(action.labelKey)}</div>
                   <div className="text-xs text-slate-400">{t(action.descKey)}</div>
                 </div>
-                {isBlocked ? (
-                  <span className="absolute right-3 top-3 rounded-full border border-slate-600 bg-slate-900/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-300">
-                    {t('common.preview')}
-                  </span>
-                ) : null}
               </Link>
             );
           })}

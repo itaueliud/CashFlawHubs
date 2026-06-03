@@ -364,7 +364,6 @@ export default function WalletPage() {
             Deposit to Wallet
           </button>
 
-          <p className="text-xs text-slate-500">Deposits use your country&apos;s configured collection rail and credit the wallet after payment confirmation.</p>
         </form>
       </div>
 
@@ -471,7 +470,6 @@ export default function WalletPage() {
             </div>
           )}
 
-          <p className="text-xs text-slate-500">Withdrawals are routed through your country&apos;s configured provider rail, with fallback where available.</p>
         </form>
       </div>
 
