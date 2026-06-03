@@ -213,6 +213,8 @@ export default function ProfilePage() {
   const showEmailVerificationAction = Boolean(user?.email && !user?.emailVerified);
   const currentEmailLabel = user?.pending_email ? `Pending: ${user.pending_email}` : user?.email || 'No email added';
   const phoneVerificationReady = Boolean(phoneDraft.trim());
+  const showEmailVerificationPanel = !user?.emailVerified;
+  const showPhoneVerificationPanel = !user?.phoneVerified;
 
   const requestPhoneOtp = async () => {
     const currentValues = getValues();
@@ -465,70 +467,74 @@ export default function ProfilePage() {
               ))}
             </div>
 
-            <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4">
-              <div className="text-sm font-semibold text-amber-200">{t('profile.emailVerification')}</div>
-              <p className="mt-1 text-sm text-slate-300">
-                {user?.emailVerified
-                  ? t('profile.emailVerifiedHelp')
-                  : t('profile.emailPendingHelp')}
-              </p>
-              <div className="mt-3 space-y-2">
-                <label className="block text-xs uppercase tracking-wide text-slate-400">{t('profile.emailAddress')}</label>
-                <input
-                  className="input"
-                  type="email"
-                  value={emailDraft}
-                  onChange={(event) => setEmailDraft(event.target.value)}
-                  placeholder="you@example.com"
-                />
+            {showEmailVerificationPanel ? (
+              <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4">
+                <div className="text-sm font-semibold text-amber-200">{t('profile.emailVerification')}</div>
+                <p className="mt-1 text-sm text-slate-300">
+                  {user?.emailVerified
+                    ? t('profile.emailVerifiedHelp')
+                    : t('profile.emailPendingHelp')}
+                </p>
+                <div className="mt-3 space-y-2">
+                  <label className="block text-xs uppercase tracking-wide text-slate-400">{t('profile.emailAddress')}</label>
+                  <input
+                    className="input"
+                    type="email"
+                    value={emailDraft}
+                    onChange={(event) => setEmailDraft(event.target.value)}
+                    placeholder="you@example.com"
+                  />
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button type="button" onClick={requestEmailVerification} className="btn-primary" disabled={isSendingVerification || verificationCooldown > 0}>
+                    {isSendingVerification
+                      ? t('common.loading')
+                      : verificationCooldown > 0
+                        ? `Resend available in ${verificationCooldown}s`
+                        : user?.email && emailDraft.trim().toLowerCase() === user.email.toLowerCase() && !user.emailVerified
+                          ? t('profile.sendVerification')
+                          : t('profile.saveAndVerify')}
+                  </button>
+                  <span className="text-xs text-slate-400">{t('profile.current')}: {currentEmailLabel}</span>
+                </div>
+                {verificationCooldown > 0 ? (
+                  <p className="mt-2 text-xs text-amber-200/80">{t('profile.verificationCooldown')}</p>
+                ) : null}
               </div>
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <button type="button" onClick={requestEmailVerification} className="btn-primary" disabled={isSendingVerification || verificationCooldown > 0}>
-                  {isSendingVerification
-                    ? t('common.loading')
-                    : verificationCooldown > 0
-                      ? `Resend available in ${verificationCooldown}s`
-                      : user?.email && emailDraft.trim().toLowerCase() === user.email.toLowerCase() && !user.emailVerified
-                        ? t('profile.sendVerification')
-                        : t('profile.saveAndVerify')}
-                </button>
-                <span className="text-xs text-slate-400">{t('profile.current')}: {currentEmailLabel}</span>
-              </div>
-              {verificationCooldown > 0 ? (
-                <p className="mt-2 text-xs text-amber-200/80">{t('profile.verificationCooldown')}</p>
-              ) : null}
-            </div>
+            ) : null}
 
-            <div className="mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4">
-              <div className="text-sm font-semibold text-cyan-200">{t('profile.phoneVerification')}</div>
-              <p className="mt-1 text-sm text-slate-300">
-                {t('profile.phoneVerificationHelp')}
-              </p>
-              <div className="mt-3 space-y-2">
-                <label className="block text-xs uppercase tracking-wide text-slate-400">{t('profile.phoneOtp')}</label>
-                <input
-                  className="input"
-                  type="text"
-                  value={phoneOtp}
-                  onChange={(event) => setPhoneOtp(event.target.value)}
-                  placeholder={t('profile.enterOtp')}
-                />
+            {showPhoneVerificationPanel ? (
+              <div className="mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4">
+                <div className="text-sm font-semibold text-cyan-200">{t('profile.phoneVerification')}</div>
+                <p className="mt-1 text-sm text-slate-300">
+                  {t('profile.phoneVerificationHelp')}
+                </p>
+                <div className="mt-3 space-y-2">
+                  <label className="block text-xs uppercase tracking-wide text-slate-400">{t('profile.phoneOtp')}</label>
+                  <input
+                    className="input"
+                    type="text"
+                    value={phoneOtp}
+                    onChange={(event) => setPhoneOtp(event.target.value)}
+                    placeholder={t('profile.enterOtp')}
+                  />
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button type="button" onClick={requestPhoneOtp} className="btn-primary" disabled={isSendingPhoneOtp || !phoneVerificationReady}>
+                    {isSendingPhoneOtp ? t('common.loading') : user?.phoneVerified ? t('profile.resendOtp') : t('profile.sendOtp')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={verifyPhoneOtp}
+                    className="btn-secondary"
+                    disabled={isVerifyingPhoneOtp || !phoneVerificationReady || !phoneOtp.trim()}
+                  >
+                    {isVerifyingPhoneOtp ? t('common.loading') : user?.phoneVerified ? t('profile.verified') : t('profile.verifyPhone')}
+                  </button>
+                  <span className="text-xs text-slate-400">{t('profile.current')}: {user?.phone || t('common.notAdded')}</span>
+                </div>
               </div>
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <button type="button" onClick={requestPhoneOtp} className="btn-primary" disabled={isSendingPhoneOtp || !phoneVerificationReady}>
-                  {isSendingPhoneOtp ? t('common.loading') : user?.phoneVerified ? t('profile.resendOtp') : t('profile.sendOtp')}
-                </button>
-                <button
-                  type="button"
-                  onClick={verifyPhoneOtp}
-                  className="btn-secondary"
-                  disabled={isVerifyingPhoneOtp || !phoneVerificationReady || !phoneOtp.trim()}
-                >
-                  {isVerifyingPhoneOtp ? t('common.loading') : user?.phoneVerified ? t('profile.verified') : t('profile.verifyPhone')}
-                </button>
-                <span className="text-xs text-slate-400">{t('profile.current')}: {user?.phone || t('common.notAdded')}</span>
-              </div>
-            </div>
+            ) : null}
           </section>
         </div>
       </div>

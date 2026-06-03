@@ -126,6 +126,24 @@ export default function JobDetailsPage() {
   const managedApplications = data?.applications || [];
   const isStaff = ['admin', 'superadmin', 'ledger'].includes(user?.role || '');
 
+  const openApplicationDestination = (destination?: string | null) => {
+    if (!destination || typeof window === 'undefined') return false;
+
+    try {
+      if (applicationWindowRef.current && !applicationWindowRef.current.closed) {
+        applicationWindowRef.current.location.href = destination;
+        applicationWindowRef.current.focus();
+        return true;
+      }
+    } catch {
+      // If the pre-opened window became inaccessible, fall back below.
+    }
+
+    const openedWindow = window.open(destination, '_blank', 'noopener,noreferrer');
+    applicationWindowRef.current = openedWindow;
+    return Boolean(openedWindow);
+  };
+
   useEffect(() => {
     if (userApplication?.status === 'redirected' && !applicationFlow) {
       const restoredFlow = {
@@ -183,14 +201,7 @@ export default function JobDetailsPage() {
     if (!applicationFlow || applicationFlow.phase !== 'countdown') return;
     if (applicationFlow.countdown <= 0) {
       const redirectUrl = applicationFlow.redirectUrl || job?.applicationUrl;
-      if (redirectUrl) {
-        if (applicationWindowRef.current && !applicationWindowRef.current.closed) {
-          applicationWindowRef.current.location.href = redirectUrl;
-          applicationWindowRef.current.focus();
-        } else {
-          window.open(redirectUrl, '_blank', 'noopener,noreferrer');
-        }
-      }
+      if (redirectUrl) openApplicationDestination(redirectUrl);
       setApplicationFlow((current) => current ? { ...current, phase: 'waiting', countdown: 0 } : current);
       return;
     }
@@ -224,12 +235,14 @@ export default function JobDetailsPage() {
         setUser({ ...user, xpPoints: response.xpPoints });
       }
       await refreshUser();
+      const redirectUrl = response.redirectUrl || job?.applicationUrl || null;
+      openApplicationDestination(redirectUrl);
       const applicationId = response.application?._id || userApplication?._id;
       setApplicationFlow({
         phase: 'countdown',
         countdown: 4,
         applicationId,
-        redirectUrl: response.redirectUrl || job?.applicationUrl || null,
+        redirectUrl,
         status: response.application?.status || 'redirected',
         jobTitle: job?.title,
         company: job?.company,
