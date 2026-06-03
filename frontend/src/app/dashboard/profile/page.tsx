@@ -111,7 +111,7 @@ export default function ProfilePage() {
     }
   };
 
-  const onSave = async (data: ProfileForm, notify = true) => {
+  const saveProfile = async (data: ProfileForm) => {
     try {
       const payload = {
         ...data,
@@ -124,10 +124,10 @@ export default function ProfilePage() {
         document.documentElement.lang = data.userLanguage;
       }
       await refreshUser();
-      if (notify) toast.success('Profile updated!');
+      toast.success('Profile updated!');
       return true;
     } catch {
-      if (notify) toast.error('Update failed');
+      toast.error('Update failed');
       return false;
     }
   };
@@ -219,10 +219,10 @@ export default function ProfilePage() {
       return;
     }
 
-    const saved = await onSave({
+    const saved = await saveProfile({
       ...currentValues,
       phone: trimmedPhone,
-    }, false);
+    });
     if (!saved) return;
 
     try {
@@ -251,10 +251,10 @@ export default function ProfilePage() {
       return;
     }
 
-    const saved = await onSave({
+    const saved = await saveProfile({
       ...currentValues,
       phone: trimmedPhone,
-    }, false);
+    });
     if (!saved) return;
 
     try {
@@ -386,7 +386,7 @@ export default function ProfilePage() {
             <p className="mt-1 text-sm text-slate-400">Update the public-facing profile information stored on your account.</p>
           </div>
 
-          <form onSubmit={handleSubmit(onSave)} className="space-y-5">
+          <form onSubmit={handleSubmit((data) => void saveProfile(data))} className="space-y-5">
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-300">Display Name</label>
               <input {...register('name')} className="input" placeholder="Your full display name" />
