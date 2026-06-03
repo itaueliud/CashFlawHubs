@@ -80,6 +80,17 @@ type ApplyResponse = {
 
 const STATUS_OPTIONS: JobApplicationStatus[] = ['applied', 'interviewing', 'offered', 'rejected', 'withdrawn'];
 
+type ApplicationFlowState = {
+  phase: 'idle' | 'countdown' | 'waiting';
+  countdown: number;
+  applicationId?: string;
+  redirectUrl?: string | null;
+  status?: JobApplicationStatus;
+  jobTitle?: string;
+  company?: string;
+  source?: string;
+};
+
 export default function JobDetailsPage() {
   const params = useParams<{ id?: string | string[]; slug?: string[] }>();
   const router = useRouter();
@@ -89,14 +100,9 @@ export default function JobDetailsPage() {
   const jobId = directId || slugId;
   const [coverLetter, setCoverLetter] = useState('');
   const [cvFile, setCvFile] = useState<File | null>(null);
-  const [applicationFlow, setApplicationFlow] = useState<{
-    phase: 'idle' | 'countdown' | 'waiting';
-    countdown: number;
-    applicationId?: string;
-    redirectUrl?: string | null;
-    status?: JobApplicationStatus;
-  } | null>(null);
+  const [applicationFlow, setApplicationFlow] = useState<ApplicationFlowState | null>(null);
   const { user, setUser, refreshUser, hasHydrated } = useAuthStore();
+  const flowStorageKey = jobId ? `cfh-job-application-flow:${jobId}` : '';
 
   useEffect(() => {
     if (!hasHydrated || !user || user.email) return;
@@ -120,15 +126,56 @@ export default function JobDetailsPage() {
 
   useEffect(() => {
     if (userApplication?.status === 'redirected' && !applicationFlow) {
-      setApplicationFlow({
+      const restoredFlow = {
         phase: 'waiting',
         countdown: 0,
         applicationId: userApplication._id,
         redirectUrl: job?.applicationUrl || null,
         status: 'redirected',
-      });
+        jobTitle: job?.title,
+        company: job?.company,
+        source: job?.source,
+      } as const;
+      setApplicationFlow(restoredFlow);
     }
   }, [applicationFlow, job?.applicationUrl, userApplication?._id, userApplication?.status]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !flowStorageKey) return;
+
+    if (applicationFlow) {
+      window.sessionStorage.setItem(flowStorageKey, JSON.stringify(applicationFlow));
+    } else {
+      window.sessionStorage.removeItem(flowStorageKey);
+    }
+  }, [applicationFlow, flowStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !flowStorageKey || applicationFlow || !job) return;
+
+    try {
+      const savedFlow = window.sessionStorage.getItem(flowStorageKey);
+      if (!savedFlow) return;
+      const parsed = JSON.parse(savedFlow) as Partial<ApplicationFlowState> | null;
+      if (!parsed || typeof parsed !== 'object') return;
+      if (parsed.phase !== 'countdown' && parsed.phase !== 'waiting') return;
+      const savedPhase = parsed.phase as 'countdown' | 'waiting';
+      if (parsed.applicationId) {
+        setApplicationFlow({
+          phase: savedPhase,
+          countdown: savedPhase === 'countdown' ? Math.max(Number(parsed.countdown) || 0, 0) : 0,
+          applicationId: parsed.applicationId,
+          redirectUrl: parsed.redirectUrl || job.applicationUrl || null,
+          status: parsed.status || 'redirected',
+          jobTitle: parsed.jobTitle || job.title,
+          company: parsed.company || job.company,
+          source: parsed.source || job.source,
+        });
+      }
+    } catch {
+      window.sessionStorage.removeItem(flowStorageKey);
+    }
+  }, [applicationFlow, flowStorageKey, job]);
 
   useEffect(() => {
     if (!applicationFlow || applicationFlow.phase !== 'countdown') return;
@@ -178,10 +225,13 @@ export default function JobDetailsPage() {
       const applicationId = response.application?._id || userApplication?._id;
       setApplicationFlow({
         phase: 'countdown',
-        countdown: 5,
+        countdown: 4,
         applicationId,
         redirectUrl: response.redirectUrl || job?.applicationUrl || null,
         status: response.application?.status || 'redirected',
+        jobTitle: job?.title,
+        company: job?.company,
+        source: job?.source,
       });
       setCoverLetter('');
       setCvFile(null);
@@ -255,6 +305,7 @@ export default function JobDetailsPage() {
   if ((applicationFlow || userApplication?.status === 'redirected') && job) {
     const waitingApplicationId = applicationFlow?.applicationId || userApplication?._id || '';
     const waitingStatus = applicationFlow?.status || userApplication?.status || 'redirected';
+    const waitingSource = applicationFlow?.source || job.source || 'the employer site';
     return (
       <div className="space-y-5 animate-fade-in max-w-4xl mx-auto">
         <button onClick={() => router.back()} className="text-sm text-slate-400 hover:text-white flex items-center gap-2">
@@ -267,12 +318,16 @@ export default function JobDetailsPage() {
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-500/10 text-2xl font-black text-emerald-300">
                 {applicationFlow.countdown}
               </div>
-              <h2 className="text-3xl font-black text-white">Taking you to the employer site</h2>
+              <h2 className="text-3xl font-black text-white">Application tracked on CashFlawHubs</h2>
               <p className="mt-3 text-sm text-slate-300">
-                We created the application, awarded your XP, and will open the external page in a few seconds.
+                You're being taken to complete your application at {waitingSource}. We already saved it to your dashboard.
               </p>
               <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
-                Please keep this tab open. Your waiting screen will be ready when you return.
+                Opening in {applicationFlow.countdown}...
+              </div>
+              <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-left text-sm text-amber-100">
+                <div className="font-semibold uppercase tracking-wide text-amber-200">Tip</div>
+                Once you apply there, come back here and confirm so we can track your status.
               </div>
             </div>
           </div>
@@ -291,8 +346,8 @@ export default function JobDetailsPage() {
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm text-slate-300">
                   {applicationFlow?.phase === 'countdown'
-                    ? 'We created the application record, awarded XP, and are taking you to the employer site in a moment.'
-                  : 'The application is redirected. Come back here when you finish, then confirm the result or update the status.'}
+                    ? `We created the application record, awarded XP, and are taking you to ${waitingSource} in a moment.`
+                  : `The application is redirected. Come back here when you finish on ${waitingSource}, then confirm the result or update the status.`}
                 </p>
               </div>
               <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-right">
@@ -310,8 +365,8 @@ export default function JobDetailsPage() {
             <div className="grid md:grid-cols-2 gap-4 text-sm">
               <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
                 <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">Job</div>
-                <div className="font-semibold text-white">{job.title}</div>
-                <div className="text-slate-400">{job.company}</div>
+                <div className="font-semibold text-white">{applicationFlow?.jobTitle || job.title}</div>
+                <div className="text-slate-400">{applicationFlow?.company || job.company}</div>
               </div>
               <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
                 <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">What happens next</div>

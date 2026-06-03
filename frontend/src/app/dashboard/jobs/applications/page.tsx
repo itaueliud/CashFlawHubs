@@ -7,6 +7,7 @@ import { ArrowLeft, Briefcase, CalendarDays, CheckCircle2, ExternalLink, Loader2
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import ApplicantEmailBadge from '@/components/ApplicantEmailBadge';
+import { useAuthStore } from '@/store/authStore';
 
 type JobApplicationStatus = 'redirected' | 'applied' | 'interviewing' | 'offered' | 'rejected' | 'withdrawn';
 
@@ -57,6 +58,8 @@ export default function JobApplicationsPage() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<'all' | JobApplicationStatus>('all');
   const [draftStatuses, setDraftStatuses] = useState<Record<string, JobApplicationStatus>>({});
+  const { user } = useAuthStore();
+  const isStaff = ['admin', 'superadmin', 'ledger'].includes(user?.role || '');
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['my-job-applications', page],
@@ -206,7 +209,7 @@ export default function JobApplicationsPage() {
                           Open job <ExternalLink size={14} />
                         </Link>
                       ) : null}
-                      {job?.applicationUrl ? (
+                      {isStaff && job?.applicationUrl ? (
                         <a href={job.applicationUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-slate-500 hover:text-white">
                           Source link <ExternalLink size={14} />
                         </a>

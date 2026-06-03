@@ -33,6 +33,8 @@ const STATUS_LABELS = {
 const APPLY_XP_REWARD = 25;
 const CONFIRM_XP_REWARD = 50;
 const OFFER_XP_BONUS = 75;
+const getCanonicalFrontendUrl = () =>
+  (process.env.CANONICAL_FRONTEND_URL || 'https://cashflowhubs.com').replace(/\/+$/, '');
 
 const escapeHtml = (value) => String(value || '')
   .replace(/&/g, '&amp;')
@@ -240,6 +242,118 @@ const sendApplicationConfirmationEmail = async ({ applicant, job, application })
     return true;
   } catch (error) {
     logger.warn(`Application confirmation email failed: ${error.message}`);
+    return false;
+  }
+};
+
+const sendApplicationStartedEmail = async ({ applicant, job, application }) => {
+  if (!applicant?.email) return false;
+
+  const appliedAt = application.appliedAt ? new Date(application.appliedAt).toLocaleString() : new Date().toLocaleString();
+  const sourceLabel = job.source || 'CashFlawHubs';
+  const viewApplicationsUrl = `${getCanonicalFrontendUrl()}/dashboard/jobs/applications`;
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;background:#f8fafc;padding:24px;">
+      <div style="max-width:720px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#0f172a,#14532d);color:#ffffff;padding:24px 28px;">
+          <div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.8;">CashFlawHubs</div>
+          <h2 style="margin:8px 0 0;font-size:28px;line-height:1.2;">You applied successfully</h2>
+          <p style="margin:8px 0 0;opacity:.9;">${escapeHtml(job.title)} at ${escapeHtml(job.company)}</p>
+        </div>
+        <div style="padding:28px;">
+          <p style="margin-top:0;">Hi ${escapeHtml(getApplicantDisplayName(applicant))},</p>
+          <p>We tracked your application and saved it on CashFlawHubs so you can confirm it, update it, and keep your job search organized.</p>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin:20px 0;">
+            <div style="flex:1;min-width:220px;padding:16px;border:1px solid #e5e7eb;border-radius:14px;background:#f8fafc;">
+              <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;">Role</div>
+              <div style="font-size:18px;font-weight:700;color:#0f172a;margin-top:4px;">${escapeHtml(job.title)}</div>
+            </div>
+            <div style="flex:1;min-width:220px;padding:16px;border:1px solid #e5e7eb;border-radius:14px;background:#f8fafc;">
+              <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;">Company</div>
+              <div style="font-size:18px;font-weight:700;color:#0f172a;margin-top:4px;">${escapeHtml(job.company)}</div>
+            </div>
+          </div>
+          <div style="padding:16px;border:1px solid #e5e7eb;border-radius:14px;background:#ecfdf5;color:#166534;margin-top:8px;">
+            <div style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;">Source</div>
+            <div style="font-size:18px;font-weight:700;margin-top:4px;">${escapeHtml(sourceLabel)}</div>
+            <div style="font-size:12px;margin-top:6px;">Applied ${escapeHtml(appliedAt)}</div>
+          </div>
+          <div style="margin-top:22px;padding:16px;border-radius:14px;background:#f8fafc;border:1px solid #e5e7eb;">
+            <p style="margin:0 0 10px;"><strong>What's next:</strong></p>
+            <ul style="margin:0;padding-left:18px;color:#334155;">
+              <li>Return to CashFlawHubs and confirm once you finish.</li>
+              <li>Update the status as you hear back from the employer.</li>
+              <li>Track every application from your My Applications dashboard.</li>
+            </ul>
+          </div>
+          <div style="margin-top:22px;">
+            <a href="${viewApplicationsUrl}" style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:12px;">View My Applications</a>
+          </div>
+          <p style="margin-top:20px;margin-bottom:0;color:#475569;">Good luck,<br/>The CashFlawHubs Team</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  try {
+    await sendgridClient.sendEmail({
+      to: applicant.email,
+      subject: `✅ You applied to ${job.title} at ${job.company} via CashFlawHubs`,
+      html,
+    });
+    return true;
+  } catch (error) {
+    logger.warn(`Application started email failed: ${error.message}`);
+    return false;
+  }
+};
+
+const sendApplicationReminderEmail = async ({ applicant, job, application, delayHours }) => {
+  if (!applicant?.email) return false;
+
+  const viewApplicationsUrl = `${getCanonicalFrontendUrl()}/dashboard/jobs/applications`;
+  const is24h = Number(delayHours) === 24;
+  const subject = is24h
+    ? '⏰ Did you finish your application? — CashFlawHubs'
+    : `📬 Any news from ${job.company}? Update your tracker`;
+  const title = is24h ? 'Did you finish your application?' : `Any updates from ${job.company}?`;
+  const body = is24h
+    ? `You started an application yesterday for ${job.title} at ${job.company}. Did you complete it?`
+    : `It's been 7 days since you applied to ${job.title} at ${job.company}. Update your application tracker so your board stays current.`;
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;background:#f8fafc;padding:24px;">
+      <div style="max-width:720px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#0f172a,#14532d);color:#ffffff;padding:24px 28px;">
+          <div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.8;">CashFlawHubs</div>
+          <h2 style="margin:8px 0 0;font-size:28px;line-height:1.2;">${escapeHtml(title)}</h2>
+          <p style="margin:8px 0 0;opacity:.9;">${escapeHtml(job.title)} at ${escapeHtml(job.company)}</p>
+        </div>
+        <div style="padding:28px;">
+          <p style="margin-top:0;">Hi ${escapeHtml(getApplicantDisplayName(applicant))},</p>
+          <p>${escapeHtml(body)}</p>
+          <div style="padding:16px;border:1px solid #e5e7eb;border-radius:14px;background:#f8fafc;">
+            <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;">Application status</div>
+            <div style="font-size:18px;font-weight:700;color:#0f172a;margin-top:4px;">${escapeHtml(statusToLabel(application.status))}</div>
+            <div style="font-size:12px;color:#64748b;margin-top:6px;">Open your dashboard to keep it current.</div>
+          </div>
+          <div style="margin-top:22px;">
+            <a href="${viewApplicationsUrl}" style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:12px;">Update Status</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  try {
+    await sendgridClient.sendEmail({
+      to: applicant.email,
+      subject,
+      html,
+    });
+    return true;
+  } catch (error) {
+    logger.warn(`Application reminder email failed: ${error.message}`);
     return false;
   }
 };
@@ -755,6 +869,7 @@ exports.applyToJob = async (req, res) => {
 
     const xpAwarded = APPLY_XP_REWARD;
     const updatedUser = await bumpUserXp(req.user.id, xpAwarded);
+    const emailSent = await sendApplicationStartedEmail({ applicant: applicantProfile, job, application });
 
     try {
       await JobApplication.findByIdAndUpdate(application._id, {
@@ -768,8 +883,8 @@ exports.applyToJob = async (req, res) => {
       await createApplicationNotification({
         userId: req.user.id,
         type: 'job_application',
-        title: 'Application started',
-        message: `Your application for ${job.title} at ${job.company} is now live. Open CashFlawHubs later to confirm it, update the status, or withdraw it.`,
+        title: 'Application tracked',
+        message: `You applied to "${job.title}" at ${job.company}. Complete it on ${job.source || 'the employer site'} and come back to confirm.`,
         dedupeKey: `job-application:${application._id}:redirected`,
         metadata: {
           jobId: job._id.toString(),
@@ -789,7 +904,7 @@ exports.applyToJob = async (req, res) => {
       tokenBalance,
       xpEarned: xpAwarded,
       xpPoints: updatedUser?.xpPoints ?? req.user.xpPoints ?? null,
-      emailSent: false,
+      emailSent,
       redirectUrl: job.applicationUrl || null,
       application: {
         ...application.toObject(),
@@ -1024,12 +1139,8 @@ exports.processJobApplicationReminders = async () => {
       await createApplicationNotification({
         userId: applicant._id,
         type: 'job_reminder',
-        title: 'Application reminder',
-        message: buildApplicationReminderMessage({
-          jobTitle: job.title,
-          company: job.company,
-          delayLabel: '24-hour',
-        }),
+        title: 'Did you finish your application?',
+        message: `You started applying to "${job.title}" at ${job.company} yesterday. Mark it as done to keep your tracker accurate.`,
         dedupeKey: `job-application-reminder:${application._id}:24h`,
         metadata: {
           applicationId: application._id.toString(),
@@ -1038,6 +1149,12 @@ exports.processJobApplicationReminders = async () => {
           status: normalizedStatus,
         },
       });
+      await sendApplicationReminderEmail({
+        applicant,
+        job,
+        application,
+        delayHours: 24,
+      });
       application.reminder24SentAt = new Date();
     }
 
@@ -1045,8 +1162,8 @@ exports.processJobApplicationReminders = async () => {
       await createApplicationNotification({
         userId: applicant._id,
         type: 'job_reminder',
-        title: 'Status nudge',
-        message: `Seven days have passed since you started applying for ${job.title} at ${job.company}. Update the status in CashFlawHubs so your dashboard stays accurate.`,
+        title: `Any updates from ${job.company}?`,
+        message: `It's been a week since you applied to "${job.title}" at ${job.company}. Update your tracker so your board stays current.`,
         dedupeKey: `job-application-reminder:${application._id}:7d`,
         metadata: {
           applicationId: application._id.toString(),
@@ -1054,6 +1171,12 @@ exports.processJobApplicationReminders = async () => {
           delayDays: 7,
           status: normalizedStatus,
         },
+      });
+      await sendApplicationReminderEmail({
+        applicant,
+        job,
+        application,
+        delayHours: 7 * 24,
       });
       application.reminder7SentAt = new Date();
     }
