@@ -107,8 +107,10 @@ export default function JobDetailsPage() {
   const [trackingEmail, setTrackingEmail] = useState('');
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [applicationFlow, setApplicationFlow] = useState<ApplicationFlowState | null>(null);
+  const [handoffDismissed, setHandoffDismissed] = useState(false);
   const { user, setUser, refreshUser, hasHydrated } = useAuthStore();
   const flowStorageKey = jobId ? `cfh-job-application-flow:${jobId}` : '';
+  const dismissedFlowKey = jobId ? `cfh-job-handoff-dismissed:${jobId}` : '';
 
   useEffect(() => {
     if (!hasHydrated || !user || user.email) return;
@@ -130,8 +132,32 @@ export default function JobDetailsPage() {
   const managedApplications = data?.applications || [];
   const isStaff = ['admin', 'superadmin', 'ledger'].includes(user?.role || '');
   const isExternalJob = Boolean(job?.source && job.source !== 'internal');
-  const shouldShowRedirectFlow = Boolean(isExternalJob && (applicationFlow || userApplication?.status === 'redirected'));
+  const shouldShowRedirectFlow = Boolean(isExternalJob && !handoffDismissed && (applicationFlow || userApplication?.status === 'redirected'));
   const isValidEmail = (value: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim().toLowerCase());
+
+  const closeExternalWindow = () => {
+    try {
+      if (applicationWindowRef.current && !applicationWindowRef.current.closed) {
+        applicationWindowRef.current.close();
+      }
+    } catch {
+      // Ignore popup window cleanup failures.
+    }
+    applicationWindowRef.current = null;
+  };
+
+  const clearRedirectHandoff = (options?: { keepOnPage?: boolean }) => {
+    closeExternalWindow();
+    if (typeof window !== 'undefined') {
+      if (flowStorageKey) window.sessionStorage.removeItem(flowStorageKey);
+      if (dismissedFlowKey) window.sessionStorage.setItem(dismissedFlowKey, '1');
+    }
+    setHandoffDismissed(true);
+    setApplicationFlow(null);
+    if (!options?.keepOnPage) {
+      router.push('/dashboard/jobs/applications');
+    }
+  };
 
   const openApplicationDestination = (destination?: string | null) => {
     if (!destination || typeof window === 'undefined') return false;
@@ -153,6 +179,14 @@ export default function JobDetailsPage() {
 
   useEffect(() => {
     if (isExternalJob && userApplication?.status === 'redirected' && !applicationFlow) {
+      if (typeof window !== 'undefined' && dismissedFlowKey) {
+        const dismissed = window.sessionStorage.getItem(dismissedFlowKey) === '1';
+        if (dismissed) {
+          setHandoffDismissed(true);
+          return;
+        }
+      }
+
       const restoredFlow = {
         phase: 'waiting',
         countdown: 0,
@@ -165,7 +199,7 @@ export default function JobDetailsPage() {
       } as const;
       setApplicationFlow(restoredFlow);
     }
-  }, [applicationFlow, isExternalJob, job?.applicationUrl, userApplication?._id, userApplication?.status]);
+  }, [applicationFlow, dismissedFlowKey, isExternalJob, job?.applicationUrl, userApplication?._id, userApplication?.status]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !flowStorageKey) return;
@@ -203,6 +237,12 @@ export default function JobDetailsPage() {
       window.sessionStorage.removeItem(flowStorageKey);
     }
   }, [applicationFlow, flowStorageKey, job]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !dismissedFlowKey) return;
+    const dismissed = window.sessionStorage.getItem(dismissedFlowKey) === '1';
+    setHandoffDismissed(dismissed);
+  }, [dismissedFlowKey]);
 
   useEffect(() => {
     if (!shouldShowRedirectFlow || !applicationFlow || applicationFlow.phase !== 'countdown') return;
@@ -296,6 +336,9 @@ export default function JobDetailsPage() {
         setUser({ ...user, xpPoints: (user.xpPoints || 0) + response.xpEarned });
       }
       await refreshUser();
+      if (updateStatusMutation.variables?.status === 'applied') {
+        clearRedirectHandoff({ keepOnPage: true });
+      }
       if (updateStatusMutation.variables?.status === 'applied') {
         setApplicationFlow(null);
       }
@@ -448,13 +491,17 @@ export default function JobDetailsPage() {
                 type="button"
                 onClick={() => {
                   toast.success(t('jobs.detail.flow.savedReminder'));
-                  setApplicationFlow((current) => current ? { ...current, phase: 'waiting', countdown: 0 } : current);
+                  clearRedirectHandoff();
                 }}
                 className="btn-secondary inline-flex items-center gap-2"
               >
                 <ArrowLeft size={16} /> {t('jobs.detail.flow.later')}
               </button>
-              <Link href="/dashboard/jobs/applications" className="btn-secondary inline-flex items-center gap-2">
+              <Link
+                href="/dashboard/jobs/applications"
+                onClick={() => clearRedirectHandoff({ keepOnPage: true })}
+                className="btn-secondary inline-flex items-center gap-2"
+              >
                 <ExternalLink size={16} /> {t('jobs.detail.flow.viewApplications')}
               </Link>
             </div>

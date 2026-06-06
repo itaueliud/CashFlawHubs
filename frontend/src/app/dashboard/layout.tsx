@@ -44,9 +44,9 @@ const BASE_NAV = [
   { href: '/dashboard/ads-network', icon: Radio, labelKey: 'nav.adsNetwork' },
   { href: '/dashboard/offerwalls', icon: Gift, labelKey: 'nav.offerwalls' },
   { href: '/dashboard/cash-tasks', icon: TrendingUp, labelKey: 'nav.cashTasks' },
-  { href: '/dashboard/referrals', icon: Star, labelKey: 'nav.referralEarnings' },
+  { href: '/dashboard/referrals', icon: Star, labelKey: 'nav.referAndEarn' },
   { href: '/dashboard/chat', icon: MessagesSquare, labelKey: 'nav.jobChats' },
-  { href: '/dashboard#daily-challenges', icon: Trophy, labelKey: 'nav.dailyChallenges' },
+  { href: '/dashboard/challenges', icon: Trophy, labelKey: 'nav.dailyChallenges' },
   { href: '/dashboard/wallet', icon: Wallet, labelKey: 'nav.wallet' },
   { href: '/dashboard/profile', icon: User, labelKey: 'nav.profile' },
 ];

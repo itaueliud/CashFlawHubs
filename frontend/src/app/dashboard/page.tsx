@@ -1,9 +1,8 @@
 'use client';
 import { useEffect } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
-import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import {
@@ -27,13 +26,12 @@ const QUICK_ACTIONS = [
   { href: '/dashboard/ads-network', icon: Radio, labelKey: 'nav.adsNetwork', color: 'bg-cyan-500/20 text-cyan-400', descKey: 'dashboard.adsNetworkDesc' },
   { href: '/dashboard/offerwalls', icon: Gift, labelKey: 'nav.offerwalls', color: 'bg-pink-500/20 text-pink-400', descKey: 'dashboard.offerwallsDesc' },
   { href: '/dashboard/cash-tasks', icon: TrendingUp, labelKey: 'nav.cashTasks', color: 'bg-orange-500/20 text-orange-400', descKey: 'dashboard.cashTasksDesc' },
-  { href: '/dashboard/referrals', icon: Star, labelKey: 'nav.referralEarnings', color: 'bg-green-500/20 text-green-400', descKey: 'dashboard.referralsDesc' },
-  { href: '/dashboard#daily-challenges', icon: Trophy, labelKey: 'nav.dailyChallenges', color: 'bg-amber-500/20 text-amber-400', descKey: 'dashboard.dailyChallengesDesc' },
+  { href: '/dashboard/referrals', icon: Star, labelKey: 'nav.referAndEarn', color: 'bg-green-500/20 text-green-400', descKey: 'dashboard.referralsDesc' },
+  { href: '/dashboard/challenges', icon: Trophy, labelKey: 'nav.dailyChallenges', color: 'bg-amber-500/20 text-amber-400', descKey: 'dashboard.dailyChallengesDesc' },
 ];
 
 export default function DashboardPage() {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const { user, refreshUser } = useAuthStore();
   const isRealUser = user?.role === 'user' && (user?.userAccessType || 'real') === 'real';
   const blockedForRealUser = new Set(['/dashboard/surveys', '/dashboard/tasks', '/dashboard/ads-network', '/dashboard/offerwalls']);
@@ -42,28 +40,6 @@ export default function DashboardPage() {
     queryKey: ['wallet'],
     queryFn: () => api.get('/wallet').then((r) => r.data.wallet),
     refetchInterval: 30000,
-  });
-
-  const { data: challengesData } = useQuery({
-    queryKey: ['challenges'],
-    queryFn: () => api.get('/challenges/daily').then((r) => r.data.challenges),
-  });
-
-  const claimChallengeMutation = useMutation({
-    mutationFn: async (challengeId: string) => {
-      const response = await api.post(`/challenges/${challengeId}/claim`);
-      return response.data;
-    },
-    onSuccess: (payload) => {
-      toast.success(payload?.message || 'Challenge reward claimed');
-      queryClient.invalidateQueries({ queryKey: ['challenges'] });
-      queryClient.invalidateQueries({ queryKey: ['wallet'] });
-      queryClient.invalidateQueries({ queryKey: ['recent-tx'] });
-      refreshUser();
-    },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Unable to claim challenge reward');
-    },
   });
 
   const { data: txData } = useQuery({
@@ -76,7 +52,6 @@ export default function DashboardPage() {
   }, [refreshUser]);
 
   const wallet = walletData || {};
-  const challenges = challengesData || [];
   const transactions = txData || [];
 
   const chartData = [
@@ -177,45 +152,24 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {challenges.length > 0 && (
-        <div id="daily-challenges">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-lg flex items-center gap-2"><Trophy size={18} className="text-yellow-400" /> {t('dashboard.dailyChallenges')}</h2>
-            <span className="text-xs text-slate-400">{t('dashboard.resetsAtMidnight')}</span>
+      <div className="rounded-[1.75rem] border border-amber-500/15 bg-gradient-to-br from-amber-950/50 via-slate-950 to-slate-900 p-5 shadow-xl shadow-amber-950/10">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-amber-300">
+              <Trophy size={18} />
+              <span className="text-sm font-semibold uppercase tracking-[0.16em]">{t('dashboard.dailyChallenges')}</span>
+            </div>
+            <p className="mt-2 text-sm text-slate-300">{t('dashboard.dailyChallengesDesc')}</p>
           </div>
-          <div className="grid md:grid-cols-2 gap-3">
-            {challenges.filter((challenge: any) => challenge.resetDaily !== false).slice(0, 4).map((challenge: any) => (
-              <div key={challenge._id} className="card">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="font-medium text-sm">{challenge.title}</div>
-                  <div className="badge-blue">+{challenge.xpReward} XP</div>
-                </div>
-                <p className="text-xs text-slate-400 mb-3">{challenge.description}</p>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-slate-700 rounded-full h-1.5">
-                    <div
-                      className="bg-green-500 h-1.5 rounded-full transition-all"
-                      style={{ width: `${Math.min((challenge.progress / challenge.targetCount) * 100, 100)}%` }}
-                    />
-                  </div>
-                  <span className="text-xs text-slate-400">{challenge.progress}/{challenge.targetCount}</span>
-                  {challenge.completed && !challenge.rewardClaimed && (
-                    <button
-                      type="button"
-                      className="btn-primary text-xs py-1 px-2 disabled:opacity-50"
-                      disabled={claimChallengeMutation.isPending}
-                      onClick={() => claimChallengeMutation.mutate(challenge._id)}
-                    >
-                      {t('common.claim')}
-                    </button>
-                  )}
-                  {challenge.rewardClaimed && <span className="text-xs text-green-400">{t('common.claimed')}</span>}
-                </div>
-              </div>
-            ))}
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-400">{t('dashboard.resetsAtMidnight')}</span>
+            <Link href="/dashboard/challenges" className="btn-primary text-sm inline-flex items-center gap-2">
+              {t('common.viewAll')}
+              <Trophy size={14} />
+            </Link>
           </div>
         </div>
-      )}
+      </div>
 
       {transactions.length > 0 && (
         <div>

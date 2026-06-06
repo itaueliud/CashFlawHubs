@@ -16,7 +16,7 @@ export default function ReferralsPage() {
   return (
     <div className="space-y-6">
       <div className="rounded-[2rem] border border-emerald-500/20 bg-gradient-to-br from-emerald-950 via-slate-950 to-slate-900 p-6 shadow-2xl shadow-emerald-950/20">
-        <h1 className="text-2xl font-black">Referral Earnings</h1>
+        <h1 className="text-2xl font-black">Refer and Earn</h1>
         <p className="text-slate-300 text-sm mt-1">Earn 200 KES for every activated referral</p>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
