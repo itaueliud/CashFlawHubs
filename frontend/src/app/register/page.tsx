@@ -793,7 +793,6 @@ function RegisterPageContent() {
               <div className="flex items-start gap-3">
                 <Globe2 className="mt-0.5 text-emerald-400" size={18} />
                 <div>
-                  <div className="font-semibold text-white">{copy.summaryCountryCode}</div>
                   <div className="text-slate-400">{phoneCountry.dialCode}</div>
                 </div>
               </div>
@@ -1017,10 +1016,10 @@ function RegisterPageContent() {
           </div>
           {step === 6 && (
             <div className="flex flex-wrap items-center gap-4">
-              <Link href="/about" target="_blank" rel="noreferrer" className="hover:text-white">
+              <Link href="/about" className="hover:text-white">
                 About CashFlowHubs
               </Link>
-              <Link href="/terms" target="_blank" rel="noreferrer" className="hover:text-white">
+              <Link href="/terms" className="hover:text-white">
                 Terms & Conditions
               </Link>
             </div>
