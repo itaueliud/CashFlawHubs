@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Shield, ShieldCheck, Users, Landmark, ArrowRight } from 'lucide-react';
+import { Shield, ShieldCheck, Users, Landmark, ArrowRight, Trophy } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
 export default function AdminWorkspacePage() {
@@ -61,6 +61,13 @@ export default function AdminWorkspacePage() {
           <ShieldCheck className="text-blue-300" />
           <div className="mt-4 text-xl font-bold text-white">Admins</div>
           <p className="mt-2 text-sm text-slate-400">Create admin accounts and manage the superadmin hierarchy.</p>
+          <div className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-300">Open <ArrowRight size={14} /></div>
+        </Link>
+
+        <Link href="/dashboard/admin/challenges" className="rounded-[1.5rem] border border-blue-500/10 bg-slate-900/90 p-5 transition hover:-translate-y-1 hover:border-blue-400/30">
+          <Trophy className="text-blue-300" />
+          <div className="mt-4 text-xl font-bold text-white">Challenges</div>
+          <p className="mt-2 text-sm text-slate-400">Create, edit, and activate daily or milestone challenges.</p>
           <div className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-300">Open <ArrowRight size={14} /></div>
         </Link>
       </div>

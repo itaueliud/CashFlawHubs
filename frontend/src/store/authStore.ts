@@ -95,6 +95,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        api.post('/auth/logout').catch(() => {});
         set({ user: null, token: null });
         delete api.defaults.headers.common['Authorization'];
       },

@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { protect, adminOnly, staffOnly, ledgerOrSuperadminOnly } = require('../middleware/auth');
+const { protect, staffOnly, ledgerOrSuperadminOnly } = require('../middleware/auth');
+const requireAdmin = require('../middleware/requireAdmin');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
+const Challenge = require('../models/Challenge').Challenge;
 const { COUNTRIES } = require('../config/countries');
 const { HYBRID_PAYMENT_STACK, PROVIDER_STATUS } = require('../config/paymentStack');
 const Wallet = require('../models/Wallet');
@@ -156,7 +158,7 @@ const providerConfigs = {
   },
 };
 
-router.get('/stats', protect, adminOnly, async (req, res) => {
+router.get('/stats', protect, requireAdmin, async (req, res) => {
   const [totalUsers, activeUsers, totalTransactions] = await Promise.all([
     User.countDocuments(),
     User.countDocuments({ activationStatus: true }),
@@ -165,11 +167,8 @@ router.get('/stats', protect, adminOnly, async (req, res) => {
   res.json({ success: true, stats: { totalUsers, activeUsers, totalTransactions } });
 });
 
-router.get('/users', protect, staffOnly, async (req, res) => {
+router.get('/users', protect, requireAdmin, async (req, res) => {
   try {
-    if (!['admin', 'superadmin'].includes(req.user.role)) {
-      return res.status(403).json({ success: false, message: 'Admin access required' });
-    }
     const { page = 1, limit = 50, search = '', role = '', banned = '' } = req.query;
     const safePage = Math.max(Number(page) || 1, 1);
     const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
@@ -218,10 +217,7 @@ router.get('/users', protect, staffOnly, async (req, res) => {
   }
 });
 
-router.put('/users/:id/ban', protect, staffOnly, async (req, res) => {
-  if (!['admin', 'superadmin'].includes(req.user.role)) {
-    return res.status(403).json({ success: false, message: 'Admin access required' });
-  }
+router.put('/users/:id/ban', protect, requireAdmin, async (req, res) => {
   const targetUser = await User.findById(req.params.id);
   if (!targetUser) {
     return res.status(404).json({ success: false, message: 'User not found' });
@@ -238,10 +234,7 @@ router.put('/users/:id/ban', protect, staffOnly, async (req, res) => {
   res.json({ success: true, user });
 });
 
-router.put('/users/:id/unban', protect, staffOnly, async (req, res) => {
-  if (!['admin', 'superadmin'].includes(req.user.role)) {
-    return res.status(403).json({ success: false, message: 'Admin access required' });
-  }
+router.put('/users/:id/unban', protect, requireAdmin, async (req, res) => {
   const targetUser = await User.findById(req.params.id);
   if (!targetUser) {
     return res.status(404).json({ success: false, message: 'User not found' });
@@ -257,7 +250,7 @@ router.put('/users/:id/unban', protect, staffOnly, async (req, res) => {
   res.json({ success: true, user });
 });
 
-router.put('/users/:id/assign', protect, adminOnly, async (req, res) => {
+router.put('/users/:id/assign', protect, requireAdmin, async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ success: false, message: 'Admin access required' });
   }
@@ -354,10 +347,7 @@ router.put('/admins/:id/unban', protect, ledgerOrSuperadminOnly, async (req, res
   res.json({ success: true, admin });
 });
 
-router.put('/users/:id/reset-password', protect, staffOnly, async (req, res) => {
-  if (!['admin', 'superadmin'].includes(req.user.role)) {
-    return res.status(403).json({ success: false, message: 'Admin access required' });
-  }
+router.put('/users/:id/reset-password', protect, requireAdmin, async (req, res) => {
   const { newPassword } = req.body;
   if (!newPassword || String(newPassword).length < 8) {
     return res.status(400).json({ success: false, message: 'New password must be at least 8 characters' });
@@ -376,10 +366,7 @@ router.put('/users/:id/reset-password', protect, staffOnly, async (req, res) => 
   res.json({ success: true, message: 'Password updated successfully' });
 });
 
-router.put('/users/:id/access-type', protect, staffOnly, async (req, res) => {
-  if (!['admin', 'superadmin'].includes(req.user.role)) {
-    return res.status(403).json({ success: false, message: 'Admin access required' });
-  }
+router.put('/users/:id/access-type', protect, requireAdmin, async (req, res) => {
 
   const accessType = String(req.body?.userAccessType || '').trim().toLowerCase();
   if (!['real', 'test'].includes(accessType)) {
@@ -564,12 +551,66 @@ router.post('/ledger/payouts/execute', protect, ledgerOrSuperadminOnly, async (r
   }
 });
 
-router.get('/tasks', protect, adminOnly, async (req, res) => {
-  const tasks = await require('../models/Challenge').Challenge.find().sort({ createdAt: -1 });
+router.get('/tasks', protect, requireAdmin, async (req, res) => {
+  const tasks = await Challenge.find().sort({ createdAt: -1 });
   res.json({ success: true, tasks });
 });
 
-router.get('/provider-health', protect, adminOnly, async (req, res) => {
+router.get('/challenges', protect, requireAdmin, async (req, res) => {
+  try {
+    const challenges = await Challenge.find().sort({ resetDaily: -1, sortOrder: 1, createdAt: -1 });
+    res.json({ success: true, challenges });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/challenges', protect, requireAdmin, async (req, res) => {
+  try {
+    const payload = {
+      ...req.body,
+      isActive: req.body?.isActive !== false,
+      isDaily: req.body?.isDaily !== false,
+      resetDaily: req.body?.resetDaily !== false,
+      expiresAt: req.body?.expiresAt || null,
+    };
+    const challenge = await Challenge.create(payload);
+    res.status(201).json({ success: true, challenge });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+router.patch('/challenges/:id', protect, requireAdmin, async (req, res) => {
+  try {
+    const updates = { ...req.body };
+    if (updates.expiresAt === '') updates.expiresAt = null;
+    const challenge = await Challenge.findByIdAndUpdate(req.params.id, updates, {
+      new: true,
+      runValidators: true,
+    });
+    if (!challenge) {
+      return res.status(404).json({ success: false, message: 'Challenge not found' });
+    }
+    res.json({ success: true, challenge });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+router.delete('/challenges/:id', protect, requireAdmin, async (req, res) => {
+  try {
+    const challenge = await Challenge.findByIdAndDelete(req.params.id);
+    if (!challenge) {
+      return res.status(404).json({ success: false, message: 'Challenge not found' });
+    }
+    res.json({ success: true, message: 'Challenge deleted' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/provider-health', protect, requireAdmin, async (req, res) => {
   const providers = Object.entries(providerConfigs).map(([key, config]) => {
     const required = config.required.map(([name, value]) => ({ name, configured: truthy(value) }));
     const recommended = config.recommended.map(([name, value]) => ({ name, configured: truthy(value) }));

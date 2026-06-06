@@ -1,7 +1,8 @@
 import { config, logger, metrics, startTelemetry } from "@platform/core";
-import { getJobById, listJobsForPublish, markExpiredJobs } from "@platform/db";
+import { getJobById, markExpiredJobs } from "@platform/db";
 import { queues, Worker } from "@platform/queue";
 import type { Job } from "bullmq";
+import { fetchAllRemoteJobs } from "@platform/scrapers";
 
 const publishRow = async (row: Record<string, unknown>): Promise<void> => {
   const res = await fetch(`${config.websiteApiBaseUrl}/jobs/sync`, {
@@ -30,26 +31,40 @@ const worker = new Worker("publish", async (job: Job) => {
   concurrency: config.publishConcurrency,
 });
 
-// Safety net for small/low-memory deployments: periodically publish a small batch of recent jobs
-// even if the queue-based pipeline is slow or stalled.
-const SAFETY_PUBLISH_EVERY_MS = Number(process.env.SAFETY_PUBLISH_EVERY_MS || 60_000);
-const SAFETY_PUBLISH_LIMIT = Number(process.env.SAFETY_PUBLISH_LIMIT || 15);
-const SAFETY_PUBLISH_HOURS_BACK = Number(process.env.SAFETY_PUBLISH_HOURS_BACK || 48);
-
-setInterval(async () => {
-  try {
-    const batch = await listJobsForPublish(SAFETY_PUBLISH_LIMIT, SAFETY_PUBLISH_HOURS_BACK);
-    for (const row of batch) {
-      try {
-        await publishRow(row);
-      } catch (err) {
-        logger.warn({ err }, "safety publish failed");
-      }
-    }
-  } catch (err) {
-    logger.warn({ err }, "safety publish batch failed");
+const chunkJobs = <T,>(items: T[], size: number): T[][] => {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
   }
-}, SAFETY_PUBLISH_EVERY_MS).unref();
+  return chunks;
+};
+
+const publishRemoteJobs = async (): Promise<void> => {
+  const jobs = await fetchAllRemoteJobs();
+  if (jobs.length === 0) {
+    logger.info("No remote jobs found to publish");
+    return;
+  }
+
+  logger.info({ count: jobs.length }, "publishing remote jobs in bulk");
+  for (const chunk of chunkJobs(jobs, 50)) {
+    const response = await fetch(`${config.websiteApiBaseUrl}/api/internal/jobs/bulk-import`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        apiKey: config.websiteApiKey,
+        jobs: chunk,
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(`bulk publish failed: ${response.status}${body ? ` ${body.slice(0, 300)}` : ""}`);
+    }
+  }
+
+  logger.info({ count: jobs.length }, "remote jobs published");
+};
 
 setInterval(async () => {
   const expired = await markExpiredJobs(72);
@@ -61,6 +76,12 @@ setInterval(async () => {
     });
   }
 }, 60_000);
+
+const REMOTE_JOB_PUBLISH_EVERY_MS = Number(process.env.REMOTE_JOB_PUBLISH_EVERY_MS || 24 * 60 * 60 * 1000);
+void publishRemoteJobs().catch((err) => logger.warn({ err }, "initial remote publish failed"));
+setInterval(() => {
+  void publishRemoteJobs().catch((err) => logger.warn({ err }, "remote publish failed"));
+}, REMOTE_JOB_PUBLISH_EVERY_MS).unref();
 
 worker.on("failed", (job: Job | undefined, err: Error) => logger.error({ jobId: job?.id, err }, "publish failed"));
 startTelemetry();

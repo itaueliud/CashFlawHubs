@@ -5,6 +5,7 @@ const JobApplication = require('../models/JobApplication');
 const User = require('../models/User');
 const { generateReply } = require('../services/aiService');
 const { retrieveRelevantContext } = require('../services/vectorStore');
+const { trackEvent } = require('../services/eventTracker');
 
 const asObjectIdString = (value) => String(value || '');
 
@@ -191,6 +192,7 @@ exports.sendChatMessage = async (req, res) => {
     session.lastMessageAt = new Date();
     session.lastMessagePreview = String(content).slice(0, 140);
     await session.save();
+    await trackEvent(userId, 'chat_message');
     const io = req.app.get('io');
     if (io) {
       io.to(`chat:${session._id}`).emit('chat:message', { sessionId: session._id, message });

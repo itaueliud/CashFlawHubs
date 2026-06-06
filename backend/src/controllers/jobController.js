@@ -6,6 +6,7 @@ const Transaction = require('../models/Transaction');
 const { getRedis } = require('../config/redis');
 const logger = require('../utils/logger');
 const { JOB_APPLICATION_TOKEN_TIERS, TOKEN_PACKAGES, JOB_POSTING_TOKEN_COST, getApplicationTokenCost } = require('../config/monetization');
+const { trackEvent } = require('../services/eventTracker');
 const rssParser = new Parser();
 const DEFAULT_JOB_CATEGORIES = [
   'Software Development',
@@ -30,6 +31,24 @@ const DEFAULT_JOB_CATEGORIES = [
   'Other',
 ];
 const { discoverApplicationContact } = require('../utils/jobContact');
+const INTERNAL_JOB_SOURCE = 'internal';
+const JOB_APPLICATION_STATUS_DESCRIPTIONS = {
+  redirected: 'External application tracked. Responses and recruiter feedback go to the email you entered.',
+  applied: 'Applied on CashFlawHubs. The owner can now move this application to interviewing, offered, or rejected.',
+  interviewing: 'The owner has started a conversation with this applicant.',
+  offered: 'The application passed interview and an offer was issued.',
+  rejected: 'The application was not successful.',
+  withdrawn: 'The applicant cancelled this application.',
+};
+const getJobApplicationStatusDescription = (status, source, trackingEmail) => {
+  const normalized = normalizeJobApplicationStatus(status);
+  if (normalized === 'redirected' && String(source || '').trim() !== INTERNAL_JOB_SOURCE) {
+    return trackingEmail
+      ? `External application tracked. We’ll email feedback to ${trackingEmail}.`
+      : JOB_APPLICATION_STATUS_DESCRIPTIONS.redirected;
+  }
+  return JOB_APPLICATION_STATUS_DESCRIPTIONS[normalized] || 'Application status updated.';
+};
 const normalizeJobApplicationStatus = (status) => {
   const normalized = String(status || '').trim().toLowerCase();
   if (normalized === 'submitted') return 'redirected';
@@ -682,6 +701,8 @@ exports.createJobPosting = async (req, res) => {
       },
     });
 
+    await trackEvent(user._id, 'job_post');
+
     res.status(201).json({
       success: true,
       job,
@@ -731,7 +752,7 @@ exports.getJob = async (req, res) => {
       JobApplication.findOne({
         jobId: job._id,
         userId: req.user.id,
-      }).select('status appliedAt createdAt updatedAt tokenCost applicantEmailSent reminder24At reminder7At redirectedAt appliedConfirmedAt'),
+      }).select('status appliedAt createdAt updatedAt tokenCost applicantEmailSent reminder24At reminder7At redirectedAt appliedConfirmedAt trackingEmail applicationKind'),
       canManageApplications
         ? JobApplication.find({ jobId: job._id })
             .sort({ createdAt: -1 })
@@ -739,7 +760,7 @@ exports.getJob = async (req, res) => {
               path: 'userId',
               select: 'firstName lastName name email phone userId',
             })
-            .select('status appliedAt createdAt updatedAt tokenCost coverLetter userId applicantEmailSent reminder24At reminder7At redirectedAt appliedConfirmedAt')
+            .select('status appliedAt createdAt updatedAt tokenCost coverLetter userId applicantEmailSent reminder24At reminder7At redirectedAt appliedConfirmedAt trackingEmail applicationKind')
         : Promise.resolve([]),
     ]);
 
@@ -750,6 +771,7 @@ exports.getJob = async (req, res) => {
       ? {
           ...userApplication.toObject(),
           status: normalizeJobApplicationStatus(userApplication.status),
+          statusDescription: getJobApplicationStatusDescription(userApplication.status, job.source, userApplication.trackingEmail),
         }
       : null;
 
@@ -765,6 +787,8 @@ exports.getJob = async (req, res) => {
         tokenCost: application.tokenCost || 0,
         coverLetter: application.coverLetter || '',
         applicantEmailSent: Boolean(application.applicantEmailSent),
+        trackingEmail: application.trackingEmail || null,
+        statusDescription: getJobApplicationStatusDescription(application.status, job.source, application.trackingEmail),
         reminder24At: application.reminder24At,
         reminder7At: application.reminder7At,
         applicant: {

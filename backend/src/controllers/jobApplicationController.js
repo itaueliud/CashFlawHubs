@@ -3,22 +3,27 @@ const Delivery = require('../models/Delivery');
 const JobApplication = require('../models/JobApplication');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const logger = require('../utils/logger');
 const { sendgridClient } = require('../services/notificationService');
 const { createNotification } = require('../services/notificationCenter');
 const { processDeliveryMessage } = require('../services/applicationDelivery');
+const { trackEvent } = require('../services/eventTracker');
+const { notifyOwnerOfNewApplication, notifyApplicantOfStatusChange } = require('../services/jobNotificationService');
 const fs = require('fs');
 
 const MAX_COVER_LETTER_LENGTH = 3000;
 const MIN_COVER_LETTER_LENGTH = 1;
+const INTERNAL_JOB_SOURCE = 'internal';
 const JOB_APPLICATION_STATUS = ['submitted', 'reviewed', 'shortlisted', 'redirected', 'applied', 'interviewing', 'offered', 'rejected', 'withdrawn'];
-const PUBLIC_JOB_APPLICATION_STATUS = ['redirected', 'applied', 'interviewing', 'offered', 'rejected', 'withdrawn'];
+const PUBLIC_JOB_APPLICATION_STATUS = ['redirected', 'applied', 'withdrawn'];
 const STATUS_ALIASES = {
   submitted: 'redirected',
   reviewed: 'interviewing',
   shortlisted: 'offered',
 };
 const STATUS_NOTIFY_SET = new Set(['applied', 'interviewing', 'offered', 'rejected']);
+const EMAIL_REGEX = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const STATUS_LABELS = {
   submitted: 'Submitted',
   reviewed: 'Reviewed',
@@ -29,6 +34,25 @@ const STATUS_LABELS = {
   offered: 'Offered',
   rejected: 'Rejected',
   withdrawn: 'Withdrawn',
+};
+const STATUS_DESCRIPTIONS = {
+  redirected: 'External application tracked. Responses and recruiter feedback go to the email you entered.',
+  applied: 'Applied on CashFlawHubs. The owner can move this application into interviewing, offered, or rejected.',
+  interviewing: 'The owner has started a conversation with this applicant.',
+  offered: 'The application passed interview and an offer was issued.',
+  rejected: 'The application was not successful.',
+  withdrawn: 'The applicant cancelled this application.',
+};
+const isExternalJob = (job = {}) => String(job?.source || '').trim() !== INTERNAL_JOB_SOURCE;
+const isValidEmail = (value) => EMAIL_REGEX.test(String(value || '').trim().toLowerCase());
+const getApplicantStatusDescription = ({ status, jobSource, trackingEmail }) => {
+  const normalized = normalizeApplicationStatus(status);
+  if (normalized === 'redirected' && String(jobSource || '').trim() !== INTERNAL_JOB_SOURCE) {
+    return trackingEmail
+      ? `External application tracked. We’ll email feedback to ${trackingEmail}.`
+      : 'External application tracked. Responses and recruiter feedback go to the email you entered.';
+  }
+  return STATUS_DESCRIPTIONS[normalized] || 'Application status updated.';
 };
 const APPLY_XP_REWARD = 25;
 const CONFIRM_XP_REWARD = 50;
@@ -252,17 +276,23 @@ const sendApplicationStartedEmail = async ({ applicant, job, application }) => {
   const appliedAt = application.appliedAt ? new Date(application.appliedAt).toLocaleString() : new Date().toLocaleString();
   const sourceLabel = job.source || 'CashFlawHubs';
   const viewApplicationsUrl = `${getCanonicalFrontendUrl()}/dashboard/jobs/applications`;
+  const applicationKind = application.applicationKind || 'internal';
+  const trackingEmail = application.trackingEmail || applicant.email || 'your email';
+  const headline = applicationKind === 'external' ? 'External application tracked' : 'You applied successfully';
+  const bodyIntro = applicationKind === 'external'
+    ? `We saved this external job application for ${job.title} and will use ${trackingEmail} for feedback from the employer.`
+    : 'We tracked your application and saved it on CashFlawHubs so you can confirm it, update it, and keep your job search organized.';
   const html = `
     <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;background:#f8fafc;padding:24px;">
       <div style="max-width:720px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;">
         <div style="background:linear-gradient(135deg,#0f172a,#14532d);color:#ffffff;padding:24px 28px;">
           <div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.8;">CashFlawHubs</div>
-          <h2 style="margin:8px 0 0;font-size:28px;line-height:1.2;">You applied successfully</h2>
+          <h2 style="margin:8px 0 0;font-size:28px;line-height:1.2;">${escapeHtml(headline)}</h2>
           <p style="margin:8px 0 0;opacity:.9;">${escapeHtml(job.title)} at ${escapeHtml(job.company)}</p>
         </div>
         <div style="padding:28px;">
           <p style="margin-top:0;">Hi ${escapeHtml(getApplicantDisplayName(applicant))},</p>
-          <p>We tracked your application and saved it on CashFlawHubs so you can confirm it, update it, and keep your job search organized.</p>
+          <p>${escapeHtml(bodyIntro)}</p>
           <div style="display:flex;gap:12px;flex-wrap:wrap;margin:20px 0;">
             <div style="flex:1;min-width:220px;padding:16px;border:1px solid #e5e7eb;border-radius:14px;background:#f8fafc;">
               <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;">Role</div>
@@ -298,7 +328,9 @@ const sendApplicationStartedEmail = async ({ applicant, job, application }) => {
   try {
     await sendgridClient.sendEmail({
       to: applicant.email,
-      subject: `✅ You applied to ${job.title} at ${job.company} via CashFlawHubs`,
+      subject: applicationKind === 'external'
+        ? `External application tracked: ${job.title} at ${job.company}`
+        : `✅ You applied to ${job.title} at ${job.company} via CashFlawHubs`,
       html,
     });
     return true;
@@ -535,36 +567,15 @@ const notifyJobApplicationStatusChange = async ({ applicant, status, jobTitle, c
   const normalizedStatus = normalizeApplicationStatus(status);
   if (!STATUS_NOTIFY_SET.has(normalizedStatus)) return;
 
-  const safeName = getApplicantDisplayName(applicant);
-  const safeJobTitle = jobTitle || 'the role';
-  const safeCompany = company || 'the company';
-  const statusLabel = statusToLabel(normalizedStatus);
-  const title = normalizedStatus === 'applied' ? 'Application confirmed' : `Application ${statusLabel.toLowerCase()}`;
-  let message = `Your application for ${safeJobTitle} at ${safeCompany} has been updated to ${statusLabel.toLowerCase()}.`;
-
-  if (normalizedStatus === 'offered') {
-    message = `Great news ${safeName}, your application for ${safeJobTitle} at ${safeCompany} has been marked as offered.`;
-  } else if (normalizedStatus === 'rejected') {
-    message = `Your application for ${safeJobTitle} at ${safeCompany} was marked rejected. Keep going, the next opportunity is waiting.`;
-  } else if (normalizedStatus === 'interviewing') {
-    message = `You've been moved to interviewing for ${safeJobTitle} at ${safeCompany}. Check the dashboard for next steps.`;
-  } else if (normalizedStatus === 'applied') {
-    message = `Your application for ${safeJobTitle} at ${safeCompany} is confirmed and saved in CashFlawHubs.`;
-  }
-
   try {
-    await createApplicationNotification({
-      userId: applicant._id,
-      type: 'job_status',
-      title,
-      message,
-      dedupeKey: `job-application-status:${applicant._id}:${safeJobTitle}:${safeCompany}:${normalizedStatus}`,
-      metadata: {
-        jobTitle: safeJobTitle,
-        company: safeCompany,
-        status: normalizedStatus,
-      },
-    });
+    await notifyApplicantOfStatusChange(
+      { _id: applicant._id, userId: applicant.userId, email: applicant.email, name: applicant.name, firstName: applicant.firstName, lastName: applicant.lastName },
+      normalizedStatus,
+      jobTitle,
+      company,
+      sendgridClient,
+      Notification
+    );
   } catch (error) {
     logger.warn(`Job application notification failed: ${error.message}`);
   }
@@ -585,7 +596,7 @@ exports.getMyJobApplications = async (req, res) => {
           path: 'jobId',
           select: 'title company location category source isActive expiresAt publishedAt applicationUrl',
         })
-        .select('status appliedAt createdAt updatedAt tokenCost coverLetter cvOriginalName cvFileName cvMimeType cvUrl applicantEmailSent reminder24At reminder7At')
+        .select('status appliedAt createdAt updatedAt tokenCost coverLetter cvOriginalName cvFileName cvMimeType cvUrl applicantEmailSent reminder24At reminder7At trackingEmail')
         .lean(),
       JobApplication.countDocuments({ userId: req.user.id }),
     ]);
@@ -603,6 +614,11 @@ exports.getMyJobApplications = async (req, res) => {
         _id: application._id,
         status: normalizeApplicationStatus(application.status),
         statusLabel: statusToLabel(application.status),
+        statusDescription: getApplicantStatusDescription({
+          status: application.status,
+          jobSource: job?.source,
+          trackingEmail: application.trackingEmail,
+        }),
         coverLetter: application.coverLetter,
         cv: application.cvUrl ? {
           originalName: application.cvOriginalName,
@@ -612,6 +628,7 @@ exports.getMyJobApplications = async (req, res) => {
         } : null,
         tokenCost: application.tokenCost || 0,
         applicantEmailSent: Boolean(application.applicantEmailSent),
+        trackingEmail: application.trackingEmail || null,
         appliedAt: application.appliedAt,
         createdAt: application.createdAt,
         updatedAt: application.updatedAt,
@@ -668,9 +685,16 @@ exports.applyToJob = async (req, res) => {
     }
 
     const coverLetter = typeof req.body?.coverLetter === 'string' ? req.body.coverLetter.trim() : '';
+    const trackingEmail = typeof req.body?.trackingEmail === 'string' ? req.body.trackingEmail.trim().toLowerCase() : '';
+    const externalJob = isExternalJob(job);
     const cvFile = req.file || null;
 
-    if (coverLetter.length < MIN_COVER_LETTER_LENGTH) {
+    if (externalJob && !isValidEmail(trackingEmail)) {
+      await cleanupUploadedCv(cvFile);
+      return res.status(400).json({ success: false, message: 'A valid email address is required to track external applications' });
+    }
+
+    if (!externalJob && coverLetter.length < MIN_COVER_LETTER_LENGTH) {
       await cleanupUploadedCv(cvFile);
       return res.status(400).json({ success: false, message: `Cover letter is required and must be at least ${MIN_COVER_LETTER_LENGTH} characters` });
     }
@@ -692,14 +716,17 @@ exports.applyToJob = async (req, res) => {
       jobId: job._id,
       userId: req.user.id,
       coverLetter,
+      applicationKind: externalJob ? 'external' : 'internal',
+      trackingEmail: externalJob ? trackingEmail : null,
       cvOriginalName: cvFile?.originalname || null,
       cvFileName: cvFile?.filename || null,
       cvMimeType: cvFile?.mimetype || null,
       cvPath: cvFile?.path || null,
       cvUrl: cvFile ? `/uploads/job-applications/${cvFile.filename}` : null,
       tokenCost,
-      status: 'redirected',
-      redirectedAt: new Date(),
+      status: externalJob ? 'redirected' : 'applied',
+      redirectedAt: externalJob ? new Date() : null,
+      appliedConfirmedAt: externalJob ? null : new Date(),
       reminder24At: new Date(Date.now() + 24 * 60 * 60 * 1000),
       reminder7At: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
@@ -707,6 +734,13 @@ exports.applyToJob = async (req, res) => {
     const applicantProfile = await User.findById(req.user.id).select('firstName lastName name email phone country userId referralCode userLanguage timezone registrationContext');
     let recruiterForwarded = false;
     let recruiterEmail = null;
+
+    try {
+      const populatedJob = await Job.findById(job._id).populate('postedBy', 'name firstName lastName email userId');
+      await notifyOwnerOfNewApplication(populatedJob || job, applicantProfile, coverLetter, sendgridClient, Notification);
+    } catch (error) {
+      logger.warn(`Failed to notify owner about new application: ${error.message}`);
+    }
 
         // If the job has webhook delivery configured, enqueue a delivery record
         try {
@@ -883,33 +917,45 @@ exports.applyToJob = async (req, res) => {
       await createApplicationNotification({
         userId: req.user.id,
         type: 'job_application',
-        title: 'Application tracked',
-        message: `You applied to "${job.title}" at ${job.company}. Complete it on ${job.source || 'the employer site'} and come back to confirm.`,
-        dedupeKey: `job-application:${application._id}:redirected`,
+        title: externalJob ? 'External application tracked' : 'Application submitted',
+        message: externalJob
+          ? `We saved your external application for "${job.title}" at ${job.company}. Feedback will go to ${trackingEmail}.`
+          : `You applied to "${job.title}" at ${job.company} on CashFlawHubs.`,
+        dedupeKey: `job-application:${application._id}:${externalJob ? 'redirected' : 'applied'}`,
         metadata: {
           jobId: job._id.toString(),
           applicationId: application._id.toString(),
-          status: 'redirected',
+          status: externalJob ? 'redirected' : 'applied',
           applicationUrl: job.applicationUrl || null,
+          trackingEmail: externalJob ? trackingEmail : null,
         },
       });
     } catch (error) {
       logger.warn(`Failed to create application notification: ${error.message}`);
     }
 
+    await trackEvent(req.user.id, 'job_apply');
+
     res.status(201).json({
       success: true,
-      message: tokenCost > 0 ? `Application started successfully using ${tokenCost} tokens` : 'Application started successfully',
+      message: externalJob
+        ? tokenCost > 0
+          ? `External application tracked successfully using ${tokenCost} tokens`
+          : 'External application tracked successfully'
+        : tokenCost > 0
+          ? `Application started successfully using ${tokenCost} tokens`
+          : 'Application started successfully',
       tokenCost,
       tokenBalance,
       xpEarned: xpAwarded,
       xpPoints: updatedUser?.xpPoints ?? req.user.xpPoints ?? null,
       emailSent,
-      redirectUrl: job.applicationUrl || null,
+      redirectUrl: externalJob ? job.applicationUrl || null : null,
       application: {
         ...application.toObject(),
-        status: 'redirected',
+        status: externalJob ? 'redirected' : 'applied',
         redirectedAt: application.redirectedAt,
+        appliedConfirmedAt: application.appliedConfirmedAt,
         reminder24At: application.reminder24At,
         reminder7At: application.reminder7At,
       },
@@ -1098,6 +1144,15 @@ exports.updateMyJobApplicationStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Job not found' });
     }
 
+    const currentStatus = normalizeApplicationStatus(application.status);
+    if (normalizedNextStatus !== 'withdrawn') {
+      return res.status(403).json({ success: false, message: 'Applicants can only withdraw their own applications' });
+    }
+
+    if (!['redirected', 'applied'].includes(currentStatus)) {
+      return res.status(400).json({ success: false, message: 'This application can no longer be withdrawn from the tracker' });
+    }
+
     const result = await persistApplicationStatusUpdate({
       application,
       job,
@@ -1131,7 +1186,7 @@ exports.processJobApplicationReminders = async () => {
     if (!job || !applicant) continue;
 
     const normalizedStatus = normalizeApplicationStatus(application.status);
-    if (!PUBLIC_JOB_APPLICATION_STATUS.includes(normalizedStatus) && normalizedStatus !== 'applied') {
+    if (!['redirected', 'applied'].includes(normalizedStatus)) {
       continue;
     }
 

@@ -6,6 +6,7 @@ const { COUNTRIES } = require('../config/countries');
 const { getCurrencyRate } = require('../services/exchangeService');
 const paymentOrchestrator = require('../services/paymentOrchestrator');
 const { publishToQueue, QUEUES } = require('../services/queueWorker');
+const { trackEvent } = require('../services/eventTracker');
 const logger = require('../utils/logger');
 
 const getEatDate = () => new Date(Date.now() + (3 * 60 * 60 * 1000));
@@ -174,6 +175,15 @@ exports.processWithdrawal = async ({ transactionId, userId, amountUSD, phoneNumb
       { userId },
       { $inc: { pendingBalance: -amountUSD, totalWithdrawn: amountUSD } }
     );
+
+    const successfulWithdrawals = await Transaction.countDocuments({
+      userId,
+      type: 'withdrawal',
+      status: 'successful',
+    });
+    if (successfulWithdrawals === 1) {
+      await trackEvent(userId, 'first_withdrawal');
+    }
 
     logger.info(`Withdrawal processed: $${amountUSD} to ${phoneNumber} (${country})`);
   } catch (error) {

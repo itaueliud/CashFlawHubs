@@ -4,7 +4,7 @@ const Wallet = require('../models/Wallet');
 const Transaction = require('../models/Transaction');
 const { getRedis, isRedisReady } = require('../config/redis');
 const logger = require('../utils/logger');
-const { updateChallengeProgress } = require('./challengeController');
+const { trackEvent, checkEarningMilestones } = require('../services/eventTracker');
 const { getCategoryProviders } = require('../config/categoryProviders');
 
 const SURVEY_SESSION_TTL_SECONDS = 60 * 60 * 12;
@@ -107,6 +107,11 @@ const getRewardAmountUSD = (value) => {
   const amount = Number.parseFloat(value);
   if (!Number.isFinite(amount) || amount <= 0) return null;
   return Math.min(Number(amount.toFixed(4)), SURVEY_REWARD_CAP_USD);
+};
+
+const getUtcDayStart = () => {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 };
 
 const createSurveySession = async ({ user, providerKey, survey }) => {
@@ -402,7 +407,17 @@ exports.cpxCallback = async (req, res) => {
 
     // XP reward
     await User.findByIdAndUpdate(user._id, { $inc: { xpPoints: 20, surveysCompleted: 1 } });
-    await updateChallengeProgress(user._id, 'survey');
+    await trackEvent(user._id, 'survey_complete');
+
+    const startOfDay = getUtcDayStart();
+    const todaySurveys = await Transaction.countDocuments({
+      userId: user._id,
+      type: 'survey',
+      status: 'successful',
+      createdAt: { $gte: startOfDay },
+    });
+    if (todaySurveys >= 3) await trackEvent(user._id, 'survey_complete_3');
+    await checkEarningMilestones(user._id);
 
     logger.info(`CPX survey reward: $${amountUSD} for user ${user_id}`);
     res.send('1'); // CPX expects '1' on success
@@ -482,7 +497,17 @@ exports.bitlabsCallback = async (req, res) => {
     });
 
     await User.findByIdAndUpdate(user._id, { $inc: { xpPoints: 20, surveysCompleted: 1 } });
-    await updateChallengeProgress(user._id, 'survey');
+    await trackEvent(user._id, 'survey_complete');
+
+    const startOfDay = getUtcDayStart();
+    const todaySurveys = await Transaction.countDocuments({
+      userId: user._id,
+      type: 'survey',
+      status: 'successful',
+      createdAt: { $gte: startOfDay },
+    });
+    if (todaySurveys >= 3) await trackEvent(user._id, 'survey_complete_3');
+    await checkEarningMilestones(user._id);
 
     logger.info(`BitLabs reward: $${amountUSD} for user ${uid}`);
     res.json({ success: true });

@@ -109,6 +109,8 @@ const userSchema = new mongoose.Schema({
   surveysCompleted: { type: Number, default: 0 },
   tasksCompleted: { type: Number, default: 0 },
   totalReferrals: { type: Number, default: 0 },
+  milestone_1usd: { type: Boolean, default: false },
+  milestone_5usd: { type: Boolean, default: false },
 
   // Security
   isActive: { type: Boolean, default: true },

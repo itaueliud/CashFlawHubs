@@ -57,7 +57,8 @@ export const scrapeUrl = async ({ source, url, companyHint }: ScrapeInput): Prom
   if (jobs.length > 0 && !/text\/html/i.test(contentType)) return jobs;
 
   if (jobs.length === 0 || /cloudflare|captcha/i.test(html)) {
-    if (!config.scraperUsePlaywright) {
+    const usePlaywright = Boolean((config as typeof config & { scraperUsePlaywright?: boolean }).scraperUsePlaywright);
+    if (!usePlaywright) {
       logger.warn({ url }, "Playwright disabled; skipping dynamic scrape fallback");
       return [];
     }
@@ -80,4 +81,6 @@ export const scrapeUrl = async ({ source, url, companyHint }: ScrapeInput): Prom
 
   return jobs;
 };
+
+export * from "./remoteApis";
 

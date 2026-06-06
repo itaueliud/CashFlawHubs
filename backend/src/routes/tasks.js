@@ -8,9 +8,9 @@ const Wallet = require('../models/Wallet');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 const { getRedis, isRedisReady } = require('../config/redis');
-const { updateChallengeProgress } = require('../controllers/challengeController');
 const { spendTokens } = require('../services/tokenService');
 const { getCategoryProviders } = require('../config/categoryProviders');
+const { trackEvent, checkEarningMilestones } = require('../services/eventTracker');
 const logger = require('../utils/logger');
 
 const INTERNAL_TASK_TEMPLATES = [
@@ -53,6 +53,10 @@ const INTERNAL_TASK_TEMPLATES = [
 ];
 
 const TASK_PROVIDER_SESSION_TTL_SECONDS = 60 * 60 * 12;
+const getUtcDayStart = () => {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+};
 
 const ensureBaselineTasks = async () => {
   for (const template of INTERNAL_TASK_TEMPLATES) {
@@ -281,7 +285,18 @@ router.post('/:id/complete', protect, requireActivation, requireTestUserActionAc
 
     // XP reward
     await User.findByIdAndUpdate(req.user.id, { $inc: { xpPoints: 15, tasksCompleted: 1 } });
-    await updateChallengeProgress(req.user.id, 'task');
+    await trackEvent(req.user.id, 'task_complete');
+
+    const startOfDay = getUtcDayStart();
+    const todayTasks = await Transaction.countDocuments({
+      userId: req.user.id,
+      type: 'task',
+      status: 'successful',
+      createdAt: { $gte: startOfDay },
+    });
+    if (todayTasks >= 3) await trackEvent(req.user.id, 'task_complete_3');
+    if (todayTasks >= 5) await trackEvent(req.user.id, 'task_complete_5');
+    await checkEarningMilestones(req.user.id);
 
     // Dedup for 7 days
     await redis.setex(dupKey, 86400 * 7, '1');

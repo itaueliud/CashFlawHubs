@@ -1,8 +1,9 @@
 'use client';
 import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import {
@@ -32,6 +33,7 @@ const QUICK_ACTIONS = [
 
 export default function DashboardPage() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const { user, refreshUser } = useAuthStore();
   const isRealUser = user?.role === 'user' && (user?.userAccessType || 'real') === 'real';
   const blockedForRealUser = new Set(['/dashboard/surveys', '/dashboard/tasks', '/dashboard/ads-network', '/dashboard/offerwalls']);
@@ -45,6 +47,23 @@ export default function DashboardPage() {
   const { data: challengesData } = useQuery({
     queryKey: ['challenges'],
     queryFn: () => api.get('/challenges/daily').then((r) => r.data.challenges),
+  });
+
+  const claimChallengeMutation = useMutation({
+    mutationFn: async (challengeId: string) => {
+      const response = await api.post(`/challenges/${challengeId}/claim`);
+      return response.data;
+    },
+    onSuccess: (payload) => {
+      toast.success(payload?.message || 'Challenge reward claimed');
+      queryClient.invalidateQueries({ queryKey: ['challenges'] });
+      queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-tx'] });
+      refreshUser();
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Unable to claim challenge reward');
+    },
   });
 
   const { data: txData } = useQuery({
@@ -165,11 +184,11 @@ export default function DashboardPage() {
             <span className="text-xs text-slate-400">{t('dashboard.resetsAtMidnight')}</span>
           </div>
           <div className="grid md:grid-cols-2 gap-3">
-            {challenges.slice(0, 4).map((challenge: any) => (
+            {challenges.filter((challenge: any) => challenge.resetDaily !== false).slice(0, 4).map((challenge: any) => (
               <div key={challenge._id} className="card">
                 <div className="flex items-center justify-between mb-2">
                   <div className="font-medium text-sm">{challenge.title}</div>
-                  <div className="badge-green">${challenge.rewardUSD}</div>
+                  <div className="badge-blue">+{challenge.xpReward} XP</div>
                 </div>
                 <p className="text-xs text-slate-400 mb-3">{challenge.description}</p>
                 <div className="flex items-center gap-2">
@@ -181,7 +200,14 @@ export default function DashboardPage() {
                   </div>
                   <span className="text-xs text-slate-400">{challenge.progress}/{challenge.targetCount}</span>
                   {challenge.completed && !challenge.rewardClaimed && (
-                    <button className="btn-primary text-xs py-1 px-2">{t('common.claim')}</button>
+                    <button
+                      type="button"
+                      className="btn-primary text-xs py-1 px-2 disabled:opacity-50"
+                      disabled={claimChallengeMutation.isPending}
+                      onClick={() => claimChallengeMutation.mutate(challenge._id)}
+                    >
+                      {t('common.claim')}
+                    </button>
                   )}
                   {challenge.rewardClaimed && <span className="text-xs text-green-400">{t('common.claimed')}</span>}
                 </div>

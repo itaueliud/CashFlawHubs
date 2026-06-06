@@ -10,6 +10,8 @@ const jobApplicationSchema = new mongoose.Schema(
     cvMimeType: { type: String, default: null },
     cvPath: { type: String, default: null },
     cvUrl: { type: String, default: null },
+    applicationKind: { type: String, enum: ['internal', 'external'], default: 'internal' },
+    trackingEmail: { type: String, default: null },
     tokenCost: { type: Number, default: 0, min: 0 },
     applicantEmailSent: { type: Boolean, default: false },
     status: {

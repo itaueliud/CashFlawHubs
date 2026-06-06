@@ -3,7 +3,18 @@ const router = express.Router();
 const { protect } = require('../middleware/auth');
 const User = require('../models/User');
 const { initiateEmailChange, confirmEmailChange } = require('../services/emailChangeService');
+const { trackEvent } = require('../services/eventTracker');
 const SUPPORTED_LANGUAGES = new Set(['en', 'sw', 'fr']);
+
+const PROFILE_COMPLETENESS_FIELDS = ['name', 'email', 'phone', 'country', 'bio', 'avatar', 'userLanguage', 'timezone'];
+
+const calculateProfileCompleteness = (user = {}) => {
+  const filled = PROFILE_COMPLETENESS_FIELDS.filter((field) => {
+    const value = user[field];
+    return value !== undefined && value !== null && String(value).trim() !== '';
+  }).length;
+  return Math.round((filled / PROFILE_COMPLETENESS_FIELDS.length) * 100);
+};
 
 router.get('/profile', protect, async (req, res) => {
   const user = await User.findById(req.user.id);
@@ -39,7 +50,15 @@ router.put('/profile', protect, async (req, res) => {
   }
   if (browserLanguage) updates.browserLanguage = String(browserLanguage).toLowerCase().slice(0, 20);
   if (timezone) updates.timezone = String(timezone).slice(0, 64);
+  const beforeUser = await User.findById(req.user.id);
+  const beforeCompleteness = calculateProfileCompleteness(beforeUser || {});
   const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true });
+  const afterCompleteness = calculateProfileCompleteness(user || {});
+
+  if (afterCompleteness === 100 && beforeCompleteness < 100) {
+    await trackEvent(req.user.id, 'profile_complete');
+  }
+
   res.json({ success: true, user });
 });
 

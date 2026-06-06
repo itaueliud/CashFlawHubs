@@ -11,6 +11,7 @@ const { TOKEN_PACKAGES, getTokenPackage } = require('../config/monetization');
 const { getCurrencyRate } = require('../services/exchangeService');
 const paymentOrchestrator = require('../services/paymentOrchestrator');
 const { publishToQueue } = require('../services/queueWorker');
+const { trackEvent, checkEarningMilestones } = require('../services/eventTracker');
 const logger = require('../utils/logger');
 const { isActivationTestWindowEnabled, isUserActivated } = require('../utils/activationWindow');
 
@@ -433,6 +434,8 @@ const fulfillWalletDeposit = async (reference, provider, providerTransactionId) 
     balanceAfter: wallet.balanceUSD,
   };
   await tx.save();
+  await trackEvent(tx.userId, 'deposit');
+  await checkEarningMilestones(tx.userId);
   return tx;
 };
 
@@ -1206,6 +1209,17 @@ exports.processActivationPayment = async ({ userId, amountLocal, currency, provi
 
     await session.commitTransaction();
     logger.info(`Activation processed for user ${user.userId}`);
+
+    if (user.referredBy) {
+      const referrer = await User.findOne({ referralCode: user.referredBy }).select('_id totalReferrals');
+      if (referrer) {
+        await trackEvent(referrer._id, 'referral');
+        const refreshedReferrer = await User.findById(referrer._id).select('totalReferrals');
+        if ((refreshedReferrer?.totalReferrals || 0) >= 3) {
+          await trackEvent(referrer._id, 'referral_3');
+        }
+      }
+    }
 
     await publishToQueue('notification.activation', {
       userId: user._id.toString(),

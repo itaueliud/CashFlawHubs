@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Briefcase, CalendarDays, CheckCircle2, ExternalLink, Loader2, RefreshCw, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, Briefcase, CalendarDays, ExternalLink, Loader2, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import ApplicantEmailBadge from '@/components/ApplicantEmailBadge';
@@ -18,12 +18,14 @@ type AppliedJob = {
   company: string;
   location?: string;
   applicationUrl?: string;
+  source?: string;
 };
 
 type JobApplicationItem = {
   _id: string;
   status: JobApplicationStatus;
   statusLabel?: string;
+  statusDescription?: string;
   tokenCost: number;
   jobAvailable: boolean;
   coverLetter?: string | null;
@@ -31,6 +33,7 @@ type JobApplicationItem = {
   createdAt: string;
   reminder24At?: string | null;
   reminder7At?: string | null;
+  trackingEmail?: string | null;
   job: AppliedJob | null;
   applicantEmailSent?: boolean;
 };
@@ -46,20 +49,10 @@ type JobApplicationsResponse = {
 
 const STATUS_FILTERS: Array<JobApplicationStatus | 'all'> = ['all', 'redirected', 'applied', 'interviewing', 'offered', 'rejected', 'withdrawn'];
 
-const STATUS_LABELS: Record<JobApplicationStatus, string> = {
-  redirected: 'Redirected',
-  applied: 'Applied',
-  interviewing: 'Interviewing',
-  offered: 'Offered',
-  rejected: 'Rejected',
-  withdrawn: 'Withdrawn',
-};
-
 export default function JobApplicationsPage() {
   const { t } = useTranslation();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<'all' | JobApplicationStatus>('all');
-  const [draftStatuses, setDraftStatuses] = useState<Record<string, JobApplicationStatus>>({});
   const { user } = useAuthStore();
   const isStaff = ['admin', 'superadmin', 'ledger'].includes(user?.role || '');
 
@@ -77,13 +70,12 @@ export default function JobApplicationsPage() {
   }, [applications, statusFilter]);
 
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ applicationId, status }: { applicationId: string; status: JobApplicationStatus }) => {
-      const response = await api.patch(`/jobs/applications/${applicationId}/status`, { status });
+    mutationFn: async ({ applicationId }: { applicationId: string }) => {
+      const response = await api.patch(`/jobs/applications/${applicationId}/status`, { status: 'withdrawn' });
       return response.data as { message?: string; xpPoints?: number | null; xpEarned?: number };
     },
     onSuccess: async (response) => {
       toast.success(response.message || t('jobs.applications.statusUpdated'));
-      setDraftStatuses({});
       await refetch();
     },
     onError: (error: unknown) => {
@@ -104,15 +96,15 @@ export default function JobApplicationsPage() {
         <Link href="/dashboard/jobs" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white">
           <ArrowLeft size={16} /> {t('jobs.applications.backToJobs')}
         </Link>
-        <div className="text-xs uppercase tracking-[0.2em] text-slate-500">{t('jobs.applications.title')}</div>
+        <div className="text-xs uppercase tracking-[0.2em] text-slate-500">Application Tracker</div>
       </div>
 
       <div className="rounded-[1.75rem] border border-emerald-500/15 bg-gradient-to-br from-emerald-950/70 via-slate-950 to-slate-900 p-6 shadow-xl shadow-emerald-950/20">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-white">{t('jobs.applications.heading')}</h1>
+            <h1 className="text-3xl font-black tracking-tight text-white">Application Tracker</h1>
             <p className="mt-2 text-sm text-slate-300">
-              {t('jobs.applications.description')}
+              Keep every application updated here. CashFlawHubs is the source of truth for your status history.
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center">
@@ -156,14 +148,15 @@ export default function JobApplicationsPage() {
         <div className="grid gap-3">
           {filteredApplications.map((application) => {
             const job = application.job;
-            const draftStatus = draftStatuses[application._id] || application.status;
-            const isDirty = draftStatus !== application.status;
+            const canWithdraw = ['redirected', 'applied'].includes(application.status);
+            const isExternalJob = Boolean(job?.source && job.source !== 'internal');
             return (
               <div key={application._id} className="rounded-2xl border border-emerald-500/10 bg-slate-900/90 p-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0 space-y-3">
                     <div className="flex flex-wrap gap-2">
                       <span className="badge-blue capitalize">{application.statusLabel || t(`jobs.applications.statuses.${application.status}`)}</span>
+                      {isExternalJob ? <span className="badge-yellow">External</span> : <span className="badge-green">On-site</span>}
                       {application.tokenCost > 0 ? <span className="badge-yellow">{application.tokenCost}T spent</span> : null}
                       <span className="badge-green">{application.jobAvailable ? t('common.open') : t('common.closed')}</span>
                       <ApplicantEmailBadge sent={Boolean(application.applicantEmailSent)} />
@@ -179,6 +172,13 @@ export default function JobApplicationsPage() {
                     ) : (
                       <p className="text-sm text-slate-500">{t('jobs.applications.noCoverLetter')}</p>
                     )}
+                    <div className="rounded-xl border border-slate-700 bg-slate-950/70 p-3 text-sm text-slate-300">
+                      <div className="text-xs uppercase tracking-[0.2em] text-slate-500">Status meaning</div>
+                      <p className="mt-1">{application.statusDescription || 'Status details available in your tracker history.'}</p>
+                      {application.trackingEmail ? (
+                        <p className="mt-2 text-xs text-emerald-300">Feedback email: {application.trackingEmail}</p>
+                      ) : null}
+                    </div>
                     <div className="flex flex-wrap gap-2 text-xs text-slate-400">
                       <span className="rounded-full border border-slate-700 px-2 py-1">{t('jobs.applications.reminder24', { state: application.reminder24At ? t('jobs.applications.scheduled') : t('jobs.applications.notSet') })}</span>
                       <span className="rounded-full border border-slate-700 px-2 py-1">{t('jobs.applications.reminder7', { state: application.reminder7At ? t('jobs.applications.scheduled') : t('jobs.applications.notSet') })}</span>
@@ -186,25 +186,25 @@ export default function JobApplicationsPage() {
                   </div>
 
                   <div className="flex w-full max-w-sm flex-col gap-3 lg:justify-end">
-                    <label className="text-xs uppercase tracking-[0.2em] text-slate-500">{t('jobs.applications.saveStatus')}</label>
-                    <select
-                      value={draftStatus}
-                      onChange={(e) => setDraftStatuses((current) => ({ ...current, [application._id]: e.target.value as JobApplicationStatus }))}
-                      className="input w-full"
-                    >
-                      {Object.entries(STATUS_LABELS).map(([value]) => (
-                        <option key={value} value={value}>{t(`jobs.applications.statuses.${value}`)}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      disabled={!isDirty || updateStatusMutation.isPending}
-                      onClick={() => updateStatusMutation.mutate({ applicationId: application._id, status: draftStatus })}
-                      className="btn-primary inline-flex items-center justify-center gap-2 disabled:opacity-60"
-                    >
-                      {updateStatusMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                      {t('jobs.applications.saveStatus')}
-                    </button>
+                    <div className="rounded-2xl border border-slate-700 bg-slate-950/70 p-4">
+                      <div className="text-xs uppercase tracking-[0.2em] text-slate-500">Actions</div>
+                      <p className="mt-1 text-sm text-slate-300">
+                        {canWithdraw
+                          ? 'You can withdraw this application if you no longer want to proceed.'
+                          : 'This stage is managed by the job owner. Watch your email for updates.'}
+                      </p>
+                    </div>
+                    {canWithdraw ? (
+                      <button
+                        type="button"
+                        disabled={updateStatusMutation.isPending}
+                        onClick={() => updateStatusMutation.mutate({ applicationId: application._id })}
+                        className="btn-primary inline-flex items-center justify-center gap-2 disabled:opacity-60"
+                      >
+                        {updateStatusMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                        Withdraw
+                      </button>
+                    ) : null}
                     <div className="flex flex-wrap gap-2">
                       {job?._id && application.jobAvailable ? (
                         <Link href={`/dashboard/jobs/${job._id}`} className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200 hover:border-emerald-300/50 hover:bg-emerald-500/15">

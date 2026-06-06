@@ -35,6 +35,8 @@ type JobApplicationState = {
   status: JobApplicationStatus;
   appliedAt?: string;
   createdAt?: string;
+  trackingEmail?: string | null;
+  statusDescription?: string;
 };
 
 type ManagedJobApplication = {
@@ -74,6 +76,7 @@ type ApplyResponse = {
     cvOriginalName?: string | null;
     cvFileName?: string | null;
     cvUrl?: string | null;
+    trackingEmail?: string | null;
     status?: JobApplicationStatus;
     appliedAt?: string;
   };
@@ -101,6 +104,7 @@ export default function JobDetailsPage() {
   const slugId = Array.isArray(params?.slug) && params.slug[0] === 'jobs' ? params.slug[1] : undefined;
   const jobId = directId || slugId;
   const [coverLetter, setCoverLetter] = useState('');
+  const [trackingEmail, setTrackingEmail] = useState('');
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [applicationFlow, setApplicationFlow] = useState<ApplicationFlowState | null>(null);
   const { user, setUser, refreshUser, hasHydrated } = useAuthStore();
@@ -125,6 +129,9 @@ export default function JobDetailsPage() {
   const canManageApplications = Boolean(data?.canManageApplications);
   const managedApplications = data?.applications || [];
   const isStaff = ['admin', 'superadmin', 'ledger'].includes(user?.role || '');
+  const isExternalJob = Boolean(job?.source && job.source !== 'internal');
+  const shouldShowRedirectFlow = Boolean(isExternalJob && (applicationFlow || userApplication?.status === 'redirected'));
+  const isValidEmail = (value: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim().toLowerCase());
 
   const openApplicationDestination = (destination?: string | null) => {
     if (!destination || typeof window === 'undefined') return false;
@@ -145,7 +152,7 @@ export default function JobDetailsPage() {
   };
 
   useEffect(() => {
-    if (userApplication?.status === 'redirected' && !applicationFlow) {
+    if (isExternalJob && userApplication?.status === 'redirected' && !applicationFlow) {
       const restoredFlow = {
         phase: 'waiting',
         countdown: 0,
@@ -158,7 +165,7 @@ export default function JobDetailsPage() {
       } as const;
       setApplicationFlow(restoredFlow);
     }
-  }, [applicationFlow, job?.applicationUrl, userApplication?._id, userApplication?.status]);
+  }, [applicationFlow, isExternalJob, job?.applicationUrl, userApplication?._id, userApplication?.status]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !flowStorageKey) return;
@@ -198,7 +205,7 @@ export default function JobDetailsPage() {
   }, [applicationFlow, flowStorageKey, job]);
 
   useEffect(() => {
-    if (!applicationFlow || applicationFlow.phase !== 'countdown') return;
+    if (!shouldShowRedirectFlow || !applicationFlow || applicationFlow.phase !== 'countdown') return;
     if (applicationFlow.countdown <= 0) {
       const redirectUrl = applicationFlow.redirectUrl || job?.applicationUrl;
       if (redirectUrl) openApplicationDestination(redirectUrl);
@@ -214,12 +221,15 @@ export default function JobDetailsPage() {
     }, 1000);
 
     return () => window.clearTimeout(timer);
-  }, [applicationFlow, job?.applicationUrl]);
+  }, [applicationFlow, job?.applicationUrl, shouldShowRedirectFlow]);
 
   const applyMutation = useMutation({
     mutationFn: async () => {
       const formData = new FormData();
       formData.append('coverLetter', coverLetter.trim());
+      if (isExternalJob) {
+        formData.append('trackingEmail', trackingEmail.trim());
+      }
       if (cvFile) formData.append('cv', cvFile);
       const response = await api.post(`/jobs/${jobId}/apply`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -236,24 +246,29 @@ export default function JobDetailsPage() {
       }
       await refreshUser();
       const redirectUrl = response.redirectUrl || job?.applicationUrl || null;
-      openApplicationDestination(redirectUrl);
       const applicationId = response.application?._id || userApplication?._id;
-      setApplicationFlow({
-        phase: 'countdown',
-        countdown: 4,
-        applicationId,
-        redirectUrl,
-        status: response.application?.status || 'redirected',
-        jobTitle: job?.title,
-        company: job?.company,
-        source: job?.source,
-      });
+      if (isExternalJob && redirectUrl) {
+        openApplicationDestination(redirectUrl);
+        setApplicationFlow({
+          phase: 'countdown',
+          countdown: 4,
+          applicationId,
+          redirectUrl,
+          status: response.application?.status || 'redirected',
+          jobTitle: job?.title,
+          company: job?.company,
+          source: job?.source,
+        });
+      } else {
+        setApplicationFlow(null);
+      }
       setCoverLetter('');
+      setTrackingEmail('');
       setCvFile(null);
       await refetch();
     },
     onError: (error: unknown) => {
-      if (applicationWindowRef.current && !applicationWindowRef.current.closed) {
+      if (isExternalJob && applicationWindowRef.current && !applicationWindowRef.current.closed) {
         applicationWindowRef.current.close();
       }
       applicationWindowRef.current = null;
@@ -299,7 +314,7 @@ export default function JobDetailsPage() {
   });
 
   const handleApplyClick = () => {
-    if (typeof window !== 'undefined') {
+    if (isExternalJob && typeof window !== 'undefined') {
       applicationWindowRef.current = window.open('about:blank', '_blank') || null;
     }
     applyMutation.mutate();
@@ -311,13 +326,12 @@ export default function JobDetailsPage() {
   }, [job?.publishedAt]);
 
   const canSubmitApplication =
-    coverLetter.trim().length > 0 &&
+    (isExternalJob ? isValidEmail(trackingEmail) : coverLetter.trim().length > 0) &&
     !applyMutation.isPending &&
     !userApplication &&
-    applicationFlow?.phase !== 'countdown' &&
-    applicationFlow?.phase !== 'waiting';
+    (!shouldShowRedirectFlow || (applicationFlow?.phase !== 'countdown' && applicationFlow?.phase !== 'waiting'));
 
-  if ((applicationFlow || userApplication?.status === 'redirected') && job) {
+  if (shouldShowRedirectFlow && job) {
     const waitingApplicationId = applicationFlow?.applicationId || userApplication?._id || '';
     const waitingStatus = applicationFlow?.status || userApplication?.status || 'redirected';
     const waitingSource = applicationFlow?.source || job.source || 'the employer site';
@@ -528,7 +542,7 @@ export default function JobDetailsPage() {
               </div>
               <div className="rounded-xl bg-slate-900 px-4 py-3">
                 <div className="text-slate-500 text-xs mb-1">{t('jobs.detail.applyMethod')}</div>
-                <div>{t('jobs.detail.onSite')}</div>
+                <div>{isExternalJob ? t('jobs.detail.sourceLink') : t('jobs.detail.onSite')}</div>
               </div>
               {typeof job.applicationTokenCost === 'number' && job.applicationTokenCost > 0 ? (
                 <div className="rounded-xl bg-slate-900 px-4 py-3">
@@ -538,110 +552,147 @@ export default function JobDetailsPage() {
               ) : null}
             </div>
 
-            <div>
-              <label className="text-sm text-slate-300 mb-1 block">{t('jobs.detail.coverLetter')} <span className="text-rose-400">*</span></label>
-              <textarea
-                className="input min-h-40"
-                value={coverLetter}
-                onChange={(e) => setCoverLetter(e.target.value)}
-                placeholder={t('jobs.detail.coverLetterPlaceholder')}
-                required
-              />
-              <p className="mt-2 text-xs text-slate-500">{t('jobs.detail.coverLetterRequired')}</p>
-            </div>
-
-            <div>
-              <label className="text-sm text-slate-300 mb-1 block">{t('jobs.detail.uploadCv')}</label>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                className="input file:mr-4 file:rounded-lg file:border-0 file:bg-slate-700 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-slate-600"
-                onChange={(e) => setCvFile(e.target.files?.[0] || null)}
-              />
-              <p className="mt-2 text-xs text-slate-500">{t('jobs.detail.cvHint')}</p>
-              {cvFile ? <p className="mt-2 text-xs text-emerald-300">{t('jobs.detail.selectedFile', { file: cvFile.name })}</p> : null}
-            </div>
-
-            <button
-              onClick={handleApplyClick}
-              disabled={!canSubmitApplication}
-              className="btn-primary w-full flex items-center justify-center gap-2"
-            >
-              {applyMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-              {userApplication ? t('jobs.detail.applied') : t('jobs.detail.apply')}
-            </button>
-            {userApplication ? (
-              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
-                {t('jobs.detail.applicationStatus')}: <span className="font-semibold capitalize">{t(`jobs.applications.statuses.${userApplication.status}`)}</span>
-              </div>
-            ) : null}
-            {canManageApplications ? (
-              <div className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-4 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-sm font-semibold text-white">{t('jobs.detail.manageApplications')}</div>
-                  <span className="text-xs text-slate-400">{t('jobs.detail.totalApplications', { count: managedApplications.length })}</span>
+            {isExternalJob ? (
+              <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4 space-y-3">
+                <div className="text-sm font-semibold text-emerald-200">{t('jobs.detail.sourceNote')}</div>
+                <p className="text-sm text-slate-300">
+                  This is an external listing. Enter the email address where you want recruiter feedback sent, then continue to the source job post.
+                </p>
+                <div>
+                  <label className="text-sm text-slate-300 mb-1 block">Feedback email</label>
+                  <input
+                    className="input"
+                    type="email"
+                    value={trackingEmail}
+                    onChange={(e) => setTrackingEmail(e.target.value)}
+                    placeholder={user?.email || 'you@example.com'}
+                    required
+                  />
+                  <p className="mt-2 text-xs text-slate-500">Replies and updates will be tracked against this email address.</p>
                 </div>
-                <Link
-                  href={`/dashboard/jobs/${jobId}/applicants`}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200 hover:border-emerald-300/50 hover:bg-emerald-500/15"
+                <button
+                  type="button"
+                  onClick={handleApplyClick}
+                  disabled={!canSubmitApplication}
+                  className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-60"
                 >
-                  {t('jobs.detail.openApplicants')} <ExternalLink size={14} />
-                </Link>
-                {managedApplications.length === 0 ? (
-                  <div className="text-sm text-slate-400">{t('jobs.detail.noApplicationsYet')}</div>
-                ) : (
-                  <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-                    {managedApplications.map((application) => {
-                      const fullName = [application.applicant?.firstName, application.applicant?.lastName].filter(Boolean).join(' ').trim();
-                      const applicantName = application.applicant?.name || fullName || application.applicant?.email || t('jobs.applicants.table.applicant');
-                      return (
-                        <div key={application._id} className="rounded-xl border border-slate-700 bg-slate-950/80 p-3 space-y-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <div className="text-sm font-medium text-white">{applicantName}</div>
-                              {application.applicant?.email ? <div className="text-xs text-slate-400">{application.applicant.email}</div> : null}
-                              {application.appliedAt ? (
-                                <div className="text-xs text-slate-500 mt-1">{t('jobs.detail.appliedAt', { date: new Date(application.appliedAt).toLocaleString() })}</div>
-                              ) : null}
-                            </div>
-                            <span className="badge-blue capitalize">{t(`jobs.applications.statuses.${application.status}`)}</span>
-                          </div>
-                          {application.coverLetter ? (
-                            <p className="text-xs text-slate-300 whitespace-pre-line line-clamp-4">{application.coverLetter}</p>
-                          ) : (
-                            <p className="text-xs text-slate-500">{t('jobs.detail.noCoverLetter')}</p>
-                          )}
-                          <div className="grid grid-cols-2 gap-2">
-                            {STATUS_OPTIONS.map((statusValue) => {
-                              const isCurrent = application.status === statusValue;
-                              const isUpdatingThis =
-                                updateStatusMutation.isPending &&
-                                updateStatusMutation.variables?.applicationId === application._id &&
-                                updateStatusMutation.variables?.status === statusValue;
-                              return (
-                                <button
-                                  key={statusValue}
-                                  type="button"
-                                  disabled={isCurrent || updateStatusMutation.isPending}
-                                  onClick={() => {
-                                    const confirmed = window.confirm(t('jobs.detail.confirmStatus', { status: statusValue }));
-                                    if (!confirmed) return;
-                                    updateStatusMutation.mutate({ applicationId: application._id, status: statusValue });
-                                  }}
-                                  className={`rounded-lg px-2 py-1.5 text-xs font-medium capitalize transition ${isCurrent ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700 disabled:opacity-50'}`}
-                                >
-                                  {isUpdatingThis ? t('jobs.detail.updating') : statusValue}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                  {applyMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <ExternalLink size={16} />}
+                  Continue to source
+                </button>
+                <p className="text-xs text-slate-500">
+                  We&apos;ll save this as a redirected application so you can track feedback later.
+                </p>
               </div>
-            ) : null}
+            ) : (
+              <>
+                <div>
+                  <label className="text-sm text-slate-300 mb-1 block">{t('jobs.detail.coverLetter')} <span className="text-rose-400">*</span></label>
+                  <textarea
+                    className="input min-h-40"
+                    value={coverLetter}
+                    onChange={(e) => setCoverLetter(e.target.value)}
+                    placeholder={t('jobs.detail.coverLetterPlaceholder')}
+                    maxLength={2000}
+                    required
+                  />
+                  <p className="mt-2 text-xs text-slate-500">{coverLetter.length}/2000 | {t('jobs.detail.coverLetterRequired')}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm text-slate-300 mb-1 block">{t('jobs.detail.uploadCv')}</label>
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    className="input file:mr-4 file:rounded-lg file:border-0 file:bg-slate-700 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-slate-600"
+                    onChange={(e) => setCvFile(e.target.files?.[0] || null)}
+                  />
+                  <p className="mt-2 text-xs text-slate-500">{t('jobs.detail.cvHint')}</p>
+                  {cvFile ? <p className="mt-2 text-xs text-emerald-300">{t('jobs.detail.selectedFile', { file: cvFile.name })}</p> : null}
+                </div>
+
+                <button
+                  onClick={handleApplyClick}
+                  disabled={!canSubmitApplication}
+                  className="btn-primary w-full flex items-center justify-center gap-2"
+                >
+                  {applyMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                  {userApplication ? t('jobs.detail.applied') : t('jobs.detail.apply')}
+                </button>
+                {userApplication ? (
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+                    {t('jobs.detail.applicationStatus')}: <span className="font-semibold capitalize">{t(`jobs.applications.statuses.${userApplication.status}`)}</span>
+                    {userApplication.statusDescription ? <div className="mt-1 text-xs text-emerald-100/80">{userApplication.statusDescription}</div> : null}
+                  </div>
+                ) : null}
+                {canManageApplications ? (
+                  <div className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-4 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-sm font-semibold text-white">{t('jobs.detail.manageApplications')}</div>
+                      <span className="text-xs text-slate-400">{t('jobs.detail.totalApplications', { count: managedApplications.length })}</span>
+                    </div>
+                    <Link
+                      href={`/dashboard/jobs/${jobId}/applicants`}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200 hover:border-emerald-300/50 hover:bg-emerald-500/15"
+                    >
+                      {t('jobs.detail.openApplicants')} <ExternalLink size={14} />
+                    </Link>
+                    {managedApplications.length === 0 ? (
+                      <div className="text-sm text-slate-400">{t('jobs.detail.noApplicationsYet')}</div>
+                    ) : (
+                      <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                        {managedApplications.map((application) => {
+                          const fullName = [application.applicant?.firstName, application.applicant?.lastName].filter(Boolean).join(' ').trim();
+                          const applicantName = application.applicant?.name || fullName || application.applicant?.email || t('jobs.applicants.table.applicant');
+                          return (
+                            <div key={application._id} className="rounded-xl border border-slate-700 bg-slate-950/80 p-3 space-y-3">
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <div className="text-sm font-medium text-white">{applicantName}</div>
+                                  {application.applicant?.email ? <div className="text-xs text-slate-400">{application.applicant.email}</div> : null}
+                                  {application.appliedAt ? (
+                                    <div className="text-xs text-slate-500 mt-1">{t('jobs.detail.appliedAt', { date: new Date(application.appliedAt).toLocaleString() })}</div>
+                                  ) : null}
+                                </div>
+                                <span className="badge-blue capitalize">{t(`jobs.applications.statuses.${application.status}`)}</span>
+                              </div>
+                              {application.coverLetter ? (
+                                <p className="text-xs text-slate-300 whitespace-pre-line line-clamp-4">{application.coverLetter}</p>
+                              ) : (
+                                <p className="text-xs text-slate-500">{t('jobs.detail.noCoverLetter')}</p>
+                              )}
+                              <div className="grid grid-cols-2 gap-2">
+                                {STATUS_OPTIONS.map((statusValue) => {
+                                  const isCurrent = application.status === statusValue;
+                                  const isUpdatingThis =
+                                    updateStatusMutation.isPending &&
+                                    updateStatusMutation.variables?.applicationId === application._id &&
+                                    updateStatusMutation.variables?.status === statusValue;
+                                  return (
+                                    <button
+                                      key={statusValue}
+                                      type="button"
+                                      disabled={isCurrent || updateStatusMutation.isPending}
+                                      onClick={() => {
+                                        const confirmed = window.confirm(t('jobs.detail.confirmStatus', { status: statusValue }));
+                                        if (!confirmed) return;
+                                        updateStatusMutation.mutate({ applicationId: application._id, status: statusValue });
+                                      }}
+                                      className={`rounded-lg px-2 py-1.5 text-xs font-medium capitalize transition ${isCurrent ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700 disabled:opacity-50'}`}
+                                    >
+                                      {isUpdatingThis ? t('jobs.detail.updating') : statusValue}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </>
+            )}
             <Link href="/dashboard/jobs/applications" className="btn-secondary w-full flex items-center justify-center gap-2">
               <ExternalLink size={16} /> {t('jobs.detail.myApplications')}
             </Link>

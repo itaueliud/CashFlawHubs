@@ -7,6 +7,7 @@
   "dependencies": {
     "@platform/core":"*",
     "@platform/db":"*",
-    "@platform/queue":"*"
+    "@platform/queue":"*",
+    "@platform/scrapers":"*"
   }
 }

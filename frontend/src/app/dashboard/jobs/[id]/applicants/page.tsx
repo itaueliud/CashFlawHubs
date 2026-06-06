@@ -49,7 +49,7 @@ type ApplicantsResponse = {
   };
 };
 
-const STATUS_OPTIONS: JobApplicationStatus[] = ['redirected', 'applied', 'interviewing', 'offered', 'rejected', 'withdrawn'];
+const STATUS_OPTIONS: JobApplicationStatus[] = ['applied', 'interviewing', 'offered', 'rejected', 'withdrawn'];
 
 export default function JobApplicantsPage() {
   const { t } = useTranslation();

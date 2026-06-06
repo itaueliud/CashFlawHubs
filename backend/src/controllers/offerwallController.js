@@ -4,6 +4,7 @@ const Wallet = require('../models/Wallet');
 const Transaction = require('../models/Transaction');
 const { getRedis, isRedisReady } = require('../config/redis');
 const logger = require('../utils/logger');
+const { trackEvent, checkEarningMilestones } = require('../services/eventTracker');
 
 const OFFERWALL_SESSION_TTL_SECONDS = 60 * 60 * 12;
 const OFFERWALL_PROVIDER_KEYS = new Set(['ayetstudios', 'adgate']);
@@ -313,6 +314,8 @@ exports.ayetStudiosCallback = async (req, res) => {
     });
 
     await User.findByIdAndUpdate(user._id, { $inc: { xpPoints: 30 } });
+    await trackEvent(user._id, 'offerwall_complete');
+    await checkEarningMilestones(user._id);
 
     logger.info(`Ayет Studios offer reward: $${amountUSD} for ${external_identifier}`);
     await trackOfferwallMetric('ayetstudios', 'processed');
@@ -384,6 +387,8 @@ exports.adGateCallback = async (req, res) => {
     });
 
     await User.findByIdAndUpdate(user._id, { $inc: { xpPoints: 30 } });
+    await trackEvent(user._id, 'offerwall_complete');
+    await checkEarningMilestones(user._id);
     await trackOfferwallMetric('adgate', 'processed');
     res.send('1');
   } catch (error) {

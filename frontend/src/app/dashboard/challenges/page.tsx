@@ -45,7 +45,7 @@ export default function ChallengesPage() {
               <Trophy size={22} className="text-emerald-400" /> Daily Challenges
             </h1>
             <p className="text-sm text-slate-300 mt-1">
-              Complete challenges, claim cash rewards, and stack XP every day.
+              Complete challenges, earn XP, and build momentum every day.
             </p>
           </div>
           <div className="text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-3 py-1.5 flex items-center gap-1.5 whitespace-nowrap">
@@ -65,15 +65,26 @@ export default function ChallengesPage() {
             const canClaim = challenge.completed && !challenge.rewardClaimed;
 
             return (
-              <div key={challenge._id} className="card border-slate-700/80">
+              <div key={challenge._id} className={`card border-slate-700/80 ${challenge.resetDaily === false ? 'border-purple-500/20 bg-purple-500/5' : ''}`}>
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div>
-                    <h2 className="font-semibold text-base">{challenge.title}</h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="font-semibold text-base">{challenge.title}</h2>
+                      {challenge.resetDaily === false && (
+                        <span className="text-[10px] font-bold uppercase tracking-wide bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded-full">
+                          Milestone
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-slate-400 mt-0.5">{challenge.description}</p>
                   </div>
                   <div className="text-right">
-                    <div className="badge-green">${challenge.rewardUSD}</div>
-                    <div className="text-xs text-emerald-400 mt-1">+{challenge.xpReward} XP</div>
+                    {challenge.resetDaily === false && challenge.rewardUSD > 0 ? (
+                      <div className="badge-green">${challenge.rewardUSD}</div>
+                    ) : (
+                      <div className="badge-blue">+{challenge.xpReward} XP</div>
+                    )}
+                    {challenge.resetDaily === false && <div className="text-xs text-emerald-400 mt-1">+{challenge.xpReward} XP</div>}
                   </div>
                 </div>
 

@@ -4,10 +4,17 @@ const User = require('../models/User');
 const devAuthStore = require('../services/devAuthStore');
 const { isUserActivated } = require('../utils/activationWindow');
 
+const getCookieValue = (cookieHeader = '', name) => {
+  const pattern = new RegExp(`(?:^|;\\s*)${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}=([^;]*)`);
+  const match = String(cookieHeader || '').match(pattern);
+  return match ? decodeURIComponent(match[1]) : null;
+};
+
 exports.protect = async (req, res, next) => {
   try {
     let token;
-    if (req.headers.authorization?.startsWith('Bearer ')) {
+    token = req.cookies?.token || getCookieValue(req.headers.cookie, 'token');
+    if (!token && req.headers.authorization?.startsWith('Bearer ')) {
       token = req.headers.authorization.split(' ')[1];
     }
     if (!token) return res.status(401).json({ success: false, message: 'Not authorized' });

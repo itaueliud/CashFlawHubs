@@ -16,6 +16,7 @@ const { COUNTRIES } = require('../config/countries');
 const { TOKEN_PACKAGES } = require('../config/monetization');
 const devAuthStore = require('../services/devAuthStore');
 const { isUserActivated } = require('../utils/activationWindow');
+const { trackEvent } = require('../services/eventTracker');
 
 const CODE_TTL_SECONDS = 300;
 const EMAIL_VERIFY_TTL_SECONDS = 24 * 60 * 60;
@@ -67,12 +68,26 @@ const clearCode = async (namespace, key) => {
 };
 
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+const isNumericIdentityNumber = (value = '') => /^\d+$/.test(String(value).trim());
+const isStrongPassword = (value = '') => {
+  const password = String(value || '');
+  return password.length >= 8 && /[A-Za-z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password);
+};
 const normalizeLoginIdentifier = (value = '') => String(value).trim().toLowerCase();
 const normalizeEmail = (value = '') => String(value).trim().toLowerCase();
 const getApiBaseUrl = () =>
   (process.env.API_BASE_URL || process.env.BACKEND_URL || 'http://localhost:5000').replace(/\/+$/, '');
 const getFrontendBaseUrl = () =>
   (process.env.FRONTEND_URL || process.env.FRONTEND_APP_URL || process.env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
+const getAuthCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax',
+  path: '/',
+  maxAge: (Number(process.env.JWT_COOKIE_MAX_AGE_DAYS || 7) || 7) * 24 * 60 * 60 * 1000,
+});
+const setAuthCookie = (res, token) => res.cookie('token', token, getAuthCookieOptions());
+const clearAuthCookie = (res) => res.clearCookie('token', { path: '/' });
 
 const validateImagePayload = (value) =>
   typeof value === 'string' && (value.startsWith('data:image/') || value.startsWith('http'));
@@ -93,7 +108,16 @@ const getSecurityContext = (req, payload = {}) => ({
   userLanguage: normalizeLang(payload.user_language || payload.browser_language || req.headers['accept-language'] || 'en'),
   cfIpCountry: String(req.headers['cf-ipcountry'] || ''),
   timezone: String(payload.timezone || req.headers['x-timezone'] || ''),
-  deviceFingerprint: String(payload.device_fingerprint || req.headers['x-device-fingerprint'] || ''),
+  deviceFingerprint: crypto
+    .createHash('sha256')
+    .update([
+      getClientIp(req),
+      String(req.headers['user-agent'] || ''),
+      String(req.headers['accept-language'] || ''),
+      String(payload.timezone || req.headers['x-timezone'] || ''),
+    ].join('|'))
+    .digest('hex')
+    .slice(0, 64),
 });
 
 const sendVerificationEmailToRecipient = async ({ email, firstName, allowExistingUser = false }) => {
@@ -142,6 +166,13 @@ exports.sendOTP = async (req, res) => {
 
     const otp = generateOTP();
     await setCode('otp', phone, otp);
+
+    if (process.env.NODE_ENV !== 'development' && !verificationSmsConfigured()) {
+      return res.status(503).json({
+        success: false,
+        message: 'SMS verification is not configured on this server',
+      });
+    }
 
     if (process.env.NODE_ENV === 'development' || !verificationSmsConfigured()) {
       if (!verificationSmsConfigured()) {
@@ -287,6 +318,13 @@ exports.verifyPhoneOTP = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Phone and OTP required' });
     }
 
+    if (process.env.NODE_ENV !== 'development' && !verificationSmsConfigured()) {
+      return res.status(503).json({
+        success: false,
+        message: 'SMS verification is not configured on this server',
+      });
+    }
+
     const useInfobip = process.env.NODE_ENV !== 'development' && verificationSmsConfigured();
     if (!useInfobip) {
       const storedCode = await getCode('otp', phone);
@@ -339,8 +377,10 @@ exports.register = async (req, res) => {
       phone,
       country,
       password,
+      confirmPassword,
       referralCode,
       idNumber,
+      termsAccepted,
       dateOfBirth,
       idDocumentImage,
       faceVerificationImage,
@@ -359,6 +399,18 @@ exports.register = async (req, res) => {
     if (!COUNTRIES[country]) {
       return res.status(400).json({ success: false, message: 'Unsupported country' });
     }
+    if (idNumber && !isNumericIdentityNumber(idNumber)) {
+      return res.status(400).json({ success: false, message: 'ID number must contain numbers only' });
+    }
+    if (!isStrongPassword(password)) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters and include letters, numbers, and symbols' });
+    }
+    if (!confirmPassword || confirmPassword !== password) {
+      return res.status(400).json({ success: false, message: 'Passwords do not match' });
+    }
+    if (!termsAccepted) {
+      return res.status(400).json({ success: false, message: 'You must accept the terms and conditions' });
+    }
     if (!referralCode) {
       return res.status(400).json({ success: false, message: 'Referral code is required' });
     }
@@ -373,14 +425,14 @@ exports.register = async (req, res) => {
 
     if (isDatabaseReady()) {
       const phoneQuery = normalizedPhone ? User.findOne({ phone: normalizedPhone }) : Promise.resolve(null);
-      const emailQuery = User.findOne({ email: email.toLowerCase() });
-      const idQuery = idNumber ? User.findOne({ idNumber }) : Promise.resolve(null);
+      const emailQuery = User.findOne({ email: normalizedEmail });
+      const idQuery = idNumber ? User.findOne({ idNumber: String(idNumber).trim() }) : Promise.resolve(null);
 
       [existingPhone, existingEmail, existingId] = await Promise.all([phoneQuery, emailQuery, idQuery]);
     } else {
       existingPhone = normalizedPhone ? devAuthStore.findByPhone(normalizedPhone) : null;
-      existingEmail = devAuthStore.findByEmail(email);
-      existingId = idNumber ? devAuthStore.findByIdNumber(idNumber) : null;
+      existingEmail = devAuthStore.findByEmail(normalizedEmail);
+      existingId = idNumber ? devAuthStore.findByIdNumber(String(idNumber).trim()) : null;
     }
 
     if (existingPhone) return res.status(409).json({ success: false, message: 'Phone number already registered' });
@@ -414,7 +466,7 @@ exports.register = async (req, res) => {
         firstName,
         lastName,
         name: fullName,
-        email,
+        email: normalizedEmail,
         phone: normalizedPhone || undefined,
         country,
         passwordHash: password,
@@ -433,6 +485,7 @@ exports.register = async (req, res) => {
       });
 
       const token = signToken(user.id);
+      setAuthCookie(res, token);
       logger.warn(`MongoDB unavailable. Registered ${user.userId} using local development auth storage.`);
 
       return res.status(201).json({
@@ -452,11 +505,11 @@ exports.register = async (req, res) => {
       firstName,
       lastName,
       name: fullName,
-      email: email.toLowerCase(),
+      email: normalizedEmail,
       ...(normalizedPhone ? { phone: normalizedPhone } : {}),
       country,
       passwordHash: password,
-      idNumber: idNumber || undefined,
+      idNumber: idNumber ? String(idNumber).trim() : undefined,
       idDocumentImage: validateImagePayload(idDocumentImage) ? idDocumentImage : null,
       faceVerificationImage: validateImagePayload(faceVerificationImage) ? faceVerificationImage : null,
       identityVerificationStatus,
@@ -484,6 +537,7 @@ exports.register = async (req, res) => {
     await Wallet.create({ userId: user._id });
 
     const token = signToken(user._id);
+    setAuthCookie(res, token);
     logger.info(`New user registered: ${user.userId} from ${country}`);
 
     res.status(201).json({
@@ -574,6 +628,7 @@ exports.login = async (req, res) => {
       })) || user;
 
       const token = signToken(refreshedUser.id);
+      setAuthCookie(res, token);
       return res.json({
         success: true,
         token,
@@ -621,7 +676,14 @@ exports.login = async (req, res) => {
     }].slice(-30);
     await user.save();
 
+    await trackEvent(user._id, 'login');
+    if (user.streak === 3) await trackEvent(user._id, 'daily_login_streak_3');
+    if (user.streak === 7) await trackEvent(user._id, 'daily_login_streak_7');
+    if (user.streak === 14) await trackEvent(user._id, 'login_streak_14');
+    if (user.streak === 30) await trackEvent(user._id, 'login_streak_30');
+
     const token = signToken(user._id);
+    setAuthCookie(res, token);
     const wallet = await Wallet.findOne({ userId: user._id });
 
     res.json({
@@ -663,6 +725,11 @@ exports.login = async (req, res) => {
     logger.error(`login error: ${error.message}`);
     res.status(500).json({ success: false, message: 'Login failed' });
   }
+};
+
+exports.logout = async (req, res) => {
+  clearAuthCookie(res);
+  return res.json({ success: true, message: 'Logged out successfully' });
 };
 
 exports.getMe = async (req, res) => {
