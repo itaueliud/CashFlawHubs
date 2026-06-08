@@ -215,10 +215,10 @@ async function getIframeParams(req, res) {
       return res.status(403).json({ success: false, message: 'Account activation required' });
     }
 
-    // CPX iframe secure_hash = md5( appId + userId + hashKey )
+    // CPX iframe secure_hash = md5( userId + "-" + hashKey )
     const secureHash = crypto
       .createHash('md5')
-      .update(`${appId}${user.userId}${hashKey}`)
+      .update(`${user.userId}-${hashKey}`)
       .digest('hex');
 
     const url = new URL('https://offers.cpx-research.com/index.php');
