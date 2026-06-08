@@ -59,6 +59,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname() ?? '';
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (hasHydrated && !user) router.push('/login');
@@ -112,7 +117,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [hasHydrated, user, pathname, router]);
 
-  if (!hasHydrated) {
+  if (!mounted || !hasHydrated) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-950 text-slate-400">
         {t('common.loadingDashboard')}

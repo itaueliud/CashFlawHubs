@@ -460,7 +460,9 @@ const initiateMpesaSTK = async (user, amount, phoneNumber) => {
   const password = Buffer.from(
     `${process.env.DARAJA_SHORTCODE || process.env.MPESA_SHORTCODE}${process.env.DARAJA_PASSKEY || process.env.MPESA_PASSKEY}${timestamp}`
   ).toString('base64');
-  const normalizedPhone = normalizePhoneNumber(phoneNumber || user.phone);
+  let normalizedPhone = normalizePhoneNumber(phoneNumber || user.phone);
+  if (normalizedPhone.startsWith('0')) normalizedPhone = `254${normalizedPhone.slice(1)}`;
+  if (normalizedPhone.startsWith('7') || normalizedPhone.startsWith('1')) normalizedPhone = `254${normalizedPhone}`;
 
   const baseUrl = isDarajaLive()
     ? 'https://api.safaricom.co.ke'

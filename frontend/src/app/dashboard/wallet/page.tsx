@@ -275,6 +275,13 @@ export default function WalletPage() {
     try {
       const response = await api.post('/wallet/tokens/purchase', { packageTokens: tokens });
       toast.success(response.data.message || `${tokens} tokens purchased successfully!`);
+      if (user) {
+        setUser({
+          ...user,
+          tokenBalance: response.data.tokenBalance !== undefined ? response.data.tokenBalance : (user.tokenBalance || 0) + tokens,
+          balanceUSD: response.data.balanceUSD !== undefined ? response.data.balanceUSD : user.balanceUSD
+        });
+      }
       await refreshUser();
       await queryClient.invalidateQueries({ queryKey: ['wallet'] });
       await queryClient.invalidateQueries({ queryKey: ['transactions'] });

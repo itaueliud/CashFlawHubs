@@ -21,7 +21,12 @@ const getConfig = () => {
   };
 };
 
-const normalizePhone = (value = '') => value.replace(/[^\d]/g, '');
+const normalizePhone = (value = '') => {
+  let p = String(value).replace(/[^\d]/g, '');
+  if (p.startsWith('0')) p = '254' + p.slice(1);
+  if (p.startsWith('7') || p.startsWith('1')) p = '254' + p;
+  return p;
+};
 const buildTimestamp = () => new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
 
 const getAccessToken = async () => {
