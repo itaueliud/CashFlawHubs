@@ -242,6 +242,7 @@ type FormState = {
   timezone: string;
   device_fingerprint: string;
   termsAccepted: boolean;
+  aboutAccepted: boolean;
 };
 
 type FormErrors = {
@@ -255,6 +256,7 @@ type FormErrors = {
   password: string;
   confirmPassword: string;
   termsAccepted: string;
+  aboutAccepted: string;
 };
 
 const emptyErrors: FormErrors = {
@@ -268,6 +270,7 @@ const emptyErrors: FormErrors = {
   password: '',
   confirmPassword: '',
   termsAccepted: '',
+  aboutAccepted: '',
 };
 
 function RegisterPageContent() {
@@ -300,6 +303,7 @@ function RegisterPageContent() {
     timezone: '',
     device_fingerprint: '',
     termsAccepted: false,
+    aboutAccepted: false,
   });
 
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || '';
@@ -598,6 +602,11 @@ function RegisterPageContent() {
   const completeSignup = async () => {
     if (!referralVerified) return toast.error(copy.verifyReferralFirst);
     if (!validateStep3() || !validateStep4() || !validateStep5()) return;
+    if (!form.aboutAccepted) {
+      setError('aboutAccepted', 'You must read About CashFlowHubs');
+      toast.error('You must read About CashFlowHubs');
+      return;
+    }
     if (!form.termsAccepted) {
       setError('termsAccepted', copy.termsRequired);
       toast.error(copy.termsRequired);
@@ -821,20 +830,14 @@ function RegisterPageContent() {
             />
             <div>
               <label className="mb-1 block text-sm text-slate-300">{copy.phoneLabel}</label>
-              <div className="flex overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/80">
-                <div className="flex items-center border-r border-slate-700 bg-slate-900/80 px-4 text-sm font-semibold text-emerald-300">
-                  {phoneCountry.dialCode}
-                </div>
-                <input
-                  className="input border-0 bg-transparent"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  placeholder={copy.phoneLocalLabel}
-                  value={form.phone}
-                  onChange={(e) => handlePhoneChange(e.target.value)}
-                />
-              </div>
-              <p className="mt-1 text-xs text-slate-400">{copy.summaryCountryCode}</p>
+              <input
+                className="input"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder={copy.phonePlaceholder}
+                value={form.phone}
+                onChange={(e) => handlePhoneChange(e.target.value)}
+              />
               {errors.phone && <p className="mt-1 text-xs text-red-400">{errors.phone}</p>}
             </div>
 
@@ -885,21 +888,6 @@ function RegisterPageContent() {
               {errors.password && <p className="mt-1 text-xs text-red-400">{errors.password}</p>}
             </div>
 
-            <div className="rounded-2xl border border-slate-700 bg-slate-950/40 p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
-                <ShieldCheck size={16} className="text-emerald-400" />
-                Password must include:
-              </div>
-              <div className="grid gap-2 text-sm sm:grid-cols-2">
-                {passwordChecks.map((rule) => (
-                  <div key={rule.label} className={`flex items-center gap-2 ${rule.met ? 'text-emerald-300' : 'text-slate-400'}`}>
-                    {rule.met ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-                    {rule.label}
-                  </div>
-                ))}
-              </div>
-            </div>
-
             <div>
               <label className="mb-1 block text-sm text-slate-300">{copy.confirmPasswordLabel}</label>
               <div className="relative">
@@ -920,6 +908,21 @@ function RegisterPageContent() {
                 </button>
               </div>
               {errors.confirmPassword && <p className="mt-1 text-xs text-red-400">{errors.confirmPassword}</p>}
+            </div>
+
+            <div className="rounded-2xl border border-slate-700 bg-slate-950/40 p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+                <ShieldCheck size={16} className="text-emerald-400" />
+                Password must include:
+              </div>
+              <div className="grid gap-2 text-sm sm:grid-cols-2">
+                {passwordChecks.map((rule) => (
+                  <div key={rule.label} className={`flex items-center gap-2 ${rule.met ? 'text-emerald-300' : 'text-slate-400'}`}>
+                    {rule.met ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                    {rule.label}
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="flex items-center justify-between gap-3">
@@ -967,13 +970,32 @@ function RegisterPageContent() {
               <div className="font-semibold text-white">{copy.aboutTitle}</div>
               <p className="mt-2 leading-6 text-slate-300">{copy.aboutCopy}</p>
               <p className="mt-3 leading-6 text-slate-400">{copy.howToEarnCopy}</p>
-              <Link href="/about" className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-emerald-400 hover:text-emerald-300">
+              <Link href="/about" target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-emerald-400 hover:text-emerald-300">
                 Learn more about CashFlowHubs
                 <ArrowRight size={16} />
               </Link>
             </div>
 
-            <div className="rounded-2xl border border-slate-700 bg-slate-950/40 p-4">
+            <div className="rounded-2xl border border-slate-700 bg-slate-950/40 p-4 space-y-4">
+              <label className="flex cursor-pointer items-start gap-3 text-sm text-slate-200">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-800 text-emerald-500 focus:ring-emerald-500"
+                  checked={form.aboutAccepted}
+                  onChange={(e) => {
+                    setField('aboutAccepted', e.target.checked);
+                    if (e.target.checked) setError('aboutAccepted', '');
+                  }}
+                />
+                <span>
+                  I have read about{' '}
+                  <Link href="/about" target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-400 hover:text-emerald-300">
+                    CashFlowHubs
+                  </Link>
+                </span>
+              </label>
+              {errors.aboutAccepted && <p className="mt-1 text-xs text-red-400">{errors.aboutAccepted}</p>}
+
               <label className="flex cursor-pointer items-start gap-3 text-sm text-slate-200">
                 <input
                   type="checkbox"
@@ -986,7 +1008,7 @@ function RegisterPageContent() {
                 />
                 <span>
                   {copy.termsLabel}{' '}
-                  <Link href="/terms" className="font-semibold text-emerald-400 hover:text-emerald-300">
+                  <Link href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-400 hover:text-emerald-300">
                     Terms and Conditions
                   </Link>
                   <span className="block text-xs text-slate-400">{copy.termsHelp}</span>
@@ -1016,10 +1038,10 @@ function RegisterPageContent() {
           </div>
           {step === 6 && (
             <div className="flex flex-wrap items-center gap-4">
-              <Link href="/about" className="hover:text-white">
+              <Link href="/about" target="_blank" rel="noopener noreferrer" className="hover:text-white">
                 About CashFlowHubs
               </Link>
-              <Link href="/terms" className="hover:text-white">
+              <Link href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-white">
                 Terms & Conditions
               </Link>
             </div>

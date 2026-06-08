@@ -37,18 +37,18 @@ import {
 import clsx from 'clsx';
 
 const BASE_NAV = [
-  { href: '/dashboard', icon: LayoutDashboard, labelKey: 'nav.dashboard' },
-  { href: '/dashboard/jobs', icon: Briefcase, labelKey: 'nav.remoteJobs' },
-  { href: '/dashboard/surveys', icon: ClipboardList, labelKey: 'nav.paidSurveys' },
-  { href: '/dashboard/tasks', icon: Zap, labelKey: 'nav.microtasks' },
-  { href: '/dashboard/ads-network', icon: Radio, labelKey: 'nav.adsNetwork' },
-  { href: '/dashboard/offerwalls', icon: Gift, labelKey: 'nav.offerwalls' },
-  { href: '/dashboard/cash-tasks', icon: TrendingUp, labelKey: 'nav.cashTasks' },
-  { href: '/dashboard/referrals', icon: Star, labelKey: 'nav.referAndEarn' },
-  { href: '/dashboard/chat', icon: MessagesSquare, labelKey: 'nav.jobChats' },
-  { href: '/dashboard/challenges', icon: Trophy, labelKey: 'nav.dailyChallenges' },
-  { href: '/dashboard/wallet', icon: Wallet, labelKey: 'nav.wallet' },
-  { href: '/dashboard/profile', icon: User, labelKey: 'nav.profile' },
+  { href: '/dashboard', icon: LayoutDashboard, labelKey: 'nav.dashboard', category: 'Overview' },
+  { href: '/dashboard/jobs', icon: Briefcase, labelKey: 'nav.remoteJobs', category: 'Earn Features' },
+  { href: '/dashboard/surveys', icon: ClipboardList, labelKey: 'nav.paidSurveys', category: 'Earn Features' },
+  { href: '/dashboard/tasks', icon: Zap, labelKey: 'nav.microtasks', category: 'Earn Features' },
+  { href: '/dashboard/ads-network', icon: Radio, labelKey: 'nav.adsNetwork', category: 'Earn Features' },
+  { href: '/dashboard/offerwalls', icon: Gift, labelKey: 'nav.offerwalls', category: 'Earn Features' },
+  { href: '/dashboard/cash-tasks', icon: TrendingUp, labelKey: 'nav.cashTasks', category: 'Earn Features' },
+  { href: '/dashboard/challenges', icon: Trophy, labelKey: 'nav.dailyChallenges', category: 'Earn Features' },
+  { href: '/dashboard/chat', icon: MessagesSquare, labelKey: 'nav.jobChats', category: 'Social / Community' },
+  { href: '/dashboard/referrals', icon: Star, labelKey: 'nav.referAndEarn', category: 'Social / Community' },
+  { href: '/dashboard/wallet', icon: Wallet, labelKey: 'nav.wallet', category: 'Account' },
+  { href: '/dashboard/profile', icon: User, labelKey: 'nav.profile', category: 'Account' },
 ];
 
 const REAL_USER_BLOCKED_ROUTES: string[] = [];
@@ -192,20 +192,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </div>
 
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {nav.map(({ href, icon: Icon, labelKey }) => (
-          <Link
-            key={href}
-            href={href}
-            onClick={() => setMobileOpen(false)}
-            className={clsx(
-              'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
-              isNavActive(href) ? 'bg-green-500/20 text-green-400' : 'text-slate-400 hover:text-white hover:bg-slate-700'
-            )}
-          >
-            <Icon size={18} />
-            {t(labelKey)}
-          </Link>
+      <nav className="flex-1 p-3 space-y-4 overflow-y-auto">
+        {Array.from(new Set(nav.map(n => n.category || 'Menu'))).map(category => (
+          <div key={category}>
+            {category !== 'Menu' && <div className="px-3 mb-2 text-xs font-bold tracking-wider text-slate-500 uppercase">{category}</div>}
+            <div className="space-y-1">
+              {nav.filter(n => (n.category || 'Menu') === category).map(({ href, icon: Icon, labelKey }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setMobileOpen(false)}
+                  className={clsx(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
+                    isNavActive(href) ? 'bg-green-500/20 text-green-400' : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                  )}
+                >
+                  <Icon size={18} />
+                  {t(labelKey)}
+                </Link>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 

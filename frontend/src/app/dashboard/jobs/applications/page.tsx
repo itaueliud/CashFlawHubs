@@ -148,8 +148,8 @@ export default function JobApplicationsPage() {
         <div className="grid gap-3">
           {filteredApplications.map((application) => {
             const job = application.job;
-            const canWithdraw = ['redirected', 'applied'].includes(application.status);
             const isExternalJob = Boolean(job?.source && job.source !== 'internal');
+            const canWithdraw = ['applied'].includes(application.status) && !isExternalJob;
             return (
               <div key={application._id} className="rounded-2xl border border-emerald-500/10 bg-slate-900/90 p-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
