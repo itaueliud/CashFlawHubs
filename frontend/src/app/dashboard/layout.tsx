@@ -193,11 +193,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       <nav className="flex-1 p-3 space-y-4 overflow-y-auto">
-        {Array.from(new Set(nav.map(n => n.category || 'Menu'))).map(category => (
+        {Array.from(new Set(nav.map(n => (n as { category?: string }).category || 'Menu'))).map(category => (
           <div key={category}>
             {category !== 'Menu' && <div className="px-3 mb-2 text-xs font-bold tracking-wider text-slate-500 uppercase">{category}</div>}
             <div className="space-y-1">
-              {nav.filter(n => (n.category || 'Menu') === category).map(({ href, icon: Icon, labelKey }) => (
+              {nav.filter(n => ((n as { category?: string }).category || 'Menu') === category).map(({ href, icon: Icon, labelKey }) => (
                 <Link
                   key={href}
                   href={href}
