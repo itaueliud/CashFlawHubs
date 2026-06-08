@@ -56,6 +56,11 @@ function Countdown({ availableAfter }: { availableAfter: string }) {
 export default function SurveysPage() {
   const { user } = useAuthStore();
   const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const {
     data: iframeData,
@@ -79,6 +84,15 @@ export default function SurveysPage() {
     enabled:  !!user,
     refetchInterval: 60_000,
   });
+
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center h-64 gap-2 text-slate-400 text-sm">
+        <Loader2 className="animate-spin text-emerald-400" size={24} />
+        Loading surveys...
+      </div>
+    );
+  }
 
   if (!user?.activationStatus) {
     return (
