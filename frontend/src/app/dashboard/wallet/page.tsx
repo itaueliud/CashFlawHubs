@@ -43,7 +43,7 @@ export default function WalletPage() {
   const [pendingPurchase, setPendingPurchase] = useState<PendingTokenPurchase | null>(null);
   const [pendingDeposit, setPendingDeposit] = useState<PendingWalletDeposit | null>(null);
   const queryClient = useQueryClient();
-  const { user, refreshUser } = useAuthStore();
+  const { user, refreshUser, setUser } = useAuthStore();
 
   const { data: walletData } = useQuery({
     queryKey: ['wallet'],
