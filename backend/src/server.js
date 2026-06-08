@@ -38,6 +38,9 @@ const catalogRoutes = require('./routes/catalog');
 const adsNetworkRoutes = require('./routes/adsNetwork');
 const adminAdvancedRoutes = require('./routes/adminAdvanced');
 const chatRoutes = require('./routes/chat');
+const cpxRoutes = require('./routes/cpxRoutes');
+const mongoose = require('mongoose');
+const { startCpxVerificationWorker } = require('./workers/cpxVerificationWorker');
 
 const app = express();
 const server = http.createServer(app);
@@ -168,6 +171,7 @@ app.use('/api/catalog', catalogRoutes);
 app.use('/api/ads-network', adsNetworkRoutes);
 app.use('/api/admin-advanced', adminAdvancedRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/cpx', cpxRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -192,6 +196,11 @@ server.listen(PORT, () => {
   startQueueWorker();
   void syncJobs().catch((error) => {
     logger.error(`Initial job sync failed: ${error.message}`);
+  });
+
+  // Start CPX Verification background worker once mongoose connects
+  mongoose.connection.once('open', () => {
+    startCpxVerificationWorker();
   });
 });
 
