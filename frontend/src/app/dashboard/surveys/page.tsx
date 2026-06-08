@@ -172,7 +172,7 @@ export default function SurveysPage() {
         )}
 
         {iframeData?.iframeUrl && (
-          <div className="relative">
+          <div className="relative h-[650px] w-full">
             {!iframeLoaded && (
               <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80 z-10">
                 <Loader2 size={24} className="animate-spin text-emerald-400" />
@@ -181,11 +181,11 @@ export default function SurveysPage() {
             <iframe
               src={iframeData.iframeUrl}
               width="100%"
-              height="2000px"
+              height="100%"
               frameBorder="0"
               title="CPX Research Survey Wall"
               onLoad={() => setIframeLoaded(true)}
-              className="block"
+              className="block w-full h-full"
               sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-top-navigation"
             />
           </div>
