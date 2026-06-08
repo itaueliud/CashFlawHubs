@@ -213,7 +213,7 @@ export default function WalletPage() {
     return `${pendingDeposit.amount} ${pendingDeposit.currency} via ${pendingDeposit.provider}`;
   }, [pendingDeposit]);
 
-  const onWithdraw = async (data: { amountUSD: number; phoneNumber: string }) => {
+  const onWithdraw = async (data: { amountUSD: number }) => {
     if (!withdrawalOpen) {
       toast.error('Withdrawals are only available on Fridays');
       return;
@@ -273,24 +273,18 @@ export default function WalletPage() {
   const onBuyTokens = async (tokens: number) => {
     setBuyingTokens(tokens);
     try {
-      const response = await api.post('/payments/tokens/purchase', { tokens });
-      const pending = {
-        reference: response.data.reference,
-        tokens,
-        provider: response.data.provider,
-        checkoutUrl: response.data.checkoutUrl,
-      };
-      setPendingPurchase(pending);
-      persistPendingPurchase(pending);
-
-      if (response.data.checkoutUrl) {
-        window.location.assign(response.data.checkoutUrl);
-        return;
-      }
-
-      toast.success(`Token purchase started for ${tokens} tokens. We’ll keep checking for confirmation.`);
+      const response = await api.post('/wallet/tokens/purchase', { packageTokens: tokens });
+      toast.success(response.data.message || `${tokens} tokens purchased successfully!`);
+      await refreshUser();
+      await queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      await queryClient.invalidateQueries({ queryKey: ['transactions'] });
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Token purchase failed');
+      if (error.response?.status === 400 && error.response?.data?.message?.includes('Insufficient balance')) {
+        toast.error('Insufficient wallet balance. Please deposit funds first.');
+        document.getElementById('deposit')?.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        toast.error(error.response?.data?.message || 'Token purchase failed');
+      }
     } finally {
       setBuyingTokens(null);
     }
@@ -329,7 +323,7 @@ export default function WalletPage() {
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" id="deposit">
         <h3 className="mb-4 font-bold">Deposit Funds</h3>
         {pendingDeposit && (
           <div className="mb-4 flex items-center justify-between rounded-2xl border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm">
@@ -442,11 +436,6 @@ export default function WalletPage() {
           <div>
             <label className="mb-1.5 block text-sm text-slate-300">Amount (USD)</label>
             <input {...register('amountUSD', { required: true })} type="number" step="0.01" placeholder="e.g. 5.00" className="input" />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm text-slate-300">Phone Number</label>
-            <input {...register('phoneNumber')} placeholder="+254712345678" className="input" />
           </div>
 
           <button

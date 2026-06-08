@@ -552,7 +552,7 @@ exports.getJobs = async (req, res) => {
     ];
 
     const [aggregatedJobs, sourceCounts, scraperStats] = await Promise.all([
-      Job.aggregate(pipeline),
+      Job.aggregate(pipeline).allowDiskUse(true),
       Job.aggregate([
         { $match: { isActive: true, $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] } },
         { $group: { _id: '$source', count: { $sum: 1 } } },
