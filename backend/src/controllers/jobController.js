@@ -508,51 +508,77 @@ exports.getJobs = async (req, res) => {
           },
         ]
       : [];
-    const orderedSort = shouldPrioritizeRemoteSources ? { sourcePriority: -1, publishedAt: -1 } : { publishedAt: -1 };
-    const dedupePipeline = useRawFeed
-      ? []
-      : [
-          { $addFields: { duplicateKey: { $concat: [ { $toLower: { $trim: { input: { $ifNull: ['$source', ''] } } } }, '|', { $toLower: { $trim: { input: { $ifNull: ['$title', ''] } } } }, '|', { $toLower: { $trim: { input: { $ifNull: ['$company', ''] } } } }, '|', { $toLower: { $trim: { input: { $ifNull: ['$location', ''] } } } } ] } } },
-          {
-            $group: {
-              _id: '$duplicateKey',
-              job: { $first: '$$ROOT' },
-              duplicateCount: { $sum: 1 },
-              firstPublishedAt: { $first: '$publishedAt' },
-            },
-          },
-          ...(duplicateGroupsOnly ? [{ $match: { duplicateCount: { $gt: 1 } } }] : []),
-          {
-            $replaceRoot: {
-              newRoot: {
-                $mergeObjects: [
-                  '$job',
-                  {
-                    duplicateCount: '$duplicateCount',
-                    duplicateKey: '$_id',
-                  },
-                ],
-              },
-            },
-          },
-        ];
+    const baseSort = shouldPrioritizeRemoteSources ? { sourcePriority: -1, publishedAt: -1 } : { publishedAt: -1 };
 
-    const pipeline = [
-      { $match: query },
-      ...sortStages,
-      { $sort: orderedSort },
-      ...dedupePipeline,
-      ...(!useRawFeed ? [{ $sort: orderedSort }] : []),
-      {
-        $facet: {
-          data: [{ $skip: skip }, { $limit: Number(limit) }],
-          meta: [{ $count: 'total' }],
+    let jobs = [];
+    let total = 0;
+
+    if (useRawFeed) {
+      const sortStage = shouldPrioritizeRemoteSources ? [...sortStages, { $sort: baseSort }] : [{ $sort: baseSort }];
+      const [rawData, countResult] = await Promise.all([
+        Job.aggregate([
+          { $match: query },
+          ...sortStage,
+          { $skip: skip },
+          { $limit: Number(limit) }
+        ]),
+        Job.countDocuments(query)
+      ]);
+      jobs = rawData;
+      total = countResult;
+    } else {
+      const dedupeAndPaginatePipeline = [
+        { $match: query },
+        ...sortStages,
+        { $sort: baseSort },
+        { $addFields: { duplicateKey: { $concat: [ { $toLower: { $trim: { input: { $ifNull: ['$source', ''] } } } }, '|', { $toLower: { $trim: { input: { $ifNull: ['$title', ''] } } } }, '|', { $toLower: { $trim: { input: { $ifNull: ['$company', ''] } } } }, '|', { $toLower: { $trim: { input: { $ifNull: ['$location', ''] } } } } ] } } },
+        {
+          $group: {
+            _id: '$duplicateKey',
+            jobId: { $first: '$_id' },
+            duplicateCount: { $sum: 1 },
+            publishedAt: { $first: '$publishedAt' },
+            sourcePriority: { $first: '$sourcePriority' }
+          }
         },
-      },
-    ];
+        ...(duplicateGroupsOnly ? [{ $match: { duplicateCount: { $gt: 1 } } }] : []),
+        { $sort: baseSort },
+        {
+          $facet: {
+            data: [
+              { $skip: skip },
+              { $limit: Number(limit) },
+              {
+                $lookup: {
+                  from: 'jobs',
+                  localField: 'jobId',
+                  foreignField: '_id',
+                  as: 'job'
+                }
+              },
+              { $unwind: '$job' },
+              {
+                $replaceRoot: {
+                  newRoot: {
+                    $mergeObjects: [
+                      '$job',
+                      { duplicateCount: '$duplicateCount', duplicateKey: '$_id' }
+                    ]
+                  }
+                }
+              }
+            ],
+            meta: [{ $count: 'total' }]
+          }
+        }
+      ];
 
-    const [aggregatedJobs, sourceCounts, scraperStats] = await Promise.all([
-      Job.aggregate(pipeline).allowDiskUse(true),
+      const aggregatedJobs = await Job.aggregate(dedupeAndPaginatePipeline);
+      jobs = aggregatedJobs?.[0]?.data || [];
+      total = aggregatedJobs?.[0]?.meta?.[0]?.total || 0;
+    }
+
+    const [sourceCounts, scraperStats] = await Promise.all([
       Job.aggregate([
         { $match: { isActive: true, $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] } },
         { $group: { _id: '$source', count: { $sum: 1 } } },
@@ -573,9 +599,6 @@ exports.getJobs = async (req, res) => {
           ])
         : Promise.resolve([]),
     ]);
-
-    const jobs = aggregatedJobs?.[0]?.data || [];
-    const total = aggregatedJobs?.[0]?.meta?.[0]?.total || 0;
 
     const isStaff = ['admin', 'superadmin', 'ledger'].includes(req.user?.role || '');
 
