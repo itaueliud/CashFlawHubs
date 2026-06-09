@@ -936,9 +936,59 @@ exports.verifyPayment = async (req, res) => {
 // @POST /api/payments/mpesa/callback
 exports.mpesaCallback = async (req, res) => {
   try {
+    const b2cResult = req.body?.Result;
+    if (b2cResult) {
+      const { ResultCode, ResultDesc, OriginatorConversationID, ConversationID, TransactionID } = b2cResult;
+      const callbackCode = Number(ResultCode);
+      const referenceId = OriginatorConversationID || ConversationID;
+
+      const pendingTx = await Transaction.findOne({
+        status: 'pending',
+        type: 'withdrawal',
+        providerTransactionId: referenceId,
+      });
+
+      if (pendingTx) {
+        if (callbackCode === 0) {
+          pendingTx.status = 'successful';
+          pendingTx.providerTransactionId = TransactionID || referenceId;
+          pendingTx.processedAt = new Date();
+          pendingTx.metadata = { ...(pendingTx.metadata || {}), b2cResultDesc: ResultDesc };
+          await pendingTx.save();
+
+          await Wallet.findOneAndUpdate(
+            { userId: pendingTx.userId },
+            { $inc: { pendingBalance: -pendingTx.amountUSD, totalWithdrawn: pendingTx.amountUSD } }
+          );
+
+          const successfulWithdrawals = await Transaction.countDocuments({
+            userId: pendingTx.userId,
+            type: 'withdrawal',
+            status: 'successful',
+          });
+          if (successfulWithdrawals === 1) {
+            await trackEvent(pendingTx.userId, 'first_withdrawal');
+          }
+          logger.info(`B2C Withdrawal successful: ${referenceId}`);
+        } else {
+          pendingTx.status = 'failed';
+          pendingTx.failureReason = ResultDesc || `B2C Failed with code ${callbackCode}`;
+          pendingTx.processedAt = new Date();
+          await pendingTx.save();
+
+          await Wallet.findOneAndUpdate(
+            { userId: pendingTx.userId },
+            { $inc: { pendingBalance: -pendingTx.amountUSD, balanceUSD: pendingTx.amountUSD } }
+          );
+          logger.warn(`B2C Withdrawal failed: ${ResultDesc}`);
+        }
+      }
+      return res.status(200).json({ received: true });
+    }
+
     const stkCallback = req.body?.Body?.stkCallback;
     if (!stkCallback) {
-      logger.warn('M-Pesa callback received without stkCallback payload');
+      logger.warn('M-Pesa callback received without stkCallback or Result payload');
       return res.status(200).json({ received: true });
     }
 

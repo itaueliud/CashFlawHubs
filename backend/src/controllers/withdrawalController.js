@@ -157,33 +157,16 @@ exports.processWithdrawal = async ({ transactionId, userId, amountUSD, phoneNumb
       },
     });
 
-    // Mark as successful
+    // Keep transaction as pending, wait for callback to confirm success and release balance
     await Transaction.findByIdAndUpdate(transactionId, {
-      status: 'successful',
       provider: transferRes?.provider || transaction.provider,
       providerTransactionId: transferRes?.providerTransactionId || withdrawalReference,
-      processedAt: new Date(),
       metadata: {
         ...(transaction.metadata || {}),
         routedVia: transferRes?.strategy || requestedProvider || null,
         payoutResponse: transferRes?.raw || null,
       },
     });
-
-    // Release pending balance
-    await Wallet.findOneAndUpdate(
-      { userId },
-      { $inc: { pendingBalance: -amountUSD, totalWithdrawn: amountUSD } }
-    );
-
-    const successfulWithdrawals = await Transaction.countDocuments({
-      userId,
-      type: 'withdrawal',
-      status: 'successful',
-    });
-    if (successfulWithdrawals === 1) {
-      await trackEvent(userId, 'first_withdrawal');
-    }
 
     logger.info(`Withdrawal processed: $${amountUSD} to ${phoneNumber} (${country})`);
   } catch (error) {
