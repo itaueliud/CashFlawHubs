@@ -23,6 +23,9 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     trim: true,
   },
+  emailVerified: { type: Boolean, default: false },
+  emailVerificationToken: { type: String, default: null, select: false },
+  emailVerificationExpiry: { type: Date, default: null, select: false },
   phone: {
     type: String,
     required: true,
@@ -60,6 +63,8 @@ const userSchema = new mongoose.Schema({
   referredBy: { type: String, default: null }, // referralCode of referrer
   activationStatus: { type: Boolean, default: false },
   emailVerified: { type: Boolean, default: false },
+  emailVerificationToken: { type: String, default: null },
+  emailVerificationExpiry: { type: Date, default: null },
   phoneVerified: { type: Boolean, default: false },
   dateOfBirth: { type: Date, default: null },
   userLanguage: { type: String, default: 'en' },

@@ -1,0 +1,39 @@
+{
+  "users": [
+    {
+      "id": "763cf358-22f2-4581-8ee9-289be6013f2d",
+      "userId": "USR-9FF2B7E5",
+      "firstName": "Dev",
+      "lastName": "Referrer",
+      "name": "Dev Referrer",
+      "email": "dev.referrer@example.com",
+      "phone": "+10000000000",
+      "country": "KE",
+      "passwordHash": "$2a$12$Ihhkq3OM8UJvbgSEw4TTweL.wIZeWpG7lhibgfa50VLgfgdbOyaiq",
+      "idNumber": null,
+      "idDocumentImage": null,
+      "faceVerificationImage": null,
+      "identityVerificationStatus": "pending",
+      "referralCode": "REF-4BE10836",
+      "referredBy": null,
+      "activationStatus": false,
+      "emailVerified": true,
+      "phoneVerified": true,
+      "tokenBalance": 200,
+      "totalTokensPurchased": 0,
+      "totalTokensSpent": 0,
+      "role": "user",
+      "level": 1,
+      "xpPoints": 0,
+      "streak": 0,
+      "badges": [],
+      "isActive": true,
+      "isBanned": false,
+      "failedLoginAttempts": 0,
+      "lockUntil": null,
+      "balanceUSD": 0,
+      "createdAt": "2026-05-29T14:22:01.105Z",
+      "updatedAt": "2026-05-29T14:22:01.116Z"
+    }
+  ]
+}

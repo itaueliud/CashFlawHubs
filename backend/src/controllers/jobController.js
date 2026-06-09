@@ -480,7 +480,7 @@ exports.getJobs = async (req, res) => {
     if (category) query.category = category;
     if (search) query.$text = { $search: search };
 
-    const shouldPrioritizeRemoteSources = !category && !search;
+    const shouldPrioritizeRemoteSources = !category && !search && req.query.sort !== 'newest';
     const useRawFeed = view === 'all';
     const duplicateGroupsOnly = view === 'duplicates';
     const sortStages = shouldPrioritizeRemoteSources

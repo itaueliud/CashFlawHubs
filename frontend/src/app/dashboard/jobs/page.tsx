@@ -32,7 +32,7 @@ export default function JobsPage() {
   const [category, setCategory] = useState('');
   const [view, setView] = useState<'unique' | 'all' | 'duplicates'>('unique');
   const [page, setPage] = useState(1);
-  const [tab, setTab] = useState<'browse' | 'post'>('browse');
+  const [tab, setTab] = useState<'browse' | 'post' | 'recent'>('browse');
   const [posting, setPosting] = useState(false);
   const [syncingJobs, setSyncingJobs] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -55,6 +55,14 @@ export default function JobsPage() {
       }
     },
   });
+
+  const { data: recentData, isLoading: recentLoading } = useQuery({
+    queryKey: ['jobs-recent'],
+    queryFn: () => api.get('/jobs?limit=20&page=1&view=unique&sort=newest').then((r) => r.data),
+    enabled: tab === 'recent',
+    staleTime: 60_000,
+  });
+  const recentJobs: any[] = recentData?.jobs || [];
 
   const jobs = data?.jobs || [];
   const pagination = data?.pagination || {};
@@ -94,9 +102,10 @@ export default function JobsPage() {
         setUser({ ...user, tokenBalance: response.data.tokenBalance });
       }
       setForm(EMPTY_FORM);
-      setTab('browse');
+      setTab('recent');
       toast.success(t('jobs.board.actions.postJob', { tokens: response.data.tokensSpent }));
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['jobs-recent'] });
     } catch (error: any) {
       toast.error(error.response?.data?.message || t('jobs.board.actions.postJobShort'));
     } finally {
@@ -180,13 +189,13 @@ export default function JobsPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-500/10 bg-slate-900/90 p-4">
         <div className="flex items-center gap-2">
-          {(['browse', 'post'] as const).map((tabName) => (
+          {(['browse', 'recent', 'post'] as const).map((tabName) => (
             <button
               key={tabName}
               onClick={() => setTab(tabName)}
               className={`rounded-full px-4 py-2 text-sm font-semibold transition-all capitalize ${tab === tabName ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
             >
-              {tabName}
+              {tabName === 'recent' ? '🕐 Recent' : tabName}
             </button>
           ))}
         </div>
@@ -194,6 +203,134 @@ export default function JobsPage() {
           <Filter size={12} /> {t('jobs.board.searchLabel')}
         </div>
       </div>
+
+      {tab === 'recent' && (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-emerald-500/10 bg-slate-900/90 p-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-black text-white">Recently Posted Jobs</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Latest opportunities added to the platform</p>
+            </div>
+            <div className="flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300">
+              <Clock size={11} /> Live feed
+            </div>
+          </div>
+
+          {recentLoading ? (
+            <div className="space-y-3">
+              {Array(6).fill(0).map((_, i) => (
+                <div key={i} className="h-24 rounded-2xl bg-slate-800/50 animate-pulse" />
+              ))}
+            </div>
+          ) : recentJobs.length === 0 ? (
+            <div className="rounded-2xl border border-slate-700/50 bg-slate-900/50 py-16 text-center text-slate-400 text-sm">
+              No jobs posted yet. Be the first to post one.
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {recentJobs.map((job: any) => {
+                const postedAt = new Date(job.publishedAt);
+                const now = new Date();
+                const diffMs = now.getTime() - postedAt.getTime();
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMins / 60);
+                const diffDays = Math.floor(diffHours / 24);
+
+                const timeAgo =
+                  diffMins < 1   ? 'Just now' :
+                  diffMins < 60  ? `${diffMins}m ago` :
+                  diffHours < 24 ? `${diffHours}h ago` :
+                  diffDays < 7   ? `${diffDays}d ago` :
+                  postedAt.toLocaleDateString();
+
+                const isNew = diffHours < 24;
+
+                return (
+                  <div
+                    key={job._id}
+                    className="group rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 transition-all hover:-translate-y-0.5 hover:border-emerald-400/30 hover:shadow-xl hover:shadow-emerald-950/15"
+                  >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {isNew && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300 uppercase tracking-wider">
+                              ✦ New
+                            </span>
+                          )}
+                          <span className="rounded-full border border-slate-700 bg-slate-800 px-2.5 py-0.5 text-[11px] text-slate-300 capitalize">
+                            {job.jobType}
+                          </span>
+                          {job.category && (
+                            <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-0.5 text-[11px] text-blue-300">
+                              {job.category === 'Other' && job.categoryOther ? job.categoryOther : job.category}
+                            </span>
+                          )}
+                          {job.salary && (
+                            <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] text-emerald-300">
+                              {job.salary}
+                            </span>
+                          )}
+                        </div>
+
+                        <h3 className="text-base font-bold text-white leading-snug">{job.title}</h3>
+
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                          <span className="flex items-center gap-1">
+                            <Building2 size={11} /> {job.company || 'Unknown company'}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock size={11} />
+                            <span className={isNew ? 'text-emerald-400 font-semibold' : ''}>{timeAgo}</span>
+                          </span>
+                          {job.location && (
+                            <span className="capitalize">{job.location}</span>
+                          )}
+                        </div>
+
+                        {job.description && (
+                          <p className="text-xs text-slate-500 leading-5 line-clamp-2 max-w-xl">
+                            {job.description}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!job?._id) return;
+                            router.push(`/dashboard/jobs/${job._id}`);
+                          }}
+                          className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
+                        >
+                          View Job <ArrowRight size={13} />
+                        </button>
+                        {job.source === 'internal' && (
+                          <span className="text-[10px] uppercase tracking-widest text-slate-500">Community post</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-dashed border-emerald-500/20 bg-emerald-500/5 p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-semibold text-white">Have a remote role to fill?</div>
+              <div className="text-xs text-slate-400 mt-0.5">Post it here and reach the CashFlawHubs community</div>
+            </div>
+            <button
+              onClick={() => setTab('post')}
+              className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-400 transition shrink-0"
+            >
+              <Plus size={15} /> Post a Job
+            </button>
+          </div>
+        </div>
+      )}
 
       {tab === 'post' ? (
         <div className="mx-auto max-w-4xl space-y-4 rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 shadow-xl shadow-emerald-950/10 md:p-6">
@@ -280,7 +417,7 @@ export default function JobsPage() {
             {t('jobs.board.actions.postJob', { tokens: tokenPolicy?.postingCost || 10 })}
           </button>
         </div>
-      ) : (
+      ) : tab === 'browse' ? (
         <>
           <div className="rounded-2xl border border-emerald-500/10 bg-slate-900/90 p-4">
             <div className="flex flex-col gap-3 lg:flex-row">
@@ -396,7 +533,7 @@ export default function JobsPage() {
             </div>
           )}
         </>
-      )}
+      ) : null}
     </div>
   );
 }

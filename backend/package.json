@@ -10,6 +10,7 @@
     "set-test-tokens": "node scripts/set-test-user-tokens.js"
   },
   "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
     "amqplib": "^0.10.3",
     "axios": "^1.16.1",
     "bcryptjs": "^2.4.3",

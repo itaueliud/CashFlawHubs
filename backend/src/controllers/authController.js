@@ -17,6 +17,7 @@ const { TOKEN_PACKAGES } = require('../config/monetization');
 const devAuthStore = require('../services/devAuthStore');
 const { isUserActivated } = require('../utils/activationWindow');
 const { trackEvent } = require('../services/eventTracker');
+const { sendVerificationEmail } = require('../services/emailService');
 
 const CODE_TTL_SECONDS = 300;
 const EMAIL_VERIFY_TTL_SECONDS = 24 * 60 * 60;
@@ -562,6 +563,14 @@ exports.register = async (req, res) => {
       await clearCode('phone_verified', normalizedPhone);
     }
 
+    if (!user.emailVerified && user.email) {
+      const emailToken = crypto.randomBytes(32).toString('hex');
+      user.emailVerificationToken = emailToken;
+      user.emailVerificationExpiry = Date.now() + 24 * 60 * 60 * 1000;
+      await user.save();
+      sendVerificationEmail(user.email, user.firstName, emailToken).catch(e => logger.error('Email failed: ' + e.message));
+    }
+
     await Wallet.create({ userId: user._id });
 
     const token = signToken(user._id);
@@ -816,5 +825,51 @@ exports.checkAvailability = async (req, res) => {
   } catch (err) {
     logger.error(`checkAvailability error: ${err.message}`);
     return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @POST /api/auth/resend-verification-email  (protected)
+exports.resendVerificationEmail = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('+emailVerificationToken +emailVerificationExpiry');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (user.emailVerified) return res.status(400).json({ success: false, message: 'Email already verified' });
+    if (!user.email) return res.status(400).json({ success: false, message: 'No email on file' });
+
+    const token = crypto.randomBytes(32).toString('hex');
+    user.emailVerificationToken = token;
+    user.emailVerificationExpiry = Date.now() + 24 * 60 * 60 * 1000;
+    await user.save();
+
+    await sendVerificationEmail(user.email, user.firstName || 'there', token);
+    res.json({ success: true, message: 'Verification email sent' });
+  } catch (error) {
+    logger.error(`resendVerificationEmail error: ${error.message}`);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @GET /api/auth/verify-email-token?token=...
+exports.verifyEmailToken = async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token) return res.status(400).json({ success: false, message: 'Token is required' });
+
+    const user = await User.findOne({
+      emailVerificationToken: token,
+      emailVerificationExpiry: { $gt: Date.now() },
+    }).select('+emailVerificationToken +emailVerificationExpiry');
+
+    if (!user) return res.status(400).json({ success: false, message: 'Invalid or expired token' });
+
+    user.emailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpiry = undefined;
+    await user.save();
+
+    res.json({ success: true, message: 'Email verified successfully' });
+  } catch (error) {
+    logger.error(`verifyEmailToken error: ${error.message}`);
+    res.status(500).json({ success: false, message: error.message });
   }
 };

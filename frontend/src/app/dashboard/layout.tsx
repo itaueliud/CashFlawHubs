@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
@@ -33,8 +33,12 @@ import {
   SlidersHorizontal,
   ShieldAlert,
   ClipboardCheck,
+  Mail,
+  Loader2,
 } from 'lucide-react';
 import clsx from 'clsx';
+import { api } from '@/lib/api';
+import toast from 'react-hot-toast';
 
 const BASE_NAV = [
   { href: '/dashboard', icon: LayoutDashboard, labelKey: 'nav.dashboard', category: 'Overview' },
@@ -60,6 +64,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname() ?? '';
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [sendingVerification, setSendingVerification] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  const handleResendVerification = useCallback(async () => {
+    setSendingVerification(true);
+    try {
+      await api.post('/auth/resend-verification-email');
+      toast.success('Verification email sent! Check your inbox.');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to send verification email');
+    } finally {
+      setSendingVerification(false);
+    }
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -282,6 +300,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
+          {user.role === 'user' && !user.emailVerified && !bannerDismissed && (
+            <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Mail size={18} className="text-yellow-400 shrink-0" />
+                <div>
+                  <div className="text-sm font-semibold text-yellow-200">Verify your email address</div>
+                  <div className="text-xs text-yellow-400/80">Check your inbox for a verification link, or click resend.</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={handleResendVerification}
+                  disabled={sendingVerification}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-yellow-500 px-3 py-1.5 text-xs font-semibold text-slate-950 transition hover:bg-yellow-400 disabled:opacity-50"
+                >
+                  {sendingVerification && <Loader2 size={12} className="animate-spin" />}
+                  Resend
+                </button>
+                <button onClick={() => setBannerDismissed(true)} className="text-yellow-500/60 hover:text-yellow-300 text-xs px-2 py-1">✕</button>
+              </div>
+            </div>
+          )}
           {children}
         </div>
       </main>

@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
-const { sendOTP, sendEmailVerification, requestEmailVerification, verifyEmail, verifyEmailLink, verifyPhoneOTP, register, login, getMe, emailVerifiedStatus, logout, checkAvailability } = require('../controllers/authController');
+const { sendOTP, sendEmailVerification, requestEmailVerification, verifyEmail, verifyEmailLink, verifyPhoneOTP, register, login, getMe, emailVerifiedStatus, logout, checkAvailability, resendVerificationEmail, verifyEmailToken } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 const { ipMonitor } = require('../middleware/antiFraud');
 const { verifyTurnstile } = require('../middleware/turnstile');
@@ -46,6 +46,8 @@ router.post('/request-email-verification', protect, requestEmailVerification);
 router.post('/verify-email', verificationLimiter, verifyEmail);
 router.get('/verify-email-link', verifyEmailLink);
 router.get('/email-verified-status', emailVerifiedStatus);
+router.post('/resend-verification-email', protect, verificationLimiter, resendVerificationEmail);
+router.get('/verify-email-token', verifyEmailToken);
 router.post('/verify-phone-otp', verificationLimiter, verifyPhoneOTP);
 router.post('/check-availability', checkAvailability);
 router.post('/register', registerLimiter, verifyTurnstile, ipMonitor, register);
