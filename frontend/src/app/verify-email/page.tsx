@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { Suspense } from 'react';
-import { api } from '@/lib/api';
+import api from '@/lib/api';
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
