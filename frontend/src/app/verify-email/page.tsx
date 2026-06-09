@@ -1,17 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { Suspense } from 'react';
 import api from '@/lib/api';
+import { useAuthStore } from '@/store/authStore';
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams?.get('token') || '';
+  const router = useRouter();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
+  const { refreshUser } = useAuthStore();
 
   useEffect(() => {
     if (!token) {
@@ -26,6 +29,10 @@ function VerifyEmailContent() {
         if (res.data?.success) {
           setStatus('success');
           setMessage(res.data.message || 'Email verified successfully!');
+          refreshUser();
+          setTimeout(() => {
+            router.push('/dashboard/profile');
+          }, 3000);
         } else {
           setStatus('error');
           setMessage(res.data?.message || 'Verification failed.');
@@ -37,7 +44,7 @@ function VerifyEmailContent() {
     };
 
     verify();
-  }, [token]);
+  }, [token, refreshUser, router]);
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
@@ -58,10 +65,10 @@ function VerifyEmailContent() {
             <h1 className="text-2xl font-black text-white">Email Verified!</h1>
             <p className="text-sm text-slate-400">{message}</p>
             <Link
-              href="/dashboard"
+              href="/dashboard/profile"
               className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
             >
-              Go to Dashboard
+              Go to Profile
             </Link>
           </div>
         )}
@@ -74,10 +81,10 @@ function VerifyEmailContent() {
             <h1 className="text-2xl font-black text-white">Verification Failed</h1>
             <p className="text-sm text-slate-400">{message}</p>
             <Link
-              href="/dashboard"
+              href="/dashboard/profile"
               className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-800 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
             >
-              Go to Dashboard
+              Go to Profile
             </Link>
           </div>
         )}

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -100,7 +100,7 @@ export default function ProfilePage() {
           toast.success(t('profile.emailAlreadyVerified'));
           return;
         }
-        await api.post('/auth/request-email-verification');
+        await api.post('/auth/resend-verification-email');
       } else {
         await api.post('/users/me/email', { newEmail: trimmedEmail });
       }
