@@ -56,9 +56,14 @@ export default function WalletPage() {
     queryFn: () => api.get('/wallet/transactions?limit=30').then((response) => response.data.transactions),
   });
 
+  const formatPhone = (phone: string | undefined) => {
+    if (!phone) return '';
+    return phone.replace(/^(\+\d{1,3})0+/, '$1');
+  };
+
   const { register, handleSubmit, reset } = useForm<{ amountUSD: number; phoneNumber: string }>();
   const { register: registerDeposit, handleSubmit: handleDepositSubmit, reset: resetDeposit } = useForm<{ amountLocal: number; phoneNumber: string }>({
-    defaultValues: { phoneNumber: user?.phone || '' },
+    defaultValues: { phoneNumber: formatPhone(user?.phone) || '' },
   });
   const wallet = walletData || {};
   const transactions = transactionData || [];

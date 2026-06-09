@@ -21,6 +21,11 @@ import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import LanguageSelect from '@/components/LanguageSelect';
 
+const formatPhone = (phone: string | undefined) => {
+  if (!phone) return '';
+  return phone.replace(/^(\+\d{1,3})0+/, '$1');
+};
+
 const LEVELS = ['Beginner', 'Active Worker', 'Power Earner', 'Expert', 'Master Earner', 'Champion', 'Legend', 'Icon'];
 const XP_TARGETS = [100, 300, 600, 1000, 1500, 2200, 3000, 5000];
 const COUNTRY_LABELS: Record<string, string> = {
@@ -53,7 +58,7 @@ export default function ProfilePage() {
       name: user?.name || '',
       bio: (user as any)?.bio || '',
       userLanguage: (user as any)?.userLanguage || '',
-      phone: user?.phone || '',
+      phone: formatPhone(user?.phone) || '',
     },
   });
 
@@ -170,7 +175,7 @@ export default function ProfilePage() {
 
   const accountDetails = [
     { label: 'Email', value: accountEmailLabel, icon: Mail },
-    { label: 'Phone', value: user?.phone || 'Not added', icon: Phone },
+    { label: 'Phone', value: formatPhone(user?.phone) || 'Not added', icon: Phone },
     { label: 'Country', value: COUNTRY_LABELS[user?.country || ''] || user?.country || 'Unknown', icon: MapPin },
     { label: 'User ID', value: user?.userId || '-', icon: UserRound, mono: true },
     { label: 'Referral Code', value: user?.referralCode || '-', icon: Copy, mono: true, copyable: true },
@@ -296,7 +301,7 @@ export default function ProfilePage() {
                 </div>
                 <h2 className="mt-3 text-2xl font-black text-white">{user?.name || 'Unnamed User'}</h2>
                 <div className="mt-2 flex flex-wrap gap-3 text-sm text-slate-300">
-                  <span className="inline-flex items-center gap-2"><Phone size={14} className="text-slate-500" />{user?.phone || 'No phone'}</span>
+                  <span className="inline-flex items-center gap-2"><Phone size={14} className="text-slate-500" />{formatPhone(user?.phone) || 'No phone'}</span>
                   <span className="inline-flex items-center gap-2">
                     <Mail size={14} className="text-slate-500" />
                     {user?.pending_email ? `Pending: ${user.pending_email}` : user?.email || 'No email'}
@@ -531,7 +536,7 @@ export default function ProfilePage() {
                   >
                     {isVerifyingPhoneOtp ? t('common.loading') : user?.phoneVerified ? t('profile.verified') : t('profile.verifyPhone')}
                   </button>
-                  <span className="text-xs text-slate-400">{t('profile.current')}: {user?.phone || t('common.notAdded')}</span>
+                  <span className="text-xs text-slate-400">{t('profile.current')}: {formatPhone(user?.phone) || t('common.notAdded')}</span>
                 </div>
               </div>
             ) : null}
