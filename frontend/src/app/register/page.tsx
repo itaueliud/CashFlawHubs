@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { AlertCircle, ArrowRight, BadgeInfo, CheckCircle2, ChevronLeft, Eye, EyeOff, Globe2, ShieldCheck } from 'lucide-react';
+import { AlertCircle, ArrowRight, BadgeInfo, CheckCircle2, ChevronLeft, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import LanguageSelect from '@/components/LanguageSelect';
@@ -14,12 +14,12 @@ import { normalizeLanguage, setAppLanguage } from '@/i18n';
 const langs = ['en', 'sw', 'fr'];
 
 const countries = [
-  { code: 'KE', name: 'Kenya', dialCode: '+254' },
-  { code: 'UG', name: 'Uganda', dialCode: '+256' },
-  { code: 'TZ', name: 'Tanzania', dialCode: '+255' },
-  { code: 'ET', name: 'Ethiopia', dialCode: '+251' },
-  { code: 'GH', name: 'Ghana', dialCode: '+233' },
-  { code: 'NG', name: 'Nigeria', dialCode: '+234' },
+  { code: 'KE', name: 'Kenya',    dialCode: '+254', localDigits: 9,  hint: '7XXXXXXXX' },
+  { code: 'UG', name: 'Uganda',   dialCode: '+256', localDigits: 9,  hint: '7XXXXXXXX' },
+  { code: 'TZ', name: 'Tanzania', dialCode: '+255', localDigits: 9,  hint: '7XXXXXXXX' },
+  { code: 'ET', name: 'Ethiopia', dialCode: '+251', localDigits: 9,  hint: '9XXXXXXXX' },
+  { code: 'GH', name: 'Ghana',    dialCode: '+233', localDigits: 9,  hint: '2XXXXXXXX' },
+  { code: 'NG', name: 'Nigeria',  dialCode: '+234', localDigits: 10, hint: '80XXXXXXXX' },
 ];
 
 const translations: Record<string, Record<string, string>> = {
@@ -242,6 +242,7 @@ type FormState = {
   timezone: string;
   device_fingerprint: string;
   termsAccepted: boolean;
+  privacyAccepted: boolean;
   aboutAccepted: boolean;
 };
 
@@ -256,6 +257,7 @@ type FormErrors = {
   password: string;
   confirmPassword: string;
   termsAccepted: string;
+  privacyAccepted: string;
   aboutAccepted: string;
 };
 
@@ -270,6 +272,7 @@ const emptyErrors: FormErrors = {
   password: '',
   confirmPassword: '',
   termsAccepted: '',
+  privacyAccepted: '',
   aboutAccepted: '',
 };
 
@@ -303,6 +306,7 @@ function RegisterPageContent() {
     timezone: '',
     device_fingerprint: '',
     termsAccepted: false,
+    privacyAccepted: false,
     aboutAccepted: false,
   });
 
@@ -392,11 +396,16 @@ function RegisterPageContent() {
 
   const validateStep4 = () => {
     let valid = true;
+    const country = getCountry(form.country);
+
     if (!form.phone.trim()) {
-      setError('phone', copy.invalidPhone);
+      setError('phone', `Enter your local phone number without the leading zero`);
       valid = false;
     } else if (!/^\d+$/.test(form.phone)) {
-      setError('phone', copy.invalidPhone);
+      setError('phone', 'Numbers only');
+      valid = false;
+    } else if (form.phone.length !== country.localDigits) {
+      setError('phone', `${country.name} numbers must be exactly ${country.localDigits} digits after ${country.dialCode}`);
       valid = false;
     } else {
       setError('phone', '');
@@ -536,13 +545,31 @@ function RegisterPageContent() {
   };
 
   const handlePhoneChange = (value: string) => {
-    const digits = digitsOnly(value);
+    let digits = value.replace(/\D/g, '');
+
+    // Strip leading zero — user typed 07XX, we store 7XX
+    if (digits.startsWith('0')) {
+      digits = digits.slice(1);
+    }
+
+    // Enforce max length for the selected country
+    const country = getCountry(form.country);
+    if (digits.length > country.localDigits) {
+      digits = digits.slice(0, country.localDigits);
+    }
+
     setField('phone', digits);
-    if (value && value !== digits) {
-      setError('phone', copy.invalidPhone);
+
+    if (!digits) {
+      setError('phone', '');
       return;
     }
-    if (digits) setError('phone', '');
+
+    if (digits.length < country.localDigits) {
+      setError('phone', `Enter ${country.localDigits} digits after the country code (${country.dialCode})`);
+    } else {
+      setError('phone', '');
+    }
   };
 
   const handleEmailChange = (value: string) => {
@@ -589,9 +616,37 @@ function RegisterPageContent() {
     setStep(4);
   };
 
-  const continueFromStep4 = () => {
+  const continueFromStep4 = async () => {
     if (!validateStep4()) return;
-    setStep(5);
+
+    setLoading(true);
+    try {
+      // Check phone uniqueness
+      const fullPhone = `${phoneCountry.dialCode}${form.phone}`;
+      const phoneRes = await api.post('/auth/check-availability', { phone: fullPhone });
+      if (!phoneRes.data.phoneAvailable) {
+        setError('phone', 'This phone number is already registered.');
+        setLoading(false);
+        return;
+      }
+
+      // Check email uniqueness
+      if (form.email) {
+        const emailRes = await api.post('/auth/check-availability', { email: form.email.toLowerCase().trim() });
+        if (!emailRes.data.emailAvailable) {
+          setError('email', 'This email address is already registered.');
+          setLoading(false);
+          return;
+        }
+      }
+
+      setStep(5);
+    } catch {
+      // If the check endpoint fails, still allow proceeding — backend will catch it at submit
+      setStep(5);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const continueFromStep5 = () => {
@@ -602,14 +657,9 @@ function RegisterPageContent() {
   const completeSignup = async () => {
     if (!referralVerified) return toast.error(copy.verifyReferralFirst);
     if (!validateStep3() || !validateStep4() || !validateStep5()) return;
-    if (!form.aboutAccepted) {
-      setError('aboutAccepted', 'You must read About CashFlowHubs');
-      toast.error('You must read About CashFlowHubs');
-      return;
-    }
-    if (!form.termsAccepted) {
-      setError('termsAccepted', copy.termsRequired);
-      toast.error(copy.termsRequired);
+    if (!form.termsAccepted || !form.privacyAccepted) {
+      setError('termsAccepted', 'You must accept both the Terms and Conditions and the Privacy Policy');
+      toast.error('Please accept both the Terms and Conditions and the Privacy Policy');
       return;
     }
     if (turnstileSiteKey && !turnstileToken) return toast.error(copy.securityCheck);
@@ -785,7 +835,9 @@ function RegisterPageContent() {
                   value={form.country}
                   onChange={(e) => {
                     setField('country', e.target.value);
+                    setField('phone', '');
                     setError('country', '');
+                    setError('phone', '');
                   }}
                 >
                   {countries.map((country) => (
@@ -798,14 +850,7 @@ function RegisterPageContent() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 rounded-2xl border border-slate-700 bg-slate-950/40 p-4 text-sm text-slate-300">
-              <div className="flex items-start gap-3">
-                <Globe2 className="mt-0.5 text-emerald-400" size={18} />
-                <div>
-                  <div className="text-slate-400">{phoneCountry.dialCode}</div>
-                </div>
-              </div>
-            </div>
+
 
             <div className="flex items-center justify-between gap-3">
               <button type="button" className="btn-secondary inline-flex items-center gap-2" onClick={goBack}>
@@ -830,14 +875,28 @@ function RegisterPageContent() {
             />
             <div>
               <label className="mb-1 block text-sm text-slate-300">{copy.phoneLabel}</label>
-              <input
-                className="input"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                placeholder={copy.phonePlaceholder}
-                value={form.phone}
-                onChange={(e) => handlePhoneChange(e.target.value)}
-              />
+              <div className="flex overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/80 focus-within:border-emerald-500/50">
+                <div className="flex items-center border-r border-slate-700 bg-slate-900/80 px-4 text-sm font-semibold text-emerald-300 shrink-0">
+                  {phoneCountry.dialCode}
+                </div>
+                <input
+                  className="input border-0 bg-transparent flex-1 min-w-0"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder={phoneCountry.hint}
+                  maxLength={phoneCountry.localDigits + 1} // +1 to catch leading zero before stripping
+                  value={form.phone}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                />
+                <div className={`flex items-center pr-4 text-xs font-mono shrink-0 ${
+                  form.phone.length === phoneCountry.localDigits ? 'text-emerald-400' : 'text-slate-500'
+                }`}>
+                  {form.phone.length}/{phoneCountry.localDigits}
+                </div>
+              </div>
+              <p className="mt-1 text-xs text-slate-400">
+                Enter your number without the leading zero — {phoneCountry.dialCode} is added automatically
+              </p>
               {errors.phone && <p className="mt-1 text-xs text-red-400">{errors.phone}</p>}
             </div>
 
@@ -966,55 +1025,62 @@ function RegisterPageContent() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm text-slate-300">
-              <div className="font-semibold text-white">{copy.aboutTitle}</div>
-              <p className="mt-2 leading-6 text-slate-300">{copy.aboutCopy}</p>
-              <p className="mt-3 leading-6 text-slate-400">{copy.howToEarnCopy}</p>
-              <Link href="/about" target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-emerald-400 hover:text-emerald-300">
-                Learn more about CashFlowHubs
-                <ArrowRight size={16} />
-              </Link>
-            </div>
+            <div className="rounded-2xl border border-slate-700 bg-slate-950/40 p-5 space-y-5">
 
-            <div className="rounded-2xl border border-slate-700 bg-slate-950/40 p-4 space-y-4">
-              <label className="flex cursor-pointer items-start gap-3 text-sm text-slate-200">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-800 text-emerald-500 focus:ring-emerald-500"
-                  checked={form.aboutAccepted}
-                  onChange={(e) => {
-                    setField('aboutAccepted', e.target.checked);
-                    if (e.target.checked) setError('aboutAccepted', '');
+              {/* Terms */}
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border border-slate-600 bg-slate-800 cursor-pointer"
+                  onClick={() => {
+                    setField('termsAccepted', !form.termsAccepted);
+                    if (!form.termsAccepted) setError('termsAccepted', '');
                   }}
-                />
-                <span>
-                  I have read about{' '}
-                  <Link href="/about" target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-400 hover:text-emerald-300">
-                    CashFlowHubs
-                  </Link>
-                </span>
-              </label>
-              {errors.aboutAccepted && <p className="mt-1 text-xs text-red-400">{errors.aboutAccepted}</p>}
-
-              <label className="flex cursor-pointer items-start gap-3 text-sm text-slate-200">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-800 text-emerald-500 focus:ring-emerald-500"
-                  checked={form.termsAccepted}
-                  onChange={(e) => {
-                    setField('termsAccepted', e.target.checked);
-                    if (e.target.checked) setError('termsAccepted', '');
-                  }}
-                />
-                <span>
-                  {copy.termsLabel}{' '}
-                  <Link href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-400 hover:text-emerald-300">
+                >
+                  {form.termsAccepted && (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M2 6l3 3 5-5" stroke="#10b981" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </div>
+                <div className="text-sm text-slate-300 leading-6">
+                  I have read and agree to the{' '}
+                  <Link
+                    href="/terms"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-emerald-400 hover:text-emerald-300 underline underline-offset-2"
+                  >
                     Terms and Conditions
                   </Link>
-                  <span className="block text-xs text-slate-400">{copy.termsHelp}</span>
-                </span>
-              </label>
-              {errors.termsAccepted && <p className="mt-2 text-xs text-red-400">{errors.termsAccepted}</p>}
+                </div>
+              </div>
+
+              {/* Privacy */}
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border border-slate-600 bg-slate-800 cursor-pointer"
+                  onClick={() => {
+                    setField('privacyAccepted', !form.privacyAccepted);
+                  }}
+                >
+                  {form.privacyAccepted && (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M2 6l3 3 5-5" stroke="#10b981" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </div>
+                <div className="text-sm text-slate-300 leading-6">
+                  I have read and agree to the{' '}
+                  <Link
+                    href="/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-emerald-400 hover:text-emerald-300 underline underline-offset-2"
+                  >
+                    Privacy Policy
+                  </Link>
+                </div>
+              </div>
+
+              {errors.termsAccepted && <p className="text-xs text-red-400">{errors.termsAccepted}</p>}
             </div>
 
             <div className="flex items-center justify-between gap-3">

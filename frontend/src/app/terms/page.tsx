@@ -1,77 +1,79 @@
-import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, ShieldCheck } from 'lucide-react';
-
-const sections = [
-  {
-    title: 'Account responsibility',
-    body: 'You are responsible for keeping your login details secure and for providing accurate information when you register and use the platform.',
-  },
-  {
-    title: 'Acceptable use',
-    body: 'Do not attempt to bypass platform safeguards, create fraudulent activity, or use the service in a way that violates local law or these terms.',
-  },
-  {
-    title: 'Payments and withdrawals',
-    body: 'Earnings, withdrawal availability, and payment timing depend on completed tasks, eligibility checks, and the supported payment methods in your country.',
-  },
-  {
-    title: 'Data and security',
-    body: 'Security and fraud monitoring information may be collected to protect users and the platform. Refer to the privacy notices and in-app disclosures for more detail.',
-  },
-  {
-    title: 'Program changes',
-    body: 'Features, earning opportunities, and reward rules can change as the platform grows. We may update these terms when needed.',
-  },
-];
-
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto max-w-4xl px-4 py-10">
-        <Link href="/register" className="inline-flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300">
-          <ArrowLeft size={16} />
-          Back to registration
-        </Link>
-
-        <section className="mt-6 rounded-3xl border border-white/10 bg-slate-900/70 p-6 shadow-2xl shadow-black/20 md:p-10">
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-300">
-            <ShieldCheck size={14} />
-            Terms and Conditions
+    <div className="min-h-screen bg-slate-950 text-white px-4 py-12">
+      <div className="mx-auto max-w-3xl">
+        <div className="mb-8">
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-emerald-300 mb-4">
+            Legal
           </div>
-          <h1 className="mt-5 text-3xl font-black md:text-5xl">Please read these terms before accepting them.</h1>
-          <p className="mt-4 text-sm leading-7 text-slate-300 md:text-base">
-            These terms explain how CashFlowHubs works, what we expect from users, and how our earning and payment features should be used.
-            When you register, you agree to follow these rules and any future updates we publish.
-          </p>
-        </section>
+          <h1 className="text-3xl font-black">Terms and Conditions</h1>
+          <p className="mt-2 text-sm text-slate-400">Last Updated: June 9, 2025</p>
+        </div>
+        <div className="space-y-8 text-sm leading-7 text-slate-300">
 
-        <section className="mt-8 grid gap-4">
-          {sections.map((section) => (
-            <div key={section.title} className="rounded-2xl border border-white/10 bg-slate-900/70 p-5">
-              <div className="flex items-center gap-2 font-semibold text-white">
-                <CheckCircle2 size={16} className="text-emerald-400" />
-                {section.title}
-              </div>
-              <p className="mt-2 text-sm leading-6 text-slate-400">{section.body}</p>
-            </div>
-          ))}
-        </section>
+          <section>
+            <h2 className="text-base font-bold text-white mb-2">1. Who Can Join</h2>
+            <p>You must be at least 18 years old and a resident of Kenya, Uganda, Tanzania, Ethiopia, Ghana, or Nigeria. One account per person — no exceptions.</p>
+          </section>
 
-        <section className="mt-8 rounded-3xl border border-emerald-500/20 bg-emerald-500/5 p-6 md:p-8">
-          <h2 className="text-xl font-bold text-white">Acceptance</h2>
-          <p className="mt-3 text-sm leading-7 text-slate-300">
-            To continue, return to the registration page and tick the acceptance box on the review step.
-            If you do not agree with these terms, please stop using the registration flow.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link href="/register" className="btn-primary">
-              Return to registration
-            </Link>
-            <Link href="/about" className="btn-secondary">
-              About CashFlowHubs
-            </Link>
-          </div>
-        </section>
+          <section>
+            <h2 className="text-base font-bold text-white mb-2">2. Activation Fee</h2>
+            <p>To start earning, you pay a one-time non-refundable activation fee:</p>
+            <ul className="mt-2 space-y-1 text-slate-400 list-none">
+              <li>Kenya: <span className="text-white">KSh 500</span> via M-Pesa</li>
+              <li>Uganda: <span className="text-white">USh 16,650</span> via MTN MoMo</li>
+              <li>Tanzania: <span className="text-white">TSh 11,500</span> via Vodacom M-Pesa</li>
+              <li>Ethiopia: <span className="text-white">Br 2,250</span> via Telebirr</li>
+              <li>Ghana: <span className="text-white">GH₵ 18</span> via Flutterwave</li>
+              <li>Nigeria: <span className="text-white">₦ 6,500</span> via Flutterwave / Paystack</li>
+            </ul>
+            <p className="mt-2">This fee covers your account setup and is split between the platform and your referrer. It is not a deposit and is not refundable.</p>
+          </section>
+
+          <section>
+            <h2 className="text-base font-bold text-white mb-2">3. How You Earn</h2>
+            <p>You earn through surveys, microtasks, offerwalls, remote jobs, freelance gigs, and referrals. Earning opportunities depend on third-party providers and are not guaranteed. For every person you refer who activates, you earn KSh 200 or local equivalent.</p>
+          </section>
+
+          <section>
+            <h2 className="text-base font-bold text-white mb-2">4. Your Rewards</h2>
+            <p>All rewards go to a Pending Balance first. After 48 hours of verification they move to your Available Balance. If a reward is reversed by a provider, it is removed from your balance. We do not pay out unverified rewards.</p>
+          </section>
+
+          <section>
+            <h2 className="text-base font-bold text-white mb-2">5. Withdrawals</h2>
+            <p>Minimum withdrawal is KSh 200 or local equivalent. Payouts go to the mobile money number you registered with — no third-party accounts. Supported: M-Pesa, MTN MoMo, Telebirr, Vodacom, Flutterwave, Paystack.</p>
+          </section>
+
+          <section>
+            <h2 className="text-base font-bold text-white mb-2">6. What Gets You Banned</h2>
+            <ul className="space-y-1 text-slate-400">
+              <li>• Multiple accounts</li>
+              <li>• Bots or automated tools</li>
+              <li>• VPNs or fake locations</li>
+              <li>• Referral abuse or self-referral</li>
+              <li>• Fake survey or task completions</li>
+              <li>• Selling or sharing your account</li>
+            </ul>
+            <p className="mt-2">Banned accounts forfeit all balances.</p>
+          </section>
+
+          <section>
+            <h2 className="text-base font-bold text-white mb-2">7. Our Liability</h2>
+            <p>We do not guarantee earnings. The platform is provided as-is. We are not responsible for third-party provider decisions, payment delays, or reward reversals outside our control.</p>
+          </section>
+
+          <section>
+            <h2 className="text-base font-bold text-white mb-2">8. Changes</h2>
+            <p>We may update these Terms at any time. Continued use means you accept the changes. Major changes get 14 days notice via SMS or in-app.</p>
+          </section>
+
+          <section>
+            <h2 className="text-base font-bold text-white mb-2">9. Contact</h2>
+            <p className="text-slate-400">support@cashflawhubs.com</p>
+          </section>
+
+        </div>
       </div>
     </div>
   );

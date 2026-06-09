@@ -17,6 +17,7 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   email: {
     type: String,
+    required: false,
     unique: true,
     sparse: true,
     lowercase: true,
@@ -24,11 +25,10 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    required: false,
+    required: true,
     unique: true,
-    sparse: true,
     trim: true,
-    default: undefined,
+    index: true,
   },
   passwordHash: { type: String, required: true, select: false },
   idNumber: {

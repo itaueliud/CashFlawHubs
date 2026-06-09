@@ -68,6 +68,30 @@ const clearCode = async (namespace, key) => {
 };
 
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+const PHONE_RULES = {
+  '+254': 9,   // Kenya
+  '+256': 9,   // Uganda
+  '+255': 9,   // Tanzania
+  '+251': 9,   // Ethiopia
+  '+233': 9,   // Ghana
+  '+234': 10,  // Nigeria
+};
+
+function validatePhoneForCountry(fullPhone) {
+  for (const [dialCode, expectedDigits] of Object.entries(PHONE_RULES)) {
+    if (fullPhone.startsWith(dialCode)) {
+      const localPart = fullPhone.slice(dialCode.length);
+      if (!/^\d+$/.test(localPart)) return { valid: false, message: 'Phone number must contain digits only' };
+      if (localPart.length !== expectedDigits) {
+        return { valid: false, message: `Phone numbers for this country must be ${expectedDigits} digits after the country code` };
+      }
+      return { valid: true };
+    }
+  }
+  return { valid: false, message: 'Unsupported country code' };
+}
+
 const isNumericIdentityNumber = (value = '') => /^\d+$/.test(String(value).trim());
 const isStrongPassword = (value = '') => {
   const password = String(value || '');
@@ -415,6 +439,10 @@ exports.register = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Referral code is required' });
     }
     const normalizedPhone = String(phone || '').trim();
+    const phoneCheck = validatePhoneForCountry(normalizedPhone);
+    if (!phoneCheck.valid) {
+      return res.status(400).json({ success: false, message: phoneCheck.message });
+    }
     const normalizedEmail = normalizeEmail(email);
     // Phone verification is optional during registration: do not block account creation
     // if the phone OTP hasn't been verified. We still accept and store the phone if provided.
@@ -763,5 +791,30 @@ exports.getMe = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.checkAvailability = async (req, res) => {
+  try {
+    const { phone, email } = req.body;
+    const result = {};
+
+    if (phone) {
+      const exists = isDatabaseReady()
+        ? await User.findOne({ phone: phone.trim() })
+        : devAuthStore.findByPhone(phone.trim());
+      result.phoneAvailable = !exists;
+    }
+    if (email) {
+      const exists = isDatabaseReady()
+        ? await User.findOne({ email: email.toLowerCase().trim() })
+        : devAuthStore.findByEmail(email.toLowerCase().trim());
+      result.emailAvailable = !exists;
+    }
+
+    return res.json(result);
+  } catch (err) {
+    logger.error(`checkAvailability error: ${err.message}`);
+    return res.status(500).json({ message: 'Server error' });
   }
 };
