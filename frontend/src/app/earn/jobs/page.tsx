@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, Briefcase, CheckCircle, DollarSign, Shield, TrendingUp, Zap } from 'lucide-react';
+import { Logo } from '@/components/Logo';
 
 export const metadata: Metadata = {
-  title: 'Remote Jobs in Africa - Work From Home and Get Paid in KES/NGN',
+  title: 'Remote Jobs in Africa - Work From Home and Get Paid Locally',
   description:
     'Find legitimate remote jobs across Africa on CashFlowHubs. Full-time, part-time, contract, and internship roles. Apply directly and get paid via M-Pesa, MTN MoMo, Flutterwave.',
   keywords: [
@@ -46,8 +47,7 @@ export default function EarnJobsPage() {
       <nav className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/80 backdrop-blur-lg">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500 font-bold text-sm">C</div>
-            <span className="text-lg font-bold">CashFlowHubs</span>
+            <Logo size="sm" />
           </Link>
           <div className="flex items-center gap-3">
             <Link href="/login" className="btn-outline px-4 py-2 text-sm">Login</Link>
@@ -79,13 +79,13 @@ export default function EarnJobsPage() {
       <section className="bg-slate-900/50 px-4 py-12">
         <div className="mx-auto grid max-w-4xl grid-cols-2 gap-4 md:grid-cols-4">
           {[
-            { label: 'Active Job Listings', value: '320+' },
-            { label: 'Employers', value: '80+' },
-            { label: 'Job Categories', value: '12+' },
+            { label: 'Job Types', value: '4' },
+            { label: 'Skill Categories', value: '6' },
             { label: 'Countries Covered', value: '20' },
+            { label: 'Payout Options', value: 'Local money' },
           ].map((stat) => (
             <div key={stat.label} className="card text-center py-5">
-              <div className="text-2xl font-black text-purple-400">{stat.value}</div>
+              <div className="text-2xl font-black text-amber-400">{stat.value}</div>
               <div className="mt-1 text-xs text-slate-400">{stat.label}</div>
             </div>
           ))}
@@ -144,7 +144,7 @@ export default function EarnJobsPage() {
 
       <section className="bg-gradient-to-br from-purple-900/30 to-slate-900 px-4 py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <TrendingUp className="mx-auto mb-4 text-purple-400" size={48} />
+          <TrendingUp className="mx-auto mb-4 text-amber-400" size={48} />
           <h2 className="mb-4 text-4xl font-black">Apply to Remote Jobs Today</h2>
           <p className="mb-8 text-slate-400">Join thousands of Africans already earning on CashFlowHubs</p>
           <Link href="/register" className="btn-primary inline-flex items-center gap-2 px-10 py-4 text-lg">

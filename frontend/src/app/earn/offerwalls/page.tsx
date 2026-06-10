@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, CheckCircle, Shield, ShoppingBag, TrendingUp, Zap } from 'lucide-react';
+import { Logo } from '@/components/Logo';
 
 export const metadata: Metadata = {
-  title: 'Offerwalls in Africa - Apps, Trials, and Offers for Cash',
+  title: 'Offerwalls in Africa - Apps, Trials, and Offers That Pay',
   description:
     'Complete offerwalls on CashFlowHubs: install apps, sign up for services, and complete partner campaigns for cash rewards across Africa.',
   keywords: [
@@ -43,8 +44,7 @@ export default function EarnOfferwallsPage() {
       <nav className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/80 backdrop-blur-lg">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500 font-bold text-sm">C</div>
-            <span className="text-lg font-bold">CashFlowHubs</span>
+            <Logo size="sm" />
           </Link>
           <div className="flex items-center gap-3">
             <Link href="/login" className="btn-outline px-4 py-2 text-sm">Login</Link>
@@ -76,13 +76,13 @@ export default function EarnOfferwallsPage() {
       <section className="bg-slate-900/50 px-4 py-12">
         <div className="mx-auto grid max-w-4xl grid-cols-2 gap-4 md:grid-cols-4">
           {[
-            { label: 'Offer Campaigns', value: '50+' },
-            { label: 'Providers', value: '10+' },
-            { label: 'Average Reward', value: '$0.20-$4' },
+            { label: 'Campaign Types', value: '6' },
+            { label: 'Providers', value: 'Multiple' },
             { label: 'Countries Covered', value: '20' },
+            { label: 'Rewards', value: 'Varies' },
           ].map((stat) => (
             <div key={stat.label} className="card text-center py-5">
-              <div className="text-2xl font-black text-pink-400">{stat.value}</div>
+              <div className="text-2xl font-black text-amber-400">{stat.value}</div>
               <div className="mt-1 text-xs text-slate-400">{stat.label}</div>
             </div>
           ))}
@@ -140,7 +140,7 @@ export default function EarnOfferwallsPage() {
 
       <section className="bg-gradient-to-br from-pink-900/30 to-slate-900 px-4 py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <TrendingUp className="mx-auto mb-4 text-pink-400" size={48} />
+          <TrendingUp className="mx-auto mb-4 text-amber-400" size={48} />
           <h2 className="mb-4 text-4xl font-black">Boost Your Balance With Offerwalls</h2>
           <p className="mb-8 text-slate-400">Earn on simple actions and cash out faster</p>
           <Link href="/register" className="btn-primary inline-flex items-center gap-2 px-10 py-4 text-lg">

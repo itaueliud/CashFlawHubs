@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import { headers } from 'next/headers';
 import './globals.css';
 import { Providers } from '@/components/Providers';
+import { PublicFloatingCTA } from '@/components/PublicFloatingCTA';
 import { NonceProvider } from '@/components/security/NonceProvider';
 import { OrganizationSchema } from '@/components/seo/OrganizationSchema';
 import { WebsiteSchema } from '@/components/seo/WebsiteSchema';
@@ -14,11 +15,11 @@ const inter = Inter({ subsets: ['latin'], display: 'swap' });
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'CashFlowHubs - Earn Money Online in Africa',
+    default: 'CashFlowHubs - Earn Money Online Across Africa',
     template: '%s | CashFlowHubs',
   },
   description:
-    'CashFlowHubs helps people across Africa earn money online with paid surveys, microtasks, remote jobs, offerwalls, and referrals.',
+    'CashFlowHubs helps people across Africa earn money online with paid surveys, microtasks, remote jobs, offerwalls, referrals, and mobile-money withdrawals.',
   keywords: [
     'earn money online Africa',
     'paid surveys Kenya',
@@ -52,9 +53,8 @@ export const metadata: Metadata = {
     locale: 'en_US',
     url: SITE_URL,
     siteName: SITE_NAME,
-    title: 'CashFlowHubs - Earn Money Online in Africa',
-    description:
-      'Surveys, microtasks, remote jobs, and instant withdrawals via M-Pesa, MTN MoMo, Flutterwave, and more.',
+    title: 'CashFlowHubs - Earn Money Online Across Africa',
+    description: 'Surveys, microtasks, remote jobs, and mobile-money withdrawals across Africa.',
     images: [
       {
         url: '/og-image.svg',
@@ -66,7 +66,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'CashFlowHubs - Earn Money Online in Africa',
+    title: 'CashFlowHubs - Earn Money Online Across Africa',
     description:
       'Surveys, tasks, remote jobs, and instant payouts via mobile money across Africa.',
     images: ['/og-image.svg'],
@@ -106,6 +106,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <OrganizationSchema />
             <WebsiteSchema />
             {children}
+            <PublicFloatingCTA />
             <Toaster
               position="top-right"
               toastOptions={{

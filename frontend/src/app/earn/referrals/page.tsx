@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, MessageCircle, Shield, Share2, Star, TrendingUp, Users } from 'lucide-react';
+import { Logo } from '@/components/Logo';
 
 export const metadata: Metadata = {
-  title: 'Referral Earnings in Africa - Invite Friends and Earn 200 KES',
+  title: 'Referral Earnings in Africa - Invite Friends and Earn Rewards',
   description:
     'Earn referral rewards on CashFlowHubs by inviting friends across Africa. Get paid 200 KES per activated referral and share your link on WhatsApp, Telegram, and more.',
   keywords: [
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://www.cashflowhubs.com/earn/referrals' },
   openGraph: {
     title: 'Referral Earnings in Africa - CashFlowHubs',
-    description: 'Invite friends and earn 200 KES per activated referral.',
+    description: 'Invite friends and earn rewards when they activate through your link.',
     url: 'https://www.cashflowhubs.com/earn/referrals',
   },
 };
@@ -42,8 +43,7 @@ export default function EarnReferralsPage() {
       <nav className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/80 backdrop-blur-lg">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500 font-bold text-sm">C</div>
-            <span className="text-lg font-bold">CashFlowHubs</span>
+            <Logo size="sm" />
           </Link>
           <div className="flex items-center gap-3">
             <Link href="/login" className="btn-outline px-4 py-2 text-sm">Login</Link>
@@ -77,12 +77,12 @@ export default function EarnReferralsPage() {
         <div className="mx-auto grid max-w-4xl grid-cols-2 gap-4 md:grid-cols-4">
           {[
             { label: 'Per Referral', value: '200 KES' },
-            { label: 'Link Shares', value: 'Unlimited' },
-            { label: 'Reward Speed', value: 'Fast' },
+            { label: 'Sharing Channels', value: 'Unlimited' },
             { label: 'Countries Covered', value: '20' },
+            { label: 'Reward Timing', value: 'After activation' },
           ].map((stat) => (
             <div key={stat.label} className="card text-center py-5">
-              <div className="text-2xl font-black text-green-400">{stat.value}</div>
+              <div className="text-2xl font-black text-amber-400">{stat.value}</div>
               <div className="mt-1 text-xs text-slate-400">{stat.label}</div>
             </div>
           ))}
@@ -140,7 +140,7 @@ export default function EarnReferralsPage() {
 
       <section className="bg-gradient-to-br from-green-900/30 to-slate-900 px-4 py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <Users className="mx-auto mb-4 text-green-400" size={48} />
+          <Users className="mx-auto mb-4 text-amber-400" size={48} />
           <h2 className="mb-4 text-4xl font-black">Start Referring Today</h2>
           <p className="mb-8 text-slate-400">200 KES per friend. No limits. Instant rewards after activation.</p>
           <Link href="/register" className="btn-primary inline-flex items-center gap-2 px-10 py-4 text-lg">

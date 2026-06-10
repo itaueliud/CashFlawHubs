@@ -7,35 +7,35 @@
 html, body { max-width: 100vw; overflow-x: hidden; }
 
 body {
-  background: #020617;
+  background: #0a0f1a;
   color: #fff;
 }
 
 @layer components {
   .card {
-    @apply bg-slate-800 border border-slate-700 rounded-2xl p-5;
+    @apply rounded-2xl border border-slate-800 bg-[#111827] p-5;
   }
   .btn-primary {
-    @apply bg-green-600 hover:bg-green-500 text-white font-semibold px-5 py-2.5 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply rounded-xl bg-amber-500 px-5 py-2.5 font-semibold text-slate-950 transition-all duration-200 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-secondary {
-    @apply bg-slate-700 hover:bg-slate-600 text-white font-medium px-5 py-2.5 rounded-xl transition-all duration-200;
+    @apply rounded-xl bg-slate-800 px-5 py-2.5 font-medium text-white transition-all duration-200 hover:bg-slate-700;
   }
   .btn-outline {
-    @apply border border-slate-600 hover:border-green-500 text-slate-300 hover:text-green-400 font-medium px-5 py-2.5 rounded-xl transition-all duration-200;
+    @apply rounded-xl border border-slate-700 px-5 py-2.5 font-medium text-slate-300 transition-all duration-200 hover:border-amber-500 hover:text-amber-400;
   }
   .input {
-    @apply w-full bg-slate-700 border border-slate-600 text-white placeholder-slate-400 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all;
+    @apply w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white placeholder-slate-400 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-amber-500;
   }
   .badge {
     @apply inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full;
   }
-  .badge-green  { @apply inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-green-500/20 text-green-400; }
-  .badge-yellow { @apply inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-yellow-500/20 text-yellow-400; }
+  .badge-green  { @apply inline-flex items-center gap-1 rounded-full bg-green-500/20 px-2.5 py-1 text-xs font-medium text-green-400; }
+  .badge-yellow { @apply inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2.5 py-1 text-xs font-medium text-amber-400; }
   .badge-blue   { @apply inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-400; }
   .badge-red    { @apply inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-red-500/20 text-red-400; }
   .stat-card {
-    @apply bg-slate-800 border border-slate-700 rounded-2xl p-5 flex flex-col gap-1;
+    @apply flex flex-col gap-1 rounded-2xl border border-slate-800 bg-[#111827] p-5;
   }
 }
 

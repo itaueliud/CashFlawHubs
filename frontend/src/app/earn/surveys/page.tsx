@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, CheckCircle, Clock, DollarSign, Shield, Star, TrendingUp, Zap } from 'lucide-react';
+import { Logo } from '@/components/Logo';
 
 export const metadata: Metadata = {
-  title: 'Paid Surveys in Africa - Earn Up to $3 Per Survey',
+  title: 'Paid Surveys in Kenya and Africa - Share Opinions, Withdraw via M-Pesa',
   description:
     'Complete paid surveys on CashFlowHubs and earn real money across Africa. New surveys are added daily from top providers. Withdraw via M-Pesa, MTN MoMo, Flutterwave, and more.',
   keywords: [
@@ -17,8 +18,8 @@ export const metadata: Metadata = {
   ],
   alternates: { canonical: 'https://www.cashflowhubs.com/earn/surveys' },
   openGraph: {
-    title: 'Paid Surveys in Africa - CashFlowHubs',
-    description: 'New surveys daily. Withdraw via M-Pesa, MTN MoMo, Flutterwave. Join free.',
+    title: 'Paid Surveys in Kenya and Africa - CashFlowHubs',
+    description: 'New surveys daily. Withdraw via M-Pesa, MTN MoMo, Flutterwave, and more.',
     url: 'https://www.cashflowhubs.com/earn/surveys',
   },
 };
@@ -44,8 +45,7 @@ export default function EarnSurveysPage() {
       <nav className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/80 backdrop-blur-lg">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500 font-bold text-sm">C</div>
-            <span className="text-lg font-bold">CashFlowHubs</span>
+            <Logo size="sm" />
           </Link>
           <div className="flex items-center gap-3">
             <Link href="/login" className="btn-outline px-4 py-2 text-sm">Login</Link>
@@ -78,13 +78,13 @@ export default function EarnSurveysPage() {
       <section className="bg-slate-900/50 px-4 py-12">
         <div className="mx-auto grid max-w-4xl grid-cols-2 gap-4 md:grid-cols-4">
           {[
-            { label: 'Surveys Completed', value: '48,000+' },
-            { label: 'Avg. Earn Per Survey', value: '$1.20' },
             { label: 'Survey Providers', value: '5+' },
-            { label: 'Payout Methods', value: '8+' },
+            { label: 'Countries Covered', value: '20' },
+            { label: 'Minimum Withdrawal', value: 'KSh 200' },
+            { label: 'Payout Methods', value: 'Mobile money' },
           ].map((stat) => (
             <div key={stat.label} className="card text-center py-5">
-              <div className="text-2xl font-black text-blue-400">{stat.value}</div>
+              <div className="text-2xl font-black text-amber-400">{stat.value}</div>
               <div className="mt-1 text-xs text-slate-400">{stat.label}</div>
             </div>
           ))}
@@ -153,7 +153,7 @@ export default function EarnSurveysPage() {
 
       <section className="bg-gradient-to-br from-blue-900/30 to-slate-900 px-4 py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <TrendingUp className="mx-auto mb-4 text-blue-400" size={48} />
+          <TrendingUp className="mx-auto mb-4 text-amber-400" size={48} />
           <h2 className="mb-4 text-4xl font-black">Start Earning From Surveys Today</h2>
           <p className="mb-8 text-slate-400">Join thousands of Africans already earning on CashFlowHubs</p>
           <Link href="/register" className="btn-primary inline-flex items-center gap-2 px-10 py-4 text-lg">

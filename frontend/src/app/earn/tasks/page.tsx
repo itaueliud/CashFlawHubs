@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, CheckCircle, Clock, DollarSign, Shield, TrendingUp, Zap } from 'lucide-react';
+import { Logo } from '@/components/Logo';
 
 export const metadata: Metadata = {
-  title: 'Microtasks in Africa - Quick Online Tasks for Cash',
+  title: 'Microtasks in Africa - Quick Tasks for Cash',
   description:
     'Complete microtasks on CashFlowHubs and earn cash for image tagging, data labeling, app testing, and more. Fast payouts across Africa.',
   keywords: [
@@ -44,8 +45,7 @@ export default function EarnTasksPage() {
       <nav className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/80 backdrop-blur-lg">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500 font-bold text-sm">C</div>
-            <span className="text-lg font-bold">CashFlowHubs</span>
+            <Logo size="sm" />
           </Link>
           <div className="flex items-center gap-3">
             <Link href="/login" className="btn-outline px-4 py-2 text-sm">Login</Link>
@@ -77,13 +77,13 @@ export default function EarnTasksPage() {
       <section className="bg-slate-900/50 px-4 py-12">
         <div className="mx-auto grid max-w-4xl grid-cols-2 gap-4 md:grid-cols-4">
           {[
-            { label: 'Active Tasks', value: '120+' },
-            { label: 'Average Task Time', value: '2-10 min' },
-            { label: 'Task Types', value: '6+' },
+            { label: 'Task Types', value: '6' },
+            { label: 'Average Time', value: '2-10 min' },
             { label: 'Countries Covered', value: '20' },
+            { label: 'Payout Timing', value: 'Fast' },
           ].map((stat) => (
             <div key={stat.label} className="card text-center py-5">
-              <div className="text-2xl font-black text-yellow-400">{stat.value}</div>
+              <div className="text-2xl font-black text-amber-400">{stat.value}</div>
               <div className="mt-1 text-xs text-slate-400">{stat.label}</div>
             </div>
           ))}
@@ -141,7 +141,7 @@ export default function EarnTasksPage() {
 
       <section className="bg-gradient-to-br from-yellow-900/30 to-slate-900 px-4 py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <TrendingUp className="mx-auto mb-4 text-yellow-400" size={48} />
+          <TrendingUp className="mx-auto mb-4 text-amber-400" size={48} />
           <h2 className="mb-4 text-4xl font-black">Start Microtasking Today</h2>
           <p className="mb-8 text-slate-400">Short tasks, steady earnings, and mobile-money withdrawals</p>
           <Link href="/register" className="btn-primary inline-flex items-center gap-2 px-10 py-4 text-lg">

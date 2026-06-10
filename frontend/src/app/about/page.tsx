@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, BadgeInfo, CheckCircle2, Coins, Globe2, ShieldCheck, Sparkles, Zap } from 'lucide-react';
+import { Logo } from '@/components/Logo';
 import { SITE_URL } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: 'About CashFlowHubs - Our Mission to Empower African Earners',
+  title: 'About CashFlowHubs - Empowering African Earners',
   description:
     'Learn how CashFlowHubs was built to give people across Africa access to legitimate online earning opportunities through surveys, tasks, jobs, and mobile-money withdrawals.',
   alternates: {
@@ -50,7 +51,7 @@ export default function AboutPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto max-w-5xl px-4 py-10">
-        <Link href="/register" className="inline-flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300">
+        <Link href="/register" className="inline-flex items-center gap-2 text-sm text-amber-400 hover:text-amber-300">
           <ArrowLeft size={16} />
           Back to registration
         </Link>
@@ -59,6 +60,9 @@ export default function AboutPage() {
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-300">
             <BadgeInfo size={14} />
             About CashFlowHubs
+          </div>
+          <div className="mt-5">
+            <Logo size="sm" />
           </div>
           <h1 className="mt-5 text-3xl font-black md:text-5xl">Earn through simple online work, in a system built for African users.</h1>
           <p className="mt-4 max-w-3xl text-base leading-7 text-slate-300 md:text-lg">

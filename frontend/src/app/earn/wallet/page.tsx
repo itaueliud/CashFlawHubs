@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, CheckCircle, Shield, TrendingUp, Wallet, Zap } from 'lucide-react';
+import { Logo } from '@/components/Logo';
 
 export const metadata: Metadata = {
-  title: 'Withdraw Earnings via M-Pesa, MTN MoMo, and More - CashFlowHubs Wallet',
+  title: 'Withdraw Earnings via M-Pesa, MTN MoMo, and More',
   description:
     'CashFlowHubs supports instant withdrawals across Africa. Withdraw your earnings via M-Pesa, MTN MoMo, Flutterwave, Telebirr, and more.',
   keywords: [
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
   ],
   alternates: { canonical: 'https://www.cashflowhubs.com/earn/wallet' },
   openGraph: {
-    title: 'Withdraw via M-Pesa, MTN MoMo, and More | CashFlowHubs Wallet',
+    title: 'Withdraw via M-Pesa, MTN MoMo, and More | CashFlowHubs',
     description: 'Instant withdrawals across Africa. Low minimums, fast payouts.',
     url: 'https://www.cashflowhubs.com/earn/wallet',
   },
@@ -36,6 +37,7 @@ const PAYMENT_METHODS = [
 const FAQ = [
   { q: 'How fast are withdrawals processed?', a: 'Most withdrawals are processed instantly or within 1-5 minutes depending on your payment provider and country.' },
   { q: 'What is the minimum withdrawal amount?', a: 'The minimum varies by country. Kenya is KSh 200, Nigeria is NGN 500, and other countries have similarly low thresholds.' },
+  { q: 'When are payout batches sent?', a: 'Approved withdrawal requests are paid out in the Friday payout run so you always know when to expect the batch.' },
   { q: 'Are there withdrawal fees?', a: 'CashFlowHubs does not charge withdrawal fees. Standard mobile-money operator fees may apply.' },
   { q: 'How many times can I withdraw per day?', a: 'There is no daily withdrawal limit on the number of requests. The minimum amount per transaction still applies.' },
 ];
@@ -46,8 +48,7 @@ export default function EarnWalletPage() {
       <nav className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/80 backdrop-blur-lg">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500 font-bold text-sm">C</div>
-            <span className="text-lg font-bold">CashFlowHubs</span>
+            <Logo size="sm" />
           </Link>
           <div className="flex items-center gap-3">
             <Link href="/login" className="btn-outline px-4 py-2 text-sm">Login</Link>
@@ -68,7 +69,7 @@ export default function EarnWalletPage() {
             <span className="text-cyan-400">MTN MoMo, and More</span>
           </h1>
           <p className="mx-auto mb-10 max-w-2xl text-xl text-slate-400">
-            CashFlowHubs supports instant withdrawals across Africa with low minimums and mobile-money payout methods.
+            CashFlowHubs supports withdrawals across Africa with low minimums, mobile-money payout methods, and Friday payout runs for approved requests.
           </p>
           <Link href="/register" className="btn-primary inline-flex items-center gap-2 px-8 py-4 text-lg">
             Start Earning and Withdrawing <ArrowRight size={20} />
@@ -85,7 +86,7 @@ export default function EarnWalletPage() {
             { label: 'Minimum Withdrawal', value: 'KSh 200' },
           ].map((stat) => (
             <div key={stat.label} className="card text-center py-5">
-              <div className="text-2xl font-black text-cyan-400">{stat.value}</div>
+              <div className="text-2xl font-black text-amber-400">{stat.value}</div>
               <div className="mt-1 text-xs text-slate-400">{stat.label}</div>
             </div>
           ))}
@@ -149,7 +150,7 @@ export default function EarnWalletPage() {
 
       <section className="bg-gradient-to-br from-cyan-900/30 to-slate-900 px-4 py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <Wallet className="mx-auto mb-4 text-cyan-400" size={48} />
+          <Wallet className="mx-auto mb-4 text-amber-400" size={48} />
           <h2 className="mb-4 text-4xl font-black">Start Earning and Withdraw Today</h2>
           <p className="mb-8 text-slate-400">Low minimums, secure payouts, and fast mobile-money withdrawals</p>
           <Link href="/register" className="btn-primary inline-flex items-center gap-2 px-10 py-4 text-lg">

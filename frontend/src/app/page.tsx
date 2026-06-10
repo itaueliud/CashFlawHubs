@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ArrowRight, CheckCircle, DollarSign, Globe, Shield, Star, TrendingUp, Users, Zap } from 'lucide-react';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { Logo } from '@/components/Logo';
 import { SITE_URL } from '@/lib/seo';
 
 const EARN_METHODS = [
@@ -44,16 +45,16 @@ const TESTIMONIALS = [
 ];
 
 export const metadata: Metadata = {
-  title: 'Earn Money Online in Africa - Surveys, Tasks & Remote Jobs',
+  title: 'Earn Money Online Across Africa - Surveys, Tasks & Remote Jobs',
   description:
-    'CashFlowHubs lets you earn real money online across Africa. Complete paid surveys, microtasks, and find remote jobs. Withdraw via M-Pesa, MTN MoMo, Flutterwave, Telebirr, and more.',
+    'CashFlowHubs lets you earn real money online across Africa. Complete paid surveys, microtasks, and find remote jobs, then withdraw via M-Pesa, MTN MoMo, Flutterwave, Telebirr, and more.',
   alternates: {
     canonical: SITE_URL,
   },
   openGraph: {
     url: SITE_URL,
-    title: 'Earn Money Online in Africa - CashFlowHubs',
-    description: 'Paid surveys, microtasks, remote jobs, and instant mobile-money payouts.',
+    title: 'Earn Money Online Across Africa - CashFlowHubs',
+    description: 'Paid surveys, microtasks, remote jobs, and mobile-money payouts across Africa.',
   },
 };
 
@@ -111,8 +112,7 @@ export default function HomePage() {
       <nav className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/80 backdrop-blur-lg">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500 font-bold text-sm">C</div>
-            <span className="text-lg font-bold">CashFlowHubs</span>
+            <Logo size="sm" />
           </div>
           <div className="flex items-center gap-3">
             <Link href="/login" className="btn-outline px-4 py-2 text-sm">
@@ -128,13 +128,13 @@ export default function HomePage() {
       <section className="relative overflow-hidden px-4 pb-32 pt-20">
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-green-900/20 via-transparent to-blue-900/10" />
         <div className="relative z-10 mx-auto max-w-4xl text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-green-500/30 bg-green-500/10 px-4 py-1.5 text-sm text-green-400">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-sm text-amber-300">
             <Zap size={14} /> Available in 20 African Countries
           </div>
           <h1 className="mb-6 text-5xl font-black leading-tight md:text-7xl">
             Earn Money Online
             <br />
-            <span className="text-green-400">From Africa</span>
+            <span className="text-amber-400">From Africa</span>
           </h1>
           <p className="mx-auto mb-10 max-w-2xl text-xl text-slate-400">
             Surveys · Tasks · Remote Jobs · Offerwalls · Freelance
@@ -153,12 +153,12 @@ export default function HomePage() {
 
           <div className="mx-auto mt-16 grid max-w-2xl grid-cols-3 gap-4">
             {[
-              { label: 'Active Earners', value: '12,400+' },
-              { label: 'Paid Out', value: '$84,000+' },
-              { label: 'Avg. Daily Earn', value: '$1.80' },
+              { label: 'Earning Methods', value: '6+' },
+              { label: 'Countries Covered', value: '20' },
+              { label: 'Min. Withdrawal', value: 'KSh 200' },
             ].map((stat) => (
               <div key={stat.label} className="card py-4 text-center">
-                <div className="text-2xl font-black text-green-400">{stat.value}</div>
+                <div className="text-2xl font-black text-amber-400">{stat.value}</div>
                 <div className="mt-1 text-xs text-slate-400">{stat.label}</div>
               </div>
             ))}
@@ -252,7 +252,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-2xl text-center">
           <TrendingUp className="mx-auto mb-4 text-green-400" size={48} />
           <h2 className="mb-4 text-4xl font-black">Ready to Start Earning?</h2>
-          <p className="mb-8 text-slate-400">Join 12,000+ Africans already earning on CashFlowHubs</p>
+          <p className="mb-8 text-slate-400">Available in 20 African countries. Withdraw via M-Pesa, MTN MoMo, Flutterwave, and more.</p>
           <Link href="/register" className="btn-primary inline-flex items-center gap-2 px-10 py-4 text-lg">
             Create Free Account <ArrowRight size={20} />
           </Link>
@@ -264,31 +264,47 @@ export default function HomePage() {
 
       <HomeFaqSchema />
 
-      <footer className="border-t border-slate-800 px-4 py-8 text-center text-sm text-slate-500">
-        <div className="mx-auto mb-4 flex max-w-4xl flex-wrap items-center justify-center gap-x-5 gap-y-2 text-slate-400">
-          <Link href="/earn/surveys" className="transition-colors hover:text-green-400">
-            Surveys
-          </Link>
-          <Link href="/earn/jobs" className="transition-colors hover:text-green-400">
-            Jobs
-          </Link>
-          <Link href="/earn/tasks" className="transition-colors hover:text-green-400">
-            Tasks
-          </Link>
-          <Link href="/earn/offerwalls" className="transition-colors hover:text-green-400">
-            Offerwalls
-          </Link>
-          <Link href="/earn/referrals" className="transition-colors hover:text-green-400">
-            Referrals
-          </Link>
-          <Link href="/earn/wallet" className="transition-colors hover:text-green-400">
-            Wallet
-          </Link>
-          <Link href="/blog" className="transition-colors hover:text-green-400">
-            Blog
-          </Link>
+      <footer className="border-t border-slate-800 px-4 py-12 text-sm text-slate-500">
+        <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-4">
+          <div>
+            <p className="mb-3 font-bold text-white">Ways to Earn</p>
+            <ul className="space-y-2">
+              <li><Link href="/earn/surveys" className="transition-colors hover:text-amber-400">Paid Surveys</Link></li>
+              <li><Link href="/earn/jobs" className="transition-colors hover:text-amber-400">Remote Jobs</Link></li>
+              <li><Link href="/earn/tasks" className="transition-colors hover:text-amber-400">Microtasks</Link></li>
+              <li><Link href="/earn/offerwalls" className="transition-colors hover:text-amber-400">Offerwalls</Link></li>
+              <li><Link href="/earn/referrals" className="transition-colors hover:text-amber-400">Referrals</Link></li>
+            </ul>
+          </div>
+          <div>
+            <p className="mb-3 font-bold text-white">Payments</p>
+            <ul className="space-y-2">
+              <li><Link href="/earn/wallet" className="transition-colors hover:text-amber-400">Wallet & Withdrawals</Link></li>
+              <li>M-Pesa</li>
+              <li>MTN MoMo</li>
+              <li>Flutterwave</li>
+            </ul>
+          </div>
+          <div>
+            <p className="mb-3 font-bold text-white">Company</p>
+            <ul className="space-y-2">
+              <li><Link href="/about" className="transition-colors hover:text-amber-400">About</Link></li>
+              <li><Link href="/blog" className="transition-colors hover:text-amber-400">Blog</Link></li>
+              <li><Link href="/terms" className="transition-colors hover:text-amber-400">Terms</Link></li>
+            </ul>
+          </div>
+          <div>
+            <p className="mb-3 font-bold text-white">Account</p>
+            <ul className="space-y-2">
+              <li><Link href="/register" className="transition-colors hover:text-amber-400">Create Account</Link></li>
+              <li><Link href="/login" className="transition-colors hover:text-amber-400">Login</Link></li>
+            </ul>
+          </div>
         </div>
-        <p>© 2025 CashFlowHubs. Built for Africa.</p>
+        <div className="mx-auto mt-8 flex max-w-6xl flex-col gap-2 border-t border-slate-800 pt-6 text-slate-600 md:flex-row md:items-center md:justify-between">
+          <p>© 2025 CashFlowHubs. Built for Africa.</p>
+          <p className="text-xs">Available in Kenya, Nigeria, Ghana, Uganda, Tanzania, Ethiopia, and more.</p>
+        </div>
       </footer>
     </div>
   );
