@@ -625,9 +625,14 @@ exports.login = async (req, res) => {
     }
 
     const trimmedIdentifier = String(rawIdentifier).trim();
+    const normalizePhoneForLookup = (p) => {
+      const digits = p.replace(/[^\d]/g, '');
+      return { $in: [p, `+${digits}`, digits] };
+    };
+
     const query = isValidEmail(trimmedIdentifier)
       ? { email: normalizeLoginIdentifier(trimmedIdentifier) }
-      : { phone: trimmedIdentifier };
+      : { phone: normalizePhoneForLookup(trimmedIdentifier) };
 
     if (!isDatabaseReady()) {
       const user = isValidEmail(trimmedIdentifier)
