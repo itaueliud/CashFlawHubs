@@ -85,7 +85,7 @@ export default function LoginPage() {
             </div>
           )}
         </div>
-        <div className="card" suppressHydrationWarning>
+        <div className="card">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
               <label className="text-sm font-medium text-slate-300 mb-1.5 block">{t('auth.emailOrPhone')}</label>
