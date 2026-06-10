@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
-import { ArrowRight, Download, FileBarChart2, Receipt, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Download, FileBarChart2, Receipt, ShieldCheck, Clock3 } from 'lucide-react';
 
 export default function LedgerStandalonePage() {
   const { user } = useAuthStore();
@@ -19,6 +19,8 @@ export default function LedgerStandalonePage() {
   }
 
   const ledger = data?.ledger || {};
+  const pendingPayouts = ledger.payoutQueue || [];
+  const pendingPayoutTotal = Number(ledger.payoutQueueTotalUSD || 0);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -64,6 +66,24 @@ export default function LedgerStandalonePage() {
           <p className="mt-2 text-sm text-slate-400">Download CSV for accounting workflows.</p>
           <div className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-300">Open <ArrowRight size={14} /></div>
         </Link>
+      </div>
+
+      <div className="card border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-slate-900">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-amber-300">
+              <Clock3 size={14} />
+              <span className="text-xs uppercase tracking-[0.18em]">Pending payout queue</span>
+            </div>
+            <div className="mt-2 text-lg font-bold text-white">
+              {pendingPayouts.length} withdrawal and referral payouts waiting for Friday
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-slate-400">Total USD</div>
+            <div className="text-2xl font-black text-amber-300">${pendingPayoutTotal.toFixed(2)}</div>
+          </div>
+        </div>
       </div>
     </div>
   );

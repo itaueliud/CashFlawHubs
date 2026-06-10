@@ -44,8 +44,8 @@ function WalletCallbackContent() {
         localStorage.removeItem('cashflawhubs-pending-wallet-deposit');
         setStatus('success');
         if (response.data.type === 'deposit') {
-          setMessage('Deposit credited successfully. Returning to your wallet...');
-          toast.success('Wallet deposit completed.');
+          setMessage('Deposit successful. Your available balance has been updated.');
+          toast.success('Deposit successful.');
         } else {
           setMessage('Tokens credited successfully. Returning to your wallet...');
           toast.success('Token purchase completed.');

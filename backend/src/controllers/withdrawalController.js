@@ -35,6 +35,7 @@ const getWithdrawalCallbackUrl = (strategy) => {
 exports.requestWithdrawal = async (req, res) => {
   try {
     const { amountUSD, phoneNumber, provider } = req.body;
+    const numericAmountUSD = Number(amountUSD);
     const user = await User.findById(req.user.id);
 
     if (!user.activationStatus) {
@@ -52,14 +53,18 @@ exports.requestWithdrawal = async (req, res) => {
     const rate = await getCurrencyRate(countryConfig.currency);
     const minWithdrawalUSD = countryConfig.minWithdrawal / rate;
 
-    if (amountUSD < minWithdrawalUSD) {
+    if (!numericAmountUSD || numericAmountUSD <= 0) {
+      return res.status(400).json({ success: false, message: 'Enter a valid withdrawal amount' });
+    }
+
+    if (numericAmountUSD < minWithdrawalUSD) {
       return res.status(400).json({
         success: false,
         message: `Minimum withdrawal is ${countryConfig.minWithdrawal} ${countryConfig.currency}`,
       });
     }
 
-    if (wallet.balanceUSD < amountUSD) {
+    if (wallet.balanceUSD < numericAmountUSD) {
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
 
@@ -70,7 +75,7 @@ exports.requestWithdrawal = async (req, res) => {
     try {
       await Wallet.findOneAndUpdate(
         { userId: user._id },
-        { $inc: { balanceUSD: -amountUSD, pendingBalance: amountUSD } },
+        { $inc: { balanceUSD: -numericAmountUSD, pendingBalance: numericAmountUSD } },
         { session }
       );
 
@@ -78,8 +83,8 @@ exports.requestWithdrawal = async (req, res) => {
       const tx = await Transaction.create([{
         userId: user._id,
         type: 'withdrawal',
-        amountLocal: amountUSD * rate,
-        amountUSD,
+        amountLocal: numericAmountUSD * rate,
+        amountUSD: numericAmountUSD,
         currency: countryConfig.currency,
         country: user.country,
         provider: countryConfig.paymentProvider === 'daraja' ? 'mpesa' : countryConfig.paymentProvider,
@@ -97,7 +102,7 @@ exports.requestWithdrawal = async (req, res) => {
       await publishToQueue(QUEUES.WITHDRAWAL_PROCESS, {
         transactionId: tx[0]._id.toString(),
         userId: user._id.toString(),
-        amountUSD,
+        amountUSD: numericAmountUSD,
         phoneNumber: phoneNumber || user.phone,
         country: user.country,
         requestedProvider: provider || null,
@@ -107,7 +112,7 @@ exports.requestWithdrawal = async (req, res) => {
         success: true,
         message: 'Withdrawal request submitted and routed to the configured payout provider.',
         transactionId: tx[0]._id,
-        amountLocal: (amountUSD * rate).toFixed(2),
+        amountLocal: (numericAmountUSD * rate).toFixed(2),
         currency: countryConfig.currency,
       });
     } catch (err) {
@@ -161,6 +166,7 @@ exports.processWithdrawal = async ({ transactionId, userId, amountUSD, phoneNumb
     await Transaction.findByIdAndUpdate(transactionId, {
       provider: transferRes?.provider || transaction.provider,
       providerTransactionId: transferRes?.providerTransactionId || withdrawalReference,
+      status: 'pending',
       metadata: {
         ...(transaction.metadata || {}),
         routedVia: transferRes?.strategy || requestedProvider || null,

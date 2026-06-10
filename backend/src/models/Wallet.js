@@ -13,6 +13,7 @@ const walletSchema = new mongoose.Schema({
   referralEarnings: { type: Number, default: 0 },
   freelanceEarnings: { type: Number, default: 0 },
   challengeEarnings: { type: Number, default: 0 },
+  xpEarnings: { type: Number, default: 0 },
 
   pendingBalance: { type: Number, default: 0 }, // Awaiting confirmation
   totalWithdrawn: { type: Number, default: 0 },
@@ -32,6 +33,7 @@ walletSchema.methods.credit = async function (amount, source) {
     referral: 'referralEarnings',
     freelance: 'freelanceEarnings',
     challenge: 'challengeEarnings',
+    xp: 'xpEarnings',
   };
   if (sourceMap[source]) {
     this[sourceMap[source]] += amount;

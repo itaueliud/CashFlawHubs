@@ -54,6 +54,8 @@ export default function LedgerTransactionsPage() {
   const highValue = filtered.filter((tx: any) => Number(tx.amountUSD || 0) >= 100).length;
   const failed = filtered.filter((tx: any) => tx.status === 'failed').length;
   const pending = filtered.filter((tx: any) => tx.status === 'pending').length;
+  const payoutQueue = data?.ledger?.payoutQueue || [];
+  const payoutQueueTotal = Number(data?.ledger?.payoutQueueTotalUSD || 0);
 
   if (user?.role !== 'ledger') return <div className="card text-sm text-slate-400">Ledger access required.</div>;
   if (isLoading) return <div className="card text-sm text-slate-400">Loading transactions...</div>;
@@ -93,6 +95,21 @@ export default function LedgerTransactionsPage() {
         <div className="card"><div className="text-xs text-slate-400">Pending</div><div className="text-2xl font-black text-blue-300">{pending}</div></div>
       </div>
 
+      <div className="card border-blue-500/20 bg-blue-500/5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-xs uppercase tracking-[0.18em] text-blue-300">Friday payout queue</div>
+            <div className="mt-1 text-lg font-bold text-white">
+              {payoutQueue.length} qualifying withdrawals and referral payouts
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-slate-400">Queue total</div>
+            <div className="text-2xl font-black text-blue-300">${payoutQueueTotal.toFixed(2)}</div>
+          </div>
+        </div>
+      </div>
+
       <div className="card overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead>
@@ -114,7 +131,24 @@ export default function LedgerTransactionsPage() {
                 <td className="px-3 py-2 text-slate-300">{tx.userId?.name || tx.userId?.userId || '-'}</td>
                 <td className="px-3 py-2 text-slate-300">{tx.type}</td>
                 <td className="px-3 py-2 text-slate-300">{tx.provider}</td>
-                <td className="px-3 py-2 text-slate-300">{tx.status}</td>
+                <td className="px-3 py-2">
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      tx.status === 'successful'
+                        ? 'bg-green-500/10 text-green-300'
+                        : tx.status === 'pending'
+                          ? 'bg-yellow-500/10 text-yellow-300'
+                          : tx.status === 'failed'
+                            ? 'bg-red-500/10 text-red-300'
+                            : 'bg-orange-500/10 text-orange-300'
+                    }`}
+                  >
+                    {tx.status}
+                  </span>
+                  {tx.type === 'withdrawal' && tx.status === 'pending' && (
+                    <div className="mt-1 text-[11px] text-blue-300">Friday payout queued</div>
+                  )}
+                </td>
                 <td className="px-3 py-2 font-semibold text-white">${Number(tx.amountUSD || 0).toFixed(2)}</td>
               </tr>
             ))}

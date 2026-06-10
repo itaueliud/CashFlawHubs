@@ -62,6 +62,17 @@ const aggregateLedger = async (range) => {
     .limit(100)
     .populate('userId', 'name email phone role country userId');
 
+  const payoutQueueQuery = {
+    createdAt: ledgerQuery.createdAt,
+    status: 'pending',
+    type: { $in: ['withdrawal', 'referral_reward'] },
+  };
+  const payoutQueue = await Transaction.find(payoutQueueQuery)
+    .sort({ createdAt: -1 })
+    .limit(100)
+    .populate('userId', 'name email phone role country userId');
+  const payoutQueueTotalUSD = payoutQueue.reduce((sum, tx) => sum + Number(tx.amountUSD || 0), 0);
+
   const totalUSD = summary?.totalUSD || 0;
   const superadminSharePercent = getLedgerSplitPercent();
   const adminSharePercent = getAdminSharePercent();
@@ -76,6 +87,8 @@ const aggregateLedger = async (range) => {
     superadminShareUSD: Number((totalUSD * superadminSharePercent / 100).toFixed(4)),
     adminShareUSD: Number((totalUSD * adminSharePercent / 100).toFixed(4)),
     transactions,
+    payoutQueue,
+    payoutQueueTotalUSD,
   };
 };
 

@@ -1,9 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Trophy, CalendarClock, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Trophy, CalendarClock, CheckCircle2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
 export default function ChallengesPage() {
@@ -35,6 +36,13 @@ export default function ChallengesPage() {
   });
 
   const challenges = data || [];
+  const getChallengeTarget = (challenge: any) => {
+    const type = String(challenge.type || challenge.eventType || '').toLowerCase();
+    if (type.includes('referral')) return '/dashboard/referrals';
+    if (type.includes('survey')) return '/dashboard/surveys';
+    if (type.includes('task')) return '/dashboard/tasks';
+    return '/dashboard';
+  };
 
   return (
     <div className="space-y-6">
@@ -99,25 +107,35 @@ export default function ChallengesPage() {
                 </div>
 
                 <div className="mt-4 flex items-center justify-between gap-3">
-                  {challenge.rewardClaimed ? (
-                    <div className="text-sm text-green-400 flex items-center gap-1.5">
-                      <CheckCircle2 size={14} /> Reward claimed
-                    </div>
-                  ) : challenge.completed ? (
-                    <span className="text-sm text-emerald-400">Completed. Claim your reward.</span>
-                  ) : (
-                    <span className="text-sm text-slate-400">Keep going to complete this challenge.</span>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {challenge.rewardClaimed ? (
+                      <div className="text-sm text-green-400 flex items-center gap-1.5">
+                        <CheckCircle2 size={14} /> Reward claimed
+                      </div>
+                    ) : challenge.completed ? (
+                      <span className="text-sm text-emerald-400">Completed. Claim your reward.</span>
+                    ) : (
+                      <span className="text-sm text-slate-400">Keep going to complete this challenge.</span>
+                    )}
+                  </div>
 
-                  {canClaim && (
-                    <button
-                      onClick={() => claimMutation.mutate(challenge._id)}
-                      disabled={claimMutation.isPending}
-                      className="btn-primary text-xs py-1.5 px-3 disabled:opacity-50"
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={getChallengeTarget(challenge)}
+                      className="inline-flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-emerald-400/40 hover:text-white"
                     >
-                      Claim Reward
-                    </button>
-                  )}
+                      Go to activity <ArrowRight size={12} />
+                    </Link>
+                    {canClaim && (
+                      <button
+                        onClick={() => claimMutation.mutate(challenge._id)}
+                        disabled={claimMutation.isPending}
+                        className="btn-primary text-xs py-1.5 px-3 disabled:opacity-50"
+                      >
+                        Claim Reward
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );

@@ -9,9 +9,10 @@ export default function ReferralsPage() {
   const { data: leaderboard } = useQuery({ queryKey: ['leaderboard'], queryFn: () => api.get('/referrals/leaderboard').then(r => r.data.leaderboard) });
 
   const link = data?.referralLink || '';
+  const shareText = `Join CashFlowHubs and start earning from paid surveys, microtasks, remote jobs, and referral bonuses. Sign up free here: ${link}`;
   const copy = () => { navigator.clipboard.writeText(link); toast.success('Copied!'); };
-  const whatsapp = () => window.open(`https://wa.me/?text=${encodeURIComponent(`Join CashFlowHubs and earn from surveys, tasks and remote jobs! ${link}`)}`);
-  const telegram = () => window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Join CashFlowHubs and earn online!')}`);
+  const whatsapp = () => window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`);
+  const telegram = () => window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(shareText)}`);
 
   return (
     <div className="space-y-6">

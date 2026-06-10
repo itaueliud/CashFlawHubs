@@ -10,6 +10,7 @@ import { TurnstileWidget } from '@/components/security/TurnstileWidget';
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  BadgeCheck,
   CheckCircle,
   Clock,
   Info,
@@ -39,6 +40,7 @@ export default function WalletPage() {
   const [withdrawing, setWithdrawing] = useState(false);
   const [depositing, setDepositing] = useState(false);
   const [buyingTokens, setBuyingTokens] = useState<number | null>(null);
+  const [redeemingXp, setRedeemingXp] = useState(false);
   const [verifyingPurchase, setVerifyingPurchase] = useState(false);
   const [pendingPurchase, setPendingPurchase] = useState<PendingTokenPurchase | null>(null);
   const [pendingDeposit, setPendingDeposit] = useState<PendingWalletDeposit | null>(null);
@@ -71,6 +73,9 @@ export default function WalletPage() {
   const pendingReference = pendingPurchase?.reference || null;
   const pendingDepositReference = pendingDeposit?.reference || null;
   const withdrawalOpen = Boolean(wallet.withdrawalOpen);
+  const xpBlocksAvailable = Math.floor((user?.xpPoints || 0) / 20000);
+  const xpRedeemable = xpBlocksAvailable * 20000;
+  const xpCashLocal = xpBlocksAvailable * 1000;
   const [turnstileToken, setTurnstileToken] = useState('');
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || '';
 
@@ -275,6 +280,26 @@ export default function WalletPage() {
     }
   };
 
+  const onRedeemXp = async () => {
+    if (xpRedeemable < 20000) {
+      toast.error('You need at least 20,000 XP to redeem cash.');
+      return;
+    }
+
+    setRedeemingXp(true);
+    try {
+      const response = await api.post('/wallet/xp/redeem', { xpPoints: xpRedeemable });
+      toast.success(response.data.message || 'XP redeemed successfully');
+      await refreshUser();
+      await queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      await queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Unable to redeem XP right now');
+    } finally {
+      setRedeemingXp(false);
+    }
+  };
+
   const onBuyTokens = async (tokens: number) => {
     setBuyingTokens(tokens);
     try {
@@ -335,12 +360,41 @@ export default function WalletPage() {
         </div>
       </div>
 
+      <div className="card border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-slate-900">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-emerald-300">
+              <BadgeCheck size={16} />
+              <span className="text-sm font-semibold uppercase tracking-[0.16em]">XP Cashout</span>
+            </div>
+            <div className="mt-2 text-2xl font-black text-white">{xpRedeemable.toLocaleString()} XP available</div>
+            <div className="mt-1 text-sm text-slate-400">
+              20,000 XP = KSh 1,000. You can redeem cash once you have a full block available.
+            </div>
+          </div>
+          <div className="rounded-2xl border border-emerald-400/20 bg-slate-950/50 px-4 py-3 text-right">
+            <div className="text-xs text-slate-400">Estimated cash value</div>
+            <div className="text-2xl font-black text-emerald-300">KSh {xpCashLocal.toLocaleString()}</div>
+            <div className="text-xs text-slate-500">${Number(wallet.xpCashUSD || 0).toFixed(2)} USD equivalent</div>
+            <button
+              type="button"
+              onClick={() => void onRedeemXp()}
+              disabled={redeemingXp || xpRedeemable < 20000}
+              className="mt-3 inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+            >
+              {redeemingXp && <Loader2 size={14} className="animate-spin" />}
+              Redeem XP Cash
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="card" id="deposit">
         <h3 className="mb-4 font-bold">Deposit Funds</h3>
         {pendingDeposit && (
           <div className="mb-4 flex items-center justify-between rounded-2xl border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm">
             <div>
-              <div className="font-semibold text-green-300">Pending wallet deposit</div>
+              <div className="font-semibold text-green-300">Deposit in progress</div>
               <div className="text-slate-400">{pendingDepositLabel}</div>
             </div>
             <button
@@ -357,7 +411,8 @@ export default function WalletPage() {
         <form onSubmit={handleDepositSubmit(onDeposit)} className="max-w-sm space-y-4">
           <div>
             <label className="mb-1.5 block text-sm text-slate-300">Amount ({wallet.currency || user?.country || 'Local'})</label>
-            <input {...registerDeposit('amountLocal', { required: true })} type="number" step="0.01" placeholder="e.g. 500" className="input" />
+            <input {...registerDeposit('amountLocal', { required: true, min: 100 })} type="number" step="0.01" placeholder="e.g. 100" className="input" />
+            <p className="mt-1 text-xs text-slate-400">Minimum deposit is KSh 100 or your local equivalent.</p>
           </div>
 
           <div>
@@ -489,7 +544,15 @@ export default function WalletPage() {
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium capitalize">{tx.type.replace('_', ' ')}</div>
                   <div className="text-xs text-slate-500">
-                    {new Date(tx.createdAt).toLocaleDateString()} - <span className="capitalize">{tx.status}</span>
+                    {new Date(tx.createdAt).toLocaleDateString()} -{' '}
+                    <span className={`rounded-full px-2 py-0.5 font-semibold ${tx.status === 'successful' ? 'bg-green-500/10 text-green-300' : tx.status === 'failed' ? 'bg-red-500/10 text-red-300' : tx.status === 'reversed' ? 'bg-orange-500/10 text-orange-300' : 'bg-yellow-500/10 text-yellow-300'}`}>
+                      {tx.status}
+                    </span>
+                    {tx.type === 'withdrawal' && tx.status === 'pending' && (
+                      <span className="ml-2 rounded-full bg-blue-500/10 px-2 py-0.5 font-semibold text-blue-300">
+                        Friday payout
+                      </span>
+                    )}
                   </div>
                 </div>
 

@@ -735,6 +735,18 @@ exports.initiateWalletDeposit = async (req, res) => {
     }
 
     const countryConfig = COUNTRIES[user.country];
+    const minDepositUSD = await localToUSD(100, 'KES');
+    const minDepositLocal = countryConfig.currency === 'KES'
+      ? 100
+      : await usdToLocal(minDepositUSD, countryConfig.currency);
+
+    if (numericAmount < minDepositLocal) {
+      return res.status(400).json({
+        success: false,
+        message: `Minimum deposit is KSh 100 or the local equivalent in ${countryConfig.currency}.`,
+      });
+    }
+
     const reference = buildReference('DEP', user.userId);
     const frontendReturnUrl = getFrontendReturnUrl('deposit', reference);
     const paymentPhone = String(phoneNumber || user.phone || '').trim();
