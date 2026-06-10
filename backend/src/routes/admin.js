@@ -429,6 +429,67 @@ router.get('/ledger', protect, ledgerOrSuperadminOnly, async (req, res) => {
   res.json({ success: true, ledger, policy: { superadminSharePercent: ledger.superadminSharePercent, adminSharePercent: ledger.adminSharePercent } });
 });
 
+// GET /api/admin/ledger/b2c-health
+router.get('/ledger/b2c-health', protect, ledgerOrSuperadminOnly, async (req, res) => {
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const last7days = new Date(now - 7 * 24 * 60 * 60 * 1000);
+
+  const [
+    pendingWithdrawals,
+    todaySuccessful,
+    todayFailed,
+    stuckWithdrawals,
+    weeklyVolume,
+  ] = await Promise.all([
+    Transaction.find({ type: 'withdrawal', status: 'pending' })
+      .sort({ createdAt: 1 })
+      .select('userId amountUSD amountLocal currency createdAt metadata'),
+
+    Transaction.countDocuments({
+      type: 'withdrawal', status: 'successful',
+      processedAt: { $gte: todayStart },
+    }),
+
+    Transaction.countDocuments({
+      type: 'withdrawal', status: 'failed',
+      processedAt: { $gte: todayStart },
+    }),
+
+    Transaction.find({
+      type: 'withdrawal', status: 'pending',
+      createdAt: { $lt: new Date(now - 30 * 60 * 1000) }, // pending > 30 min
+    }).select('userId amountUSD createdAt'),
+
+    Transaction.aggregate([
+      {
+        $match: {
+          type: 'withdrawal', status: 'successful',
+          processedAt: { $gte: last7days },
+        },
+      },
+      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$processedAt' } }, totalUSD: { $sum: '$amountUSD' }, count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
+    ]),
+  ]);
+
+  res.json({
+    success: true,
+    b2c: {
+      pendingCount: pendingWithdrawals.length,
+      pendingWithdrawals,
+      todaySuccessful,
+      todayFailed,
+      successRate: todaySuccessful + todayFailed > 0
+        ? ((todaySuccessful / (todaySuccessful + todayFailed)) * 100).toFixed(1)
+        : null,
+      stuckWithdrawals,
+      weeklyVolume,
+    },
+  });
+});
+
 router.post('/ledger/payouts/preview', protect, ledgerOrSuperadminOnly, async (req, res) => {
   const { range = '30d' } = req.body;
   const ledger = await aggregateLedger(range);

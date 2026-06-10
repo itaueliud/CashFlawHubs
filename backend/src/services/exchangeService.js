@@ -13,6 +13,34 @@ const FALLBACK_RATES = {
   USD: 1,
 };
 
+const getTTL = (currency) => {
+  if (currency === 'KES') return 25 * 60; // 25 minutes
+  return 60 * 60; // 60 minutes
+};
+
+const refreshExchangeRates = async () => {
+  try {
+    const res = await axios.get(
+      `https://v6.exchangerate-api.com/v6/${process.env.EXCHANGE_RATE_API_KEY}/latest/USD`,
+      { timeout: 5000 }
+    );
+    const rates = res.data.conversion_rates;
+    
+    if (isRedisReady() && rates) {
+      const redis = getRedis();
+      const targetCurrencies = Object.keys(FALLBACK_RATES).filter(c => c !== 'USD');
+      for (const currency of targetCurrencies) {
+        if (rates[currency]) {
+          await redis.setex(`rate:${currency}`, getTTL(currency), rates[currency].toString());
+        }
+      }
+    }
+    logger.info('Updated exchange rates from bulk endpoint.');
+  } catch (err) {
+    logger.warn(`Failed to update exchange rates: ${err.message}`);
+  }
+};
+
 const getCurrencyRate = async (currency) => {
   if (currency === 'USD') return 1;
   try {
@@ -22,40 +50,19 @@ const getCurrencyRate = async (currency) => {
       if (cached) return parseFloat(cached);
     }
 
-    // Fetch live rate
-    const res = await axios.get(
-      `https://v6.exchangerate-api.com/v6/${process.env.EXCHANGE_RATE_API_KEY}/pair/USD/${currency}`,
-      { timeout: 5000 }
-    );
-    const rate = res.data.conversion_rate;
+    // Try to refresh all rates if cache miss
+    await refreshExchangeRates();
+    
     if (isRedisReady()) {
       const redis = getRedis();
-      await redis.setex(`rate:${currency}`, 3600, rate.toString()); // Cache 1 hour
+      const cached = await redis.get(`rate:${currency}`);
+      if (cached) return parseFloat(cached);
     }
-    return rate;
+
+    return FALLBACK_RATES[currency] || 1;
   } catch (err) {
     logger.warn(`Using fallback rate for ${currency}: ${err.message}`);
     return FALLBACK_RATES[currency] || 1;
-  }
-};
-
-const refreshExchangeRates = async () => {
-  const currencies = ['KES', 'UGX', 'TZS', 'ETB', 'GHS', 'NGN'];
-  for (const currency of currencies) {
-    try {
-      const res = await axios.get(
-        `https://v6.exchangerate-api.com/v6/${process.env.EXCHANGE_RATE_API_KEY}/pair/USD/${currency}`,
-        { timeout: 5000 }
-      );
-      const rate = res.data.conversion_rate;
-      if (isRedisReady()) {
-        const redis = getRedis();
-        await redis.setex(`rate:${currency}`, 3600, rate.toString());
-      }
-      logger.info(`Updated rate: 1 USD = ${rate} ${currency}`);
-    } catch (err) {
-      logger.warn(`Failed to update rate for ${currency}: ${err.message}`);
-    }
   }
 };
 

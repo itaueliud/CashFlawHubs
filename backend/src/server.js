@@ -75,7 +75,7 @@ const parseAllowedOrigins = () => {
 
 const allowedOrigins = parseAllowedOrigins();
 const allowedOriginPatterns = [
-  /^https:\/\/.*\.vercel\.app$/,
+  /^https:\/\/cashflowhubs-[a-z0-9]+-techswifttrix\.vercel\.app$/,
 ];
 
 const isAllowedOrigin = (origin) => {
@@ -192,6 +192,11 @@ const io = initSocket(server, Array.from(allowedOrigins));
 app.set('io', io);
 server.listen(PORT, () => {
   logger.info(`CashFlawHubs server running on port ${PORT} [${process.env.NODE_ENV}]`);
+  
+  const { refreshExchangeRates } = require('./services/exchangeService');
+  refreshExchangeRates(); // immediate on startup
+  setInterval(refreshExchangeRates, 25 * 60 * 1000); // every 25 min
+
   startJobScheduler();
   startQueueWorker();
   void syncJobs().catch((error) => {

@@ -76,7 +76,41 @@ const startJobScheduler = () => {
     }
   });
 
-  logger.info('Job scheduler started (jobs, challenges, exchange rates, reminders, Friday payout, cleanup, outreach digest)');
+  // Expire stuck withdrawals every 15 minutes.
+  cron.schedule('*/15 * * * *', async () => {
+    logger.info('CRON: Expiring stuck withdrawals...');
+    try {
+      const Transaction = require('../models/Transaction');
+      const Wallet = require('../models/Wallet');
+
+      const TIMEOUT_MINUTES = 30;
+      const cutoff = new Date(Date.now() - TIMEOUT_MINUTES * 60 * 1000);
+
+      const stuck = await Transaction.find({
+        type: 'withdrawal',
+        status: 'pending',
+        createdAt: { $lt: cutoff },
+      });
+
+      for (const tx of stuck) {
+        tx.status = 'failed';
+        tx.failureReason = 'Callback timeout — funds returned to wallet';
+        tx.processedAt = new Date();
+        await tx.save();
+
+        await Wallet.findOneAndUpdate(
+          { userId: tx.userId },
+          { $inc: { pendingBalance: -tx.amountUSD, balanceUSD: tx.amountUSD } }
+        );
+
+        logger.warn(`Expired stuck withdrawal ${tx._id} for user ${tx.userId}`);
+      }
+    } catch (err) {
+      logger.error(`CRON expire stuck withdrawals failed: ${err.message}`);
+    }
+  });
+
+  logger.info('Job scheduler started (jobs, challenges, exchange rates, reminders, Friday payout, cleanup, outreach digest, stuck withdrawals)');
 };
 
 const createDailyChallenges = async () => {

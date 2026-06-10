@@ -73,7 +73,8 @@ export default function ChallengesPage() {
             const canClaim = challenge.completed && !challenge.rewardClaimed;
 
             return (
-              <div key={challenge._id} className={`card border-slate-700/80 ${challenge.resetDaily === false ? 'border-purple-500/20 bg-purple-500/5' : ''}`}>
+              <div key={challenge._id} className={`card border-slate-700/80 relative transition-all hover:border-emerald-500/30 hover:bg-emerald-500/5 group ${challenge.resetDaily === false ? 'border-purple-500/20 bg-purple-500/5 hover:border-purple-500/50 hover:bg-purple-500/10' : ''}`}>
+                <Link href={getChallengeTarget(challenge)} className="absolute inset-0 z-0 rounded-2xl" aria-label={`Go to ${challenge.title}`} />
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div>
                     <div className="flex items-center gap-2">
@@ -119,16 +120,20 @@ export default function ChallengesPage() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 relative z-10">
                     <Link
                       href={getChallengeTarget(challenge)}
                       className="inline-flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-emerald-400/40 hover:text-white"
                     >
-                      Go to activity <ArrowRight size={12} />
+                      Go to activity <ArrowRight size={12} className="transition-transform group-hover:translate-x-1" />
                     </Link>
                     {canClaim && (
                       <button
-                        onClick={() => claimMutation.mutate(challenge._id)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          claimMutation.mutate(challenge._id);
+                        }}
                         disabled={claimMutation.isPending}
                         className="btn-primary text-xs py-1.5 px-3 disabled:opacity-50"
                       >

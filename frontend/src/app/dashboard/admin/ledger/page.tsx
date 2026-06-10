@@ -11,7 +11,7 @@ export default function AdminLedgerPage() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const [showConfirm, setShowConfirm] = useState(false);
-  const [tab, setTab] = useState<'summary' | 'staff'>('summary');
+  const [tab, setTab] = useState<'summary' | 'staff' | 'b2c'>('summary');
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-ledger'],
@@ -22,6 +22,12 @@ export default function AdminLedgerPage() {
     queryKey: ['ledger-admins'],
     queryFn: () => api.get('/admin/admins').then((r) => r.data),
     enabled: user?.role === 'ledger' || user?.role === 'superadmin',
+  });
+
+  const { data: b2cData } = useQuery({
+    queryKey: ['b2c-health'],
+    queryFn: () => api.get('/admin/ledger/b2c-health').then((r) => r.data),
+    enabled: tab === 'b2c',
   });
 
   const executeMutation = useMutation({
@@ -92,6 +98,7 @@ export default function AdminLedgerPage() {
         {([
           ['summary', 'Summary'],
           ['staff', 'Admins/Superadmins'],
+          ['b2c', 'B2C Monitoring'],
         ] as const).map(([id, label]) => (
           <button
             key={id}
@@ -160,6 +167,43 @@ export default function AdminLedgerPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {tab === 'b2c' && (
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="card">
+              <div className="text-xs text-slate-400">Today Successful</div>
+              <div className="text-2xl font-black text-emerald-400">{b2cData?.b2c?.todaySuccessful || 0}</div>
+            </div>
+            <div className="card">
+              <div className="text-xs text-slate-400">Today Failed</div>
+              <div className="text-2xl font-black text-red-400">{b2cData?.b2c?.todayFailed || 0}</div>
+            </div>
+            <div className="card">
+              <div className="text-xs text-slate-400">Pending Right Now</div>
+              <div className="text-2xl font-black text-blue-400">{b2cData?.b2c?.pendingCount || 0}</div>
+            </div>
+            <div className="card">
+              <div className="text-xs text-slate-400">Stuck (&gt;30m)</div>
+              <div className="text-2xl font-black text-orange-400">{b2cData?.b2c?.stuckWithdrawals?.length || 0}</div>
+            </div>
+          </div>
+          
+          {b2cData?.b2c?.stuckWithdrawals?.length > 0 && (
+            <div className="card border-orange-500/30 bg-orange-500/10">
+              <div className="font-bold text-orange-400 mb-2">Stuck Withdrawals (Manual Check Required)</div>
+              <div className="space-y-2">
+                {b2cData.b2c.stuckWithdrawals.map((w: any) => (
+                  <div key={w._id} className="flex justify-between text-sm">
+                    <span className="text-slate-300">User: {w.userId}</span>
+                    <span className="text-orange-300">${w.amountUSD}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

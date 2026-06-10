@@ -15,7 +15,7 @@ const getConfig = () => {
     callbackUrl: process.env.DARAJA_CALLBACK_URL || process.env.MPESA_CALLBACK_URL,
     transactionType: process.env.DARAJA_TRANSACTION_TYPE || 'CustomerPayBillOnline',
     initiatorName: process.env.DARAJA_INITIATOR_NAME || process.env.MPESA_INITIATOR_NAME || 'CashFlawHubs',
-    securityCredential: process.env.DARAJA_SECURITY_CREDENTIAL || process.env.MPESA_SECURITY_CREDENTIAL || process.env.DARAJA_PASSKEY || process.env.MPESA_PASSKEY,
+    securityCredential: process.env.DARAJA_SECURITY_CREDENTIAL,
     queueTimeoutUrl: process.env.DARAJA_QUEUE_TIMEOUT_URL || `${process.env.BACKEND_URL}/api/payments/mpesa/callback`,
     resultUrl: process.env.DARAJA_RESULT_URL || `${process.env.BACKEND_URL}/api/payments/mpesa/callback`,
   };
@@ -35,6 +35,14 @@ const getAccessToken = async () => {
     throw new Error('Daraja consumer credentials are not configured');
   }
 
+  // Try Redis cache first
+  const { getRedis, isRedisReady } = require('../../config/redis');
+  if (isRedisReady()) {
+    const redis = getRedis();
+    const cached = await redis.get('daraja:access_token');
+    if (cached) return cached;
+  }
+
   const response = await axios.get(
     `${config.baseUrl}/oauth/v1/generate?grant_type=client_credentials`,
     {
@@ -45,7 +53,14 @@ const getAccessToken = async () => {
     }
   );
 
-  return response.data.access_token;
+  const token = response.data.access_token;
+  
+  if (isRedisReady()) {
+    const redis = getRedis();
+    await redis.setex('daraja:access_token', 3500, token);
+  }
+
+  return token;
 };
 
 exports.initiateDeposit = async ({ reference, amountLocal, callbackUrl, customer }) => {
@@ -90,6 +105,9 @@ exports.initiateDeposit = async ({ reference, amountLocal, callbackUrl, customer
 
 exports.initiateWithdrawal = async ({ reference, amountLocal, currency, callbackUrl, user }) => {
   const config = getConfig();
+  if (!config.securityCredential) {
+    throw new Error('DARAJA_SECURITY_CREDENTIAL is required for B2C withdrawals. See setup docs.');
+  }
   if (!config.shortcode || !config.securityCredential) {
     throw new Error('Daraja B2C configuration is incomplete');
   }
@@ -107,10 +125,10 @@ exports.initiateWithdrawal = async ({ reference, amountLocal, currency, callback
       Amount: Math.round(Number(amountLocal)),
       PartyA: config.shortcode,
       PartyB: normalizePhone(user.phone),
-      Remarks: 'CashFlawHubs withdrawal',
+      Remarks: 'CashFlowHubs withdrawal',
       QueueTimeOutURL: config.queueTimeoutUrl,
       ResultURL: callbackUrl || config.resultUrl,
-      Occasion: reference,
+      Occasion: String(reference).slice(0, 100),
     },
     {
       headers: {

@@ -64,11 +64,54 @@ exports.requestWithdrawal = async (req, res) => {
       });
     }
 
+    const MAX_WITHDRAWAL_USD = Number(process.env.MAX_WITHDRAWAL_USD || 100);
+    if (numericAmountUSD > MAX_WITHDRAWAL_USD) {
+      return res.status(400).json({
+        success: false,
+        message: `Maximum single withdrawal is $${MAX_WITHDRAWAL_USD}`,
+      });
+    }
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayWithdrawnResult = await Transaction.aggregate([
+      {
+        $match: {
+          userId: user._id,
+          type: 'withdrawal',
+          status: { $in: ['pending', 'successful'] },
+          createdAt: { $gte: todayStart },
+        },
+      },
+      { $group: { _id: null, total: { $sum: '$amountUSD' } } },
+    ]);
+    const todayWithdrawn = todayWithdrawnResult[0]?.total || 0;
+    const DAILY_LIMIT_USD = Number(process.env.DAILY_WITHDRAWAL_LIMIT_USD || 200);
+    if (todayWithdrawn + numericAmountUSD > DAILY_LIMIT_USD) {
+      return res.status(400).json({
+        success: false,
+        message: `Daily withdrawal limit of $${DAILY_LIMIT_USD} reached. Try again tomorrow.`,
+      });
+    }
+
     if (wallet.balanceUSD < numericAmountUSD) {
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
 
     // Lock funds immediately
+    const recentPending = await Transaction.findOne({
+      userId: user._id,
+      type: 'withdrawal',
+      status: 'pending',
+      createdAt: { $gte: new Date(Date.now() - 5 * 60 * 1000) }, // last 5 minutes
+    });
+    if (recentPending) {
+      return res.status(429).json({
+        success: false,
+        message: 'You already have a pending withdrawal. Please wait for it to complete.',
+      });
+    }
+
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -108,12 +151,28 @@ exports.requestWithdrawal = async (req, res) => {
         requestedProvider: provider || null,
       });
 
+      let rateFreshness = null;
+      try {
+        const { getRedis, isRedisReady } = require('../config/redis');
+        if (isRedisReady()) {
+          const redis = getRedis();
+          const ts = await redis.get(`rate:${countryConfig.currency}:timestamp`);
+          if (ts) {
+            const ageMinutes = Math.floor((Date.now() - Number(ts)) / 60000);
+            rateFreshness = `Rate updated ${ageMinutes} min ago`;
+          }
+        }
+      } catch (e) {
+        // Handle gracefully if redis is not available here
+      }
+
       res.json({
         success: true,
         message: 'Withdrawal request submitted and routed to the configured payout provider.',
         transactionId: tx[0]._id,
         amountLocal: (numericAmountUSD * rate).toFixed(2),
         currency: countryConfig.currency,
+        rateFreshness,
       });
     } catch (err) {
       await session.abortTransaction();

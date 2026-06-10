@@ -22,7 +22,9 @@ exports.protect = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = mongoose.connection.readyState === 1
       ? await User.findById(decoded.id)
-      : devAuthStore.findById(decoded.id);
+      : (process.env.NODE_ENV === 'production'
+          ? null
+          : devAuthStore.findById(decoded.id));
     if (!user || !user.isActive || user.isBanned) {
       return res.status(401).json({ success: false, message: 'User not found or suspended' });
     }

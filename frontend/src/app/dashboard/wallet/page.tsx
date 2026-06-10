@@ -367,9 +367,9 @@ export default function WalletPage() {
               <BadgeCheck size={16} />
               <span className="text-sm font-semibold uppercase tracking-[0.16em]">XP Cashout</span>
             </div>
-            <div className="mt-2 text-2xl font-black text-white">{xpRedeemable.toLocaleString()} XP available</div>
+            <div className="mt-2 text-2xl font-black text-white">{(user?.xpPoints || 0).toLocaleString()} XP Total</div>
             <div className="mt-1 text-sm text-slate-400">
-              20,000 XP = KSh 1,000. You can redeem cash once you have a full block available.
+              {xpRedeemable.toLocaleString()} XP is currently redeemable. 20,000 XP = KSh 1,000. You can redeem cash once you have a full block available.
             </div>
           </div>
           <div className="rounded-2xl border border-emerald-400/20 bg-slate-950/50 px-4 py-3 text-right">

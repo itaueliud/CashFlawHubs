@@ -13,13 +13,14 @@ const {
   verifyPayment,
 } = require('../controllers/paymentController');
 const { protect } = require('../middleware/auth');
+const safaricomIpWhitelist = require('../middleware/safaricomIpWhitelist');
 
 router.post('/initiate-activation', protect, initiateActivation);
 router.post('/deposits/initiate', protect, initiateWalletDeposit);
 router.post('/tokens/purchase', protect, initiateTokenPurchase);
 router.get('/verify/:reference', protect, verifyPayment);
 router.post('/paystack/webhook', paystackWebhook);
-router.post('/mpesa/callback', mpesaCallback);
+router.post('/mpesa/callback', safaricomIpWhitelist, mpesaCallback);
 router.post('/jenga/callback', jengaCallback);
 router.post('/mtn-momo/callback', mtnMomoCallback);
 router.post('/telebirr/callback', telebirrCallback);
