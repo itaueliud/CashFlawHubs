@@ -56,6 +56,7 @@ const seedDB = async () => {
   });
   await Wallet.create({ userId: admin._id, balanceUSD: 0 });
   console.log('✅ Admin user created — phone: +254700000000 / password: Admin@1234');
+
   // Create ledger user
   const ledger = await User.create({
     name: 'CashFlawHubs Ledger',
@@ -70,14 +71,19 @@ const seedDB = async () => {
     tokenBalance: 200,
   });
   await Wallet.create({ userId: ledger._id, balanceUSD: 0 });
-  console.log('Ledger user created - phone: +254700000002 / password: Ledger@1234');
+  console.log('✅ Ledger user created — phone: +254700000002 / password: Ledger@1234');
+
   // Create test user
   const testUser = await User.create({
+    firstName: 'Test',
+    lastName: 'User',
     name: 'Test User',
+    email: 'testuser@cashflawhubs.app',
     phone: '+254711111111',
     passwordHash: 'Test@1234',
     country: 'KE',
     activationStatus: true,
+    emailVerified: true,
     phoneVerified: true,
     xpPoints: 250,
     level: 2,
@@ -134,5 +140,3 @@ seedDB().catch(err => {
   console.error('❌ Seed failed:', err);
   process.exit(1);
 });
-
-

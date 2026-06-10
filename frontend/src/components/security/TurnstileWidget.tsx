@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Script from 'next/script';
 import { useNonce } from './NonceProvider';
 
@@ -11,7 +11,7 @@ type TurnstileRenderOptions = {
   callback: (token: string) => void;
   'expired-callback': () => void;
   'error-callback': () => void;
-  'retry': 'auto' | 'never';
+  retry: 'auto' | 'never';
   'retry-interval': number;
 };
 
@@ -21,8 +21,6 @@ declare global {
       render: (container: HTMLElement | string, options: TurnstileRenderOptions) => string;
       reset: (widgetId: string) => void;
       remove: (widgetId: string) => void;
-      ready?: (callback: () => void) => void;
-      isReady?: boolean;
     };
   }
 }
@@ -35,35 +33,36 @@ type TurnstileWidgetProps = {
   className?: string;
 };
 
-export function TurnstileWidget({ siteKey, onToken, onExpire, onError, className }: TurnstileWidgetProps) {
-  const widgetId = useId();
+// Renders nothing on the server, only mounts on the client — eliminates all hydration mismatches
+function TurnstileWidgetInner({ siteKey, onToken, onExpire, onError, className }: TurnstileWidgetProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const renderedWidgetId = useRef<string | null>(null);
+  const isMountedRef = useRef(true);
+  const retryCountRef = useRef(0);
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scriptReady, setScriptReady] = useState(false);
   const [renderError, setRenderError] = useState(false);
   const nonce = useNonce();
-  const retryCountRef = useRef(0);
+
+  // Keep callbacks in refs so the render effect doesn't re-run on every parent render
   const onTokenRef = useRef(onToken);
   const onExpireRef = useRef(onExpire);
   const onErrorRef = useRef(onError);
-  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isMountedRef = useRef(true);
-
   useEffect(() => {
-    isMountedRef.current = true;
     onTokenRef.current = onToken;
     onExpireRef.current = onExpire;
     onErrorRef.current = onError;
-    if (window.turnstile) {
-      setScriptReady(true);
-    }
+  }, [onToken, onExpire, onError]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    // If the script was loaded in a previous render cycle, mark ready immediately
+    if (window.turnstile) setScriptReady(true);
     return () => {
       isMountedRef.current = false;
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
-      }
+      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
     };
-  }, [onError, onExpire, onToken]);
+  }, []);
 
   useEffect(() => {
     if (!scriptReady || !siteKey || !containerRef.current || !window.turnstile || renderedWidgetId.current) {
@@ -71,20 +70,17 @@ export function TurnstileWidget({ siteKey, onToken, onExpire, onError, className
     }
 
     const renderWidget = () => {
-      if (!isMountedRef.current || !containerRef.current || !window.turnstile || renderedWidgetId.current) {
-        return;
-      }
+      if (!isMountedRef.current || !containerRef.current || !window.turnstile || renderedWidgetId.current) return;
       try {
         renderedWidgetId.current = window.turnstile.render(containerRef.current, {
           sitekey: siteKey,
           theme: 'dark',
           size: 'normal',
           callback: (token: string) => onTokenRef.current(token),
-          'expired-callback': () => {
-            onExpireRef.current?.();
-          },
+          'expired-callback': () => onExpireRef.current?.(),
           'error-callback': () => {
             onErrorRef.current?.();
+            setRenderError(true);
           },
           retry: 'auto',
           'retry-interval': 8000,
@@ -94,39 +90,23 @@ export function TurnstileWidget({ siteKey, onToken, onExpire, onError, className
       } catch (error) {
         console.error('Turnstile render error:', error);
         setRenderError(true);
-
         if (retryCountRef.current < 3) {
           retryCountRef.current++;
-          const retryDelay = Math.pow(2, retryCountRef.current) * 1000;
-          retryTimeoutRef.current = setTimeout(() => {
-            renderWidget();
-          }, retryDelay);
+          retryTimeoutRef.current = setTimeout(renderWidget, Math.pow(2, retryCountRef.current) * 1000);
         }
       }
     };
 
-    // Turnstile warns when ready() is used with async/defer-loaded scripts.
-    // Since scriptReady is set from Script onLoad/onReady, render directly here.
     renderWidget();
 
     return () => {
       if (renderedWidgetId.current && window.turnstile?.remove) {
-        try {
-          window.turnstile.remove(renderedWidgetId.current);
-        } catch (e) {
-          console.warn('Error removing Turnstile widget:', e);
-        }
+        try { window.turnstile.remove(renderedWidgetId.current); } catch {}
       }
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
-      }
+      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
       renderedWidgetId.current = null;
     };
   }, [scriptReady, siteKey]);
-
-  if (!siteKey) {
-    return null;
-  }
 
   return (
     <div className={className}>
@@ -136,15 +116,25 @@ export function TurnstileWidget({ siteKey, onToken, onExpire, onError, className
         strategy="lazyOnload"
         nonce={nonce || undefined}
         onLoad={() => setScriptReady(true)}
-        onReady={() => setScriptReady(true)}
         onError={() => setRenderError(true)}
       />
       {renderError && (
-        <div className="text-red-500 text-sm p-2 bg-red-50 rounded">
-          Error loading verification. Attempting to retry...
-        </div>
+        <p className="text-red-400 text-xs text-center py-1">
+          Verification failed to load. Retrying…
+        </p>
       )}
-      <div id={widgetId} ref={containerRef} />
+      {/* Use ref-based rendering only — no id= attribute to avoid SSR/client mismatch */}
+      <div ref={containerRef} />
     </div>
   );
+}
+
+// Hard client-only gate: renders null on server, mounts widget only after hydration
+export function TurnstileWidget(props: TurnstileWidgetProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  if (!props.siteKey || !mounted) return null;
+
+  return <TurnstileWidgetInner {...props} />;
 }

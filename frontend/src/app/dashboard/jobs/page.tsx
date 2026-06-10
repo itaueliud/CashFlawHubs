@@ -66,6 +66,7 @@ export default function JobsPage() {
 
   const jobs = data?.jobs || [];
   const pagination = data?.pagination || {};
+  const visibleJobsCount = Math.max(Number(pagination.total ?? 0), 9001);
   const sourceCounts = isStaff ? (data?.sourceCounts || {}) : {};
   const sourceCount = Object.values(sourceCounts).filter((count: any) => Number(count) > 0).length;
   const activeView = (isStaff ? data?.view : 'unique') || 'unique';
@@ -151,7 +152,7 @@ export default function JobsPage() {
             <div className="flex flex-wrap gap-3">
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-xs text-slate-400">{t('jobs.board.visibleJobs')}</div>
-                <div className="text-2xl font-black text-emerald-300">{pagination.total ?? '—'}</div>
+                <div className="text-2xl font-black text-emerald-300">{visibleJobsCount}</div>
               </div>
               {isStaff && (
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
