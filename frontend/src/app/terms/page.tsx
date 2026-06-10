@@ -1,3 +1,14 @@
+import type { Metadata } from 'next';
+import { SITE_URL } from '@/lib/seo';
+
+export const metadata: Metadata = {
+  title: 'Terms of Service',
+  description: 'Read the CashFlowHubs Terms of Service for account rules, payment conditions, and acceptable use.',
+  alternates: {
+    canonical: `${SITE_URL}/terms`,
+  },
+};
+
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-slate-950 p-4 text-white">

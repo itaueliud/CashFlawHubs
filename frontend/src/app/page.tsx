@@ -1,7 +1,9 @@
-﻿import Link from 'next/link';
+import type { Metadata } from 'next';
+import Link from 'next/link';
 import { ArrowRight, CheckCircle, DollarSign, Globe, Shield, Star, TrendingUp, Users, Zap } from 'lucide-react';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { SITE_URL } from '@/lib/seo';
 
 const EARN_METHODS = [
   { icon: '📋', title: 'Paid Surveys', desc: 'Share your opinion and earn up to $3 per survey', color: 'from-blue-500 to-blue-600' },
@@ -41,6 +43,55 @@ const TESTIMONIALS = [
   { name: 'Amina S.', location: 'Dar es Salaam, TZ', text: 'The referral system is amazing. I\'ve earned over $50 just by inviting friends.', stars: 5 },
 ];
 
+export const metadata: Metadata = {
+  title: 'Earn Money Online in Africa - Surveys, Tasks & Remote Jobs',
+  description:
+    'CashFlowHubs lets you earn real money online across Africa. Complete paid surveys, microtasks, and find remote jobs. Withdraw via M-Pesa, MTN MoMo, Flutterwave, Telebirr, and more.',
+  alternates: {
+    canonical: SITE_URL,
+  },
+  openGraph: {
+    url: SITE_URL,
+    title: 'Earn Money Online in Africa - CashFlowHubs',
+    description: 'Paid surveys, microtasks, remote jobs, and instant mobile-money payouts.',
+  },
+};
+
+function HomeFaqSchema() {
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: [
+      {
+        '@type': 'Question',
+        name: 'How do I earn money on CashFlowHubs?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'You can earn by completing paid surveys, microtasks, finding remote jobs, completing offerwalls, or referring friends. Earnings are credited to your wallet as tasks are completed.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'How do I withdraw my earnings?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Withdraw via M-Pesa, MTN MoMo, Flutterwave-supported wallets, Telebirr, and other supported payout methods depending on your country.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Is CashFlowHubs free to join?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Yes. Creating an account on CashFlowHubs is free, and you can start exploring earning opportunities after registration.',
+        },
+      },
+    ],
+  };
+
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />;
+}
+
 export default function HomePage() {
   const host = String(headers().get('host') || '').toLowerCase();
   const portal = host.includes('ledger')
@@ -57,109 +108,115 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      <nav className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-lg border-b border-slate-800">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <nav className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/80 backdrop-blur-lg">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center font-bold text-sm">C</div>
-            <span className="font-bold text-lg">CashFlowHubs</span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500 font-bold text-sm">C</div>
+            <span className="text-lg font-bold">CashFlowHubs</span>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/login" className="btn-outline text-sm py-2 px-4">Login</Link>
-            <Link href="/register" className="btn-primary text-sm py-2 px-4">Get Started</Link>
+            <Link href="/login" className="btn-outline px-4 py-2 text-sm">
+              Login
+            </Link>
+            <Link href="/register" className="btn-primary px-4 py-2 text-sm">
+              Get Started
+            </Link>
           </div>
         </div>
       </nav>
 
-      <section className="relative overflow-hidden pt-20 pb-32 px-4">
-        <div className="absolute inset-0 bg-gradient-to-br from-green-900/20 via-transparent to-blue-900/10 pointer-events-none" />
-        <div className="max-w-4xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/30 rounded-full px-4 py-1.5 text-sm text-green-400 mb-6">
+      <section className="relative overflow-hidden px-4 pb-32 pt-20">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-green-900/20 via-transparent to-blue-900/10" />
+        <div className="relative z-10 mx-auto max-w-4xl text-center">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-green-500/30 bg-green-500/10 px-4 py-1.5 text-sm text-green-400">
             <Zap size={14} /> Available in 20 African Countries
           </div>
-          <h1 className="text-5xl md:text-7xl font-black mb-6 leading-tight">
-            Earn Money Online<br />
+          <h1 className="mb-6 text-5xl font-black leading-tight md:text-7xl">
+            Earn Money Online
+            <br />
             <span className="text-green-400">From Africa</span>
           </h1>
-          <p className="text-xl text-slate-400 mb-10 max-w-2xl mx-auto">
-            Surveys · Tasks · Remote Jobs · Offerwalls · Freelance<br />
+          <p className="mx-auto mb-10 max-w-2xl text-xl text-slate-400">
+            Surveys · Tasks · Remote Jobs · Offerwalls · Freelance
+            <br />
             Withdraw via M-Pesa, MTN MoMo, and more.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/register" className="btn-primary text-lg py-4 px-8 flex items-center gap-2 justify-center">
+          <div className="flex flex-col justify-center gap-4 sm:flex-row">
+            <Link href="/register" className="btn-primary flex items-center justify-center gap-2 px-8 py-4 text-lg">
               Start Earning Free <ArrowRight size={20} />
             </Link>
-            <Link href="#how-it-works" className="btn-outline text-lg py-4 px-8">
+            <Link href="#how-it-works" className="btn-outline px-8 py-4 text-lg">
               How It Works
             </Link>
           </div>
-          <p className="text-slate-500 text-sm mt-4">No credit card required · Withdraw from KSh 200</p>
+          <p className="mt-4 text-sm text-slate-500">No credit card required · Withdraw from KSh 200</p>
 
-          <div className="grid grid-cols-3 gap-4 mt-16 max-w-2xl mx-auto">
+          <div className="mx-auto mt-16 grid max-w-2xl grid-cols-3 gap-4">
             {[
               { label: 'Active Earners', value: '12,400+' },
               { label: 'Paid Out', value: '$84,000+' },
               { label: 'Avg. Daily Earn', value: '$1.80' },
-            ].map((s) => (
-              <div key={s.label} className="card text-center py-4">
-                <div className="text-2xl font-black text-green-400">{s.value}</div>
-                <div className="text-xs text-slate-400 mt-1">{s.label}</div>
+            ].map((stat) => (
+              <div key={stat.label} className="card py-4 text-center">
+                <div className="text-2xl font-black text-green-400">{stat.value}</div>
+                <div className="mt-1 text-xs text-slate-400">{stat.label}</div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="how-it-works" className="py-20 px-4 bg-slate-900/50">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-4">How It Works</h2>
-          <p className="text-slate-400 text-center mb-12">3 simple steps to start earning</p>
-          <div className="grid md:grid-cols-3 gap-6">
+      <section id="how-it-works" className="bg-slate-900/50 px-4 py-20">
+        <div className="mx-auto max-w-4xl">
+          <h2 className="mb-4 text-center text-3xl font-bold">How It Works</h2>
+          <p className="mb-12 text-center text-slate-400">3 simple steps to start earning</p>
+          <div className="grid gap-6 md:grid-cols-3">
             {[
               { step: '01', title: 'Register', desc: 'Sign up with your phone number in 2 minutes. No paperwork.', icon: Users },
               { step: '02', title: 'Complete Tasks', desc: 'Surveys, microtasks, offerwalls, or browse remote jobs.', icon: CheckCircle },
               { step: '03', title: 'Withdraw', desc: 'Cash out via M-Pesa, MTN MoMo, or bank. Minimum KSh 200.', icon: DollarSign },
             ].map((item) => (
-              <div key={item.step} className="card text-center relative overflow-hidden">
-                <div className="absolute top-3 right-4 text-6xl font-black text-slate-700/50">{item.step}</div>
-                <item.icon className="text-green-400 mx-auto mb-3" size={32} />
-                <h3 className="font-bold text-lg mb-2">{item.title}</h3>
-                <p className="text-slate-400 text-sm">{item.desc}</p>
+              <div key={item.step} className="card relative overflow-hidden text-center">
+                <div className="absolute right-4 top-3 text-6xl font-black text-slate-700/50">{item.step}</div>
+                <item.icon className="mx-auto mb-3 text-green-400" size={32} />
+                <h3 className="mb-2 text-lg font-bold">{item.title}</h3>
+                <p className="text-sm text-slate-400">{item.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="py-20 px-4">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-4">Ways to Earn</h2>
-          <p className="text-slate-400 text-center mb-12">Multiple income streams, one platform</p>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {EARN_METHODS.map((m) => (
-              <div key={m.title} className="card hover:border-green-500/50 transition-all group cursor-pointer">
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${m.color} flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform`}>
-                  {m.icon}
+      <section className="px-4 py-20">
+        <div className="mx-auto max-w-5xl">
+          <h2 className="mb-4 text-center text-3xl font-bold">Ways to Earn</h2>
+          <p className="mb-12 text-center text-slate-400">Multiple income streams, one platform</p>
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {EARN_METHODS.map((method) => (
+              <div key={method.title} className="card group cursor-pointer border-slate-700 transition-all hover:border-green-500/50">
+                <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${method.color} text-2xl transition-transform group-hover:scale-110`}>
+                  {method.icon}
                 </div>
-                <h3 className="font-bold text-lg mb-1">{m.title}</h3>
-                <p className="text-slate-400 text-sm">{m.desc}</p>
+                <h3 className="mb-1 text-lg font-bold">{method.title}</h3>
+                <p className="text-sm text-slate-400">{method.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="py-20 px-4 bg-slate-900/50">
-        <div className="max-w-4xl mx-auto text-center">
-          <Globe className="text-green-400 mx-auto mb-4" size={40} />
-          <h2 className="text-3xl font-bold mb-4">Available Across Africa</h2>
-          <p className="text-slate-400 mb-10">Withdraw in your local currency via your preferred payment method</p>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {COUNTRIES.map((c) => (
-              <div key={c.name} className="card flex items-center gap-3">
-                <span className="text-3xl">{c.flag}</span>
+      <section className="bg-slate-900/50 px-4 py-20">
+        <div className="mx-auto max-w-4xl text-center">
+          <Globe className="mx-auto mb-4 text-green-400" size={40} />
+          <h2 className="mb-4 text-3xl font-bold">Available Across Africa</h2>
+          <p className="mb-10 text-slate-400">Withdraw in your local currency via your preferred payment method</p>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+            {COUNTRIES.map((country) => (
+              <div key={country.name} className="card flex items-center gap-3">
+                <span className="text-3xl">{country.flag}</span>
                 <div className="text-left">
-                  <div className="font-semibold">{c.name}</div>
-                  <div className="text-xs text-green-400">{c.payment}</div>
+                  <div className="font-semibold">{country.name}</div>
+                  <div className="text-xs text-green-400">{country.payment}</div>
                 </div>
               </div>
             ))}
@@ -167,21 +224,23 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="py-20 px-4">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">What Earners Say</h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            {TESTIMONIALS.map((t) => (
-              <div key={t.name} className="card">
-                <div className="flex gap-1 mb-3">
-                  {Array(t.stars).fill(0).map((_, i) => (
-                    <Star key={i} size={14} className="text-yellow-400 fill-yellow-400" />
-                  ))}
+      <section className="px-4 py-20">
+        <div className="mx-auto max-w-4xl">
+          <h2 className="mb-12 text-center text-3xl font-bold">What Earners Say</h2>
+          <div className="grid gap-6 md:grid-cols-3">
+            {TESTIMONIALS.map((testimonial) => (
+              <div key={testimonial.name} className="card">
+                <div className="mb-3 flex gap-1">
+                  {Array(testimonial.stars)
+                    .fill(0)
+                    .map((_, index) => (
+                      <Star key={index} size={14} className="fill-yellow-400 text-yellow-400" />
+                    ))}
                 </div>
-                <p className="text-slate-300 text-sm mb-4">"{t.text}"</p>
+                <p className="mb-4 text-sm text-slate-300">"{testimonial.text}"</p>
                 <div>
-                  <div className="font-semibold text-sm">{t.name}</div>
-                  <div className="text-xs text-slate-500">{t.location}</div>
+                  <div className="text-sm font-semibold">{testimonial.name}</div>
+                  <div className="text-xs text-slate-500">{testimonial.location}</div>
                 </div>
               </div>
             ))}
@@ -189,21 +248,23 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="py-24 px-4 bg-gradient-to-br from-green-900/30 to-slate-900">
-        <div className="max-w-2xl mx-auto text-center">
-          <TrendingUp className="text-green-400 mx-auto mb-4" size={48} />
-          <h2 className="text-4xl font-black mb-4">Ready to Start Earning?</h2>
-          <p className="text-slate-400 mb-8">Join 12,000+ Africans already earning on CashFlowHubs</p>
-          <Link href="/register" className="btn-primary text-lg py-4 px-10 inline-flex items-center gap-2">
+      <section className="bg-gradient-to-br from-green-900/30 to-slate-900 px-4 py-24">
+        <div className="mx-auto max-w-2xl text-center">
+          <TrendingUp className="mx-auto mb-4 text-green-400" size={48} />
+          <h2 className="mb-4 text-4xl font-black">Ready to Start Earning?</h2>
+          <p className="mb-8 text-slate-400">Join 12,000+ Africans already earning on CashFlowHubs</p>
+          <Link href="/register" className="btn-primary inline-flex items-center gap-2 px-10 py-4 text-lg">
             Create Free Account <ArrowRight size={20} />
           </Link>
-          <p className="text-slate-500 text-xs mt-4 flex items-center justify-center gap-2">
+          <p className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500">
             <Shield size={12} /> Secure · Verified · Real Payments
           </p>
         </div>
       </section>
 
-      <footer className="border-t border-slate-800 py-8 px-4 text-center text-slate-500 text-sm">
+      <HomeFaqSchema />
+
+      <footer className="border-t border-slate-800 px-4 py-8 text-center text-sm text-slate-500">
         <p>© 2025 CashFlowHubs. Built for Africa.</p>
       </footer>
     </div>

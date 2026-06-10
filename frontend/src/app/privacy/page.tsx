@@ -1,3 +1,14 @@
+import type { Metadata } from 'next';
+import { SITE_URL } from '@/lib/seo';
+
+export const metadata: Metadata = {
+  title: 'Privacy Policy',
+  description: 'Read the CashFlowHubs Privacy Policy to learn what data we collect and how we protect it.',
+  alternates: {
+    canonical: `${SITE_URL}/privacy`,
+  },
+};
+
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-slate-950 p-4 text-white">

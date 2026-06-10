@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/store/authStore';
 import NotificationBell from '@/components/NotificationBell';
+import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import {
   LayoutDashboard,
   ClipboardList,
@@ -300,6 +301,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
+          <Breadcrumbs />
           {user.role === 'user' && !user.emailVerified && !bannerDismissed && (
             <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
               <div className="flex items-center gap-3">

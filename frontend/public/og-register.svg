@@ -1,0 +1,28 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#020617"/>
+      <stop offset="0.45" stop-color="#172554"/>
+      <stop offset="1" stop-color="#052E16"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="100" y1="90" x2="1100" y2="540" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22C55E"/>
+      <stop offset="1" stop-color="#38BDF8"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" rx="48" fill="url(#bg)"/>
+  <rect x="72" y="72" width="1056" height="486" rx="36" stroke="url(#accent)" stroke-opacity="0.32" stroke-width="2"/>
+  <circle cx="1000" cy="140" r="120" fill="#38BDF8" fill-opacity="0.12"/>
+  <circle cx="180" cy="500" r="180" fill="#22C55E" fill-opacity="0.10"/>
+  <text x="120" y="220" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="76" font-weight="800">Join Free. Start Earning Today.</text>
+  <text x="120" y="286" fill="#DBEAFE" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="500">Surveys, tasks, jobs, and mobile-money payouts across Africa</text>
+  <rect x="120" y="340" width="240" height="74" rx="22" fill="url(#accent)"/>
+  <text x="156" y="389" fill="#020617" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="800">Create Account</text>
+  <text x="120" y="466" fill="#86EFAC" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">CashFlowHubs</text>
+  <rect x="790" y="150" width="320" height="320" rx="32" fill="#0F172A" fill-opacity="0.74" stroke="#38BDF8" stroke-opacity="0.4"/>
+  <text x="830" y="215" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">What you can earn with</text>
+  <text x="830" y="270" fill="#BFDBFE" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">Paid surveys</text>
+  <text x="830" y="315" fill="#BFDBFE" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">Microtasks</text>
+  <text x="830" y="360" fill="#BFDBFE" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">Remote jobs</text>
+  <text x="830" y="405" fill="#BFDBFE" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">Referrals</text>
+</svg>

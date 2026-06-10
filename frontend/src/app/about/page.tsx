@@ -1,5 +1,16 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, BadgeInfo, CheckCircle2, Coins, Globe2, ShieldCheck, Sparkles, Zap } from 'lucide-react';
+import { SITE_URL } from '@/lib/seo';
+
+export const metadata: Metadata = {
+  title: 'About CashFlowHubs - Our Mission to Empower African Earners',
+  description:
+    'Learn how CashFlowHubs was built to give people across Africa access to legitimate online earning opportunities through surveys, tasks, jobs, and mobile-money withdrawals.',
+  alternates: {
+    canonical: `${SITE_URL}/about`,
+  },
+};
 
 const earningPaths = [
   {
