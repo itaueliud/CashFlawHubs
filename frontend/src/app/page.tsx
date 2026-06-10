@@ -265,6 +265,29 @@ export default function HomePage() {
       <HomeFaqSchema />
 
       <footer className="border-t border-slate-800 px-4 py-8 text-center text-sm text-slate-500">
+        <div className="mx-auto mb-4 flex max-w-4xl flex-wrap items-center justify-center gap-x-5 gap-y-2 text-slate-400">
+          <Link href="/earn/surveys" className="transition-colors hover:text-green-400">
+            Surveys
+          </Link>
+          <Link href="/earn/jobs" className="transition-colors hover:text-green-400">
+            Jobs
+          </Link>
+          <Link href="/earn/tasks" className="transition-colors hover:text-green-400">
+            Tasks
+          </Link>
+          <Link href="/earn/offerwalls" className="transition-colors hover:text-green-400">
+            Offerwalls
+          </Link>
+          <Link href="/earn/referrals" className="transition-colors hover:text-green-400">
+            Referrals
+          </Link>
+          <Link href="/earn/wallet" className="transition-colors hover:text-green-400">
+            Wallet
+          </Link>
+          <Link href="/blog" className="transition-colors hover:text-green-400">
+            Blog
+          </Link>
+        </div>
         <p>© 2025 CashFlowHubs. Built for Africa.</p>
       </footer>
     </div>
