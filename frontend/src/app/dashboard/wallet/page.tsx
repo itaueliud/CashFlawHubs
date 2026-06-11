@@ -37,6 +37,7 @@ type PendingWalletDeposit = {
 };
 
 export default function WalletPage() {
+  const MIN_DEPOSIT_LOCAL = 100;
   const [withdrawing, setWithdrawing] = useState(false);
   const [depositing, setDepositing] = useState(false);
   const [buyingTokens, setBuyingTokens] = useState<number | null>(null);
@@ -64,7 +65,12 @@ export default function WalletPage() {
   };
 
   const { register, handleSubmit, reset } = useForm<{ amountUSD: number; phoneNumber: string }>();
-  const { register: registerDeposit, handleSubmit: handleDepositSubmit, reset: resetDeposit } = useForm<{ amountLocal: number; phoneNumber: string }>({
+  const {
+    register: registerDeposit,
+    handleSubmit: handleDepositSubmit,
+    reset: resetDeposit,
+    formState: { errors: depositErrors },
+  } = useForm<{ amountLocal: number; phoneNumber: string }>({
     defaultValues: { phoneNumber: formatPhone(user?.phone) || '' },
   });
   const wallet = walletData || {};
@@ -138,6 +144,14 @@ export default function WalletPage() {
     try {
       const response = await api.get(`/payments/verify/${encodeURIComponent(reference)}`);
       if (!response.data.verified) {
+        if (['failed', 'cancelled'].includes(String(response.data.status || '').toLowerCase())) {
+          setPendingDeposit(null);
+          persistPendingDeposit(null);
+          if (!silent) {
+            toast.error(response.data.message || 'Deposit was not completed. Please try again.');
+          }
+          return false;
+        }
         return false;
       }
 
@@ -252,6 +266,11 @@ export default function WalletPage() {
   };
 
   const onDeposit = async (data: { amountLocal: number; phoneNumber: string }) => {
+    if (Number(data.amountLocal) < MIN_DEPOSIT_LOCAL) {
+      toast.error(`Minimum amount to deposit is ${MIN_DEPOSIT_LOCAL}`);
+      return;
+    }
+
     setDepositing(true);
     try {
       const response = await api.post('/payments/deposits/initiate', data);
@@ -278,6 +297,11 @@ export default function WalletPage() {
     } finally {
       setDepositing(false);
     }
+  };
+
+  const onDepositInvalid = (errors: { amountLocal?: { message?: string } }) => {
+    const message = errors.amountLocal?.message || `Minimum amount to deposit is ${MIN_DEPOSIT_LOCAL}`;
+    toast.error(message);
   };
 
   const onRedeemXp = async () => {
@@ -408,11 +432,26 @@ export default function WalletPage() {
           </div>
         )}
 
-        <form onSubmit={handleDepositSubmit(onDeposit)} className="max-w-sm space-y-4">
+        <form onSubmit={handleDepositSubmit(onDeposit, onDepositInvalid)} className="max-w-sm space-y-4">
           <div>
             <label className="mb-1.5 block text-sm text-slate-300">Amount ({wallet.currency || user?.country || 'Local'})</label>
-            <input {...registerDeposit('amountLocal', { required: true, min: 100 })} type="number" step="0.01" placeholder="e.g. 100" className="input" />
+            <input
+              {...registerDeposit('amountLocal', {
+                required: 'Minimum amount to deposit is 100',
+                min: {
+                  value: MIN_DEPOSIT_LOCAL,
+                  message: 'Minimum amount to deposit is 100',
+                },
+              })}
+              type="number"
+              step="0.01"
+              placeholder="e.g. 100"
+              className="input"
+            />
             <p className="mt-1 text-xs text-slate-400">Minimum deposit is KSh 100 or your local equivalent.</p>
+            {depositErrors.amountLocal && (
+              <p className="mt-1 text-xs font-medium text-red-300">{depositErrors.amountLocal.message}</p>
+            )}
           </div>
 
           <div>

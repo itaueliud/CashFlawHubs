@@ -1,12 +1,149 @@
-<svg width="240" height="64" viewBox="0 0 240 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="240" height="64" rx="16" fill="#0f172a"/>
-  <circle cx="32" cy="32" r="20" fill="#f59e0b" opacity="0.18"/>
-  <circle cx="32" cy="32" r="14" fill="#f59e0b"/>
-  <path d="M28 20C23.6 20 20 23.6 20 28C20 32.4 23.6 36 28 36" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>
-  <line x1="36" y1="22" x2="36" y2="42" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>
-  <line x1="43" y1="22" x2="43" y2="42" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>
-  <line x1="36" y1="32" x2="43" y2="32" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>
-  <text x="62" y="30" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">CashFlow</text>
-  <text x="160" y="30" fill="#f59e0b" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">Hubs</text>
-  <text x="63" y="49" fill="#94a3b8" font-family="Arial, Helvetica, sans-serif" font-size="8" letter-spacing="4">EARN · WITHDRAW · GROW</text>
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CashFlowHubs logo">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1600" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#030712"/>
+      <stop offset="0.55" stop-color="#07101f"/>
+      <stop offset="1" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="brandGrad" x1="420" y1="770" x2="1180" y2="770" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.42" stop-color="#cfe7ff"/>
+      <stop offset="0.64" stop-color="#39f7b2"/>
+      <stop offset="1" stop-color="#13b8ff"/>
+    </linearGradient>
+    <linearGradient id="markGrad" x1="492" y1="205" x2="1108" y2="205" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a3ff3b"/>
+      <stop offset="0.5" stop-color="#31f3a3"/>
+      <stop offset="1" stop-color="#0bb7ff"/>
+    </linearGradient>
+    <linearGradient id="ringGrad" x1="410" y1="160" x2="1190" y2="550" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#12d6ff"/>
+      <stop offset="0.5" stop-color="#14ef9b"/>
+      <stop offset="1" stop-color="#67ff3f"/>
+    </linearGradient>
+    <linearGradient id="badgeGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1730"/>
+      <stop offset="1" stop-color="#050a16"/>
+    </linearGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.20 0 0 0 0 1 0 0 0 0 0.68 0 0 0 1 0" result="colored"/>
+      <feMerge>
+        <feMergeNode in="colored"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="1000" fill="url(#bgGrad)"/>
+  <circle cx="800" cy="310" r="230" fill="#00e7ff" opacity="0.06" filter="url(#glow)"/>
+  <circle cx="800" cy="310" r="210" fill="#071527" opacity="0.92" stroke="url(#ringGrad)" stroke-width="4" filter="url(#softGlow)"/>
+  <circle cx="800" cy="310" r="182" fill="#040b17" stroke="#0f3b52" stroke-width="2"/>
+
+  <g opacity="0.28" stroke="#72f7ff" stroke-width="1.2">
+    <ellipse cx="800" cy="310" rx="150" ry="182"/>
+    <ellipse cx="800" cy="310" rx="100" ry="182"/>
+    <path d="M618 310H982"/>
+    <path d="M632 252H968"/>
+    <path d="M632 368H968"/>
+    <path d="M800 128V492"/>
+  </g>
+  <path d="M666 252C703 236 744 228 800 228C856 228 897 236 934 252" stroke="#1ef0a2" stroke-width="2.5" opacity="0.75"/>
+  <path d="M660 370C700 392 744 402 800 402C856 402 900 392 940 370" stroke="#12d6ff" stroke-width="2.5" opacity="0.72"/>
+
+  <text x="800" y="354" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="292" font-weight="900" fill="url(#markGrad)" filter="url(#glow)">C</text>
+  <path d="M728 370L782 348L820 296L866 323L874 289" stroke="#77ff33" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  <path d="M735 373H835" stroke="#18d7ff" stroke-width="10" stroke-linecap="round" opacity="0.55"/>
+  <rect x="752" y="362" width="28" height="64" rx="6" fill="#16e3a0" filter="url(#softGlow)"/>
+  <rect x="792" y="338" width="28" height="88" rx="6" fill="#14d1ff" filter="url(#softGlow)"/>
+  <rect x="832" y="318" width="28" height="108" rx="6" fill="#67ff3f" filter="url(#softGlow)"/>
+
+  <g filter="url(#glow)">
+    <circle cx="510" cy="188" r="20" fill="#11d6ff"/>
+    <circle cx="543" cy="252" r="20" fill="#38f59b"/>
+    <circle cx="545" cy="390" r="20" fill="#13c7ff"/>
+    <circle cx="512" cy="494" r="20" fill="#66ff3c"/>
+    <circle cx="800" cy="548" r="20" fill="#19d6ff"/>
+    <circle cx="1088" cy="390" r="20" fill="#38f59b"/>
+    <circle cx="1090" cy="252" r="20" fill="#13c7ff"/>
+  </g>
+
+  <g stroke="url(#ringGrad)" stroke-width="5" fill="none" opacity="0.9" filter="url(#softGlow)">
+    <path d="M474 196C548 140 675 112 800 112C925 112 1052 140 1126 196"/>
+    <path d="M445 310C445 214 510 140 608 122"/>
+    <path d="M445 310C445 406 510 480 608 498"/>
+    <path d="M1155 310C1155 214 1090 140 992 122"/>
+    <path d="M1155 310C1155 406 1090 480 992 498"/>
+  </g>
+
+  <g filter="url(#softGlow)">
+    <circle cx="500" cy="210" r="68" fill="url(#badgeGrad)" stroke="#13d6ff" stroke-width="2"/>
+    <rect x="470" y="191" width="60" height="36" rx="8" stroke="#67ff3f" stroke-width="4"/>
+    <path d="M484 189V183C484 177 489 172 495 172H505C511 172 516 177 516 183V189" stroke="#67ff3f" stroke-width="4" stroke-linecap="round"/>
+    <path d="M504 208L516 195L526 204L518 214L504 228L494 218" fill="none" stroke="#67ff3f" stroke-width="4" stroke-linejoin="round"/>
+    <text x="500" y="296" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#eff8ff">REMOTE JOBS</text>
+
+    <circle cx="1100" cy="210" r="68" fill="url(#badgeGrad)" stroke="#13d6ff" stroke-width="2"/>
+    <path d="M1078 210L1123 210" stroke="#67ff3f" stroke-width="6" stroke-linecap="round"/>
+    <path d="M1110 192L1130 210L1110 228" stroke="#67ff3f" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="1068" y="199" width="16" height="22" rx="4" fill="#67ff3f"/>
+    <rect x="1088" y="190" width="16" height="31" rx="4" fill="#14d1ff"/>
+    <rect x="1108" y="178" width="16" height="43" rx="4" fill="#38f59b"/>
+    <text x="1100" y="296" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#eff8ff">ADS &amp; REWARDS</text>
+
+    <circle cx="455" cy="470" r="68" fill="url(#badgeGrad)" stroke="#13d6ff" stroke-width="2"/>
+    <path d="M435 440H475V486H435Z" stroke="#67ff3f" stroke-width="4" fill="none"/>
+    <path d="M444 452L452 460L467 444" stroke="#67ff3f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M444 472L452 480L467 464" stroke="#67ff3f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="455" y="556" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#eff8ff">PAID SURVEYS</text>
+
+    <circle cx="320" cy="620" r="68" fill="url(#badgeGrad)" stroke="#13d6ff" stroke-width="2"/>
+    <path d="M314 590L290 630H308L298 652L330 612H312L320 590Z" fill="#67ff3f"/>
+    <text x="320" y="706" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#eff8ff">MICROTASKS</text>
+
+    <circle cx="1280" cy="470" r="68" fill="url(#badgeGrad)" stroke="#13d6ff" stroke-width="2"/>
+    <circle cx="1262" cy="470" r="10" fill="#67ff3f"/>
+    <circle cx="1280" cy="454" r="10" fill="#67ff3f"/>
+    <circle cx="1298" cy="470" r="10" fill="#67ff3f"/>
+    <path d="M1255 484C1262 474 1270 472 1278 472C1288 472 1295 476 1303 484" stroke="#67ff3f" stroke-width="5" stroke-linecap="round"/>
+    <text x="1280" y="556" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#eff8ff">COMMUNITY &amp; CHATS</text>
+
+    <circle cx="1148" cy="620" r="68" fill="url(#badgeGrad)" stroke="#13d6ff" stroke-width="2"/>
+    <path d="M1130 600L1163 616L1130 632V600Z" fill="#67ff3f"/>
+    <path d="M1160 612H1182" stroke="#67ff3f" stroke-width="6" stroke-linecap="round"/>
+    <text x="1148" y="706" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#eff8ff">REFER &amp; EARN</text>
+
+    <circle cx="800" cy="662" r="68" fill="url(#badgeGrad)" stroke="#13d6ff" stroke-width="2"/>
+    <path d="M768 665H820" stroke="#67ff3f" stroke-width="5" stroke-linecap="round"/>
+    <path d="M774 678H830" stroke="#67ff3f" stroke-width="5" stroke-linecap="round"/>
+    <path d="M800 642V682" stroke="#13d6ff" stroke-width="5" stroke-linecap="round"/>
+    <path d="M784 650H816" stroke="#13d6ff" stroke-width="5" stroke-linecap="round"/>
+    <text x="800" y="748" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#eff8ff">WALLET</text>
+
+    <circle cx="320" cy="470" r="68" fill="url(#badgeGrad)" stroke="#13d6ff" stroke-width="2"/>
+    <rect x="296" y="444" width="48" height="36" rx="6" stroke="#67ff3f" stroke-width="4" fill="none"/>
+    <path d="M296 458H344" stroke="#67ff3f" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="320" cy="470" r="11" fill="#67ff3f"/>
+    <text x="320" y="556" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#eff8ff">OFFERWALLS</text>
+  </g>
+
+  <text x="800" y="815" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="118" font-weight="900" letter-spacing="1.5" fill="url(#brandGrad)" filter="url(#softGlow)">CASHFLOWHUBS</text>
+  <text x="800" y="875" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800" letter-spacing="8" fill="url(#ringGrad)">YOUR GLOBAL ONLINE WORK ECOSYSTEM</text>
+
+  <g transform="translate(500 910)">
+    <rect x="0" y="-26" width="600" height="54" rx="27" fill="#08111f" stroke="url(#ringGrad)" stroke-width="2.5" filter="url(#softGlow)"/>
+    <text x="44" y="8" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="800" fill="#eff8ff">POWERED BY</text>
+    <g transform="translate(215 -6)">
+      <ellipse cx="58" cy="12" rx="52" ry="20" fill="#0b1324" stroke="#13d6ff" stroke-width="2"/>
+      <text x="58" y="20" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="900" fill="#41f59a">TST</text>
+    </g>
+    <text x="320" y="12" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="900" fill="url(#brandGrad)">TECHSWIFTTRIX</text>
+  </g>
 </svg>

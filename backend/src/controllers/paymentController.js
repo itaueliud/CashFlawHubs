@@ -12,6 +12,7 @@ const { getCurrencyRate } = require('../services/exchangeService');
 const paymentOrchestrator = require('../services/paymentOrchestrator');
 const { publishToQueue } = require('../services/queueWorker');
 const { trackEvent, checkEarningMilestones } = require('../services/eventTracker');
+const darajaAdapter = require('../services/paymentAdapters/darajaAdapter');
 const logger = require('../utils/logger');
 const { isActivationTestWindowEnabled, isUserActivated } = require('../utils/activationWindow');
 
@@ -897,48 +898,112 @@ exports.verifyPayment = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Payment reference not found' });
     }
 
-    if (existingTransaction.status === 'successful') {
+    if (['successful', 'failed', 'cancelled'].includes(existingTransaction.status)) {
       return res.json(await buildVerificationResponse(existingTransaction));
     }
 
-    if (existingTransaction.provider !== 'paystack') {
+    if (existingTransaction.provider === 'paystack') {
+      const verified = await verifyPaystackTransaction(reference);
+      const metadata = verified.metadata || {};
+
+      if (!metadata.userId || metadata.userId !== req.user.id) {
+        return res.status(403).json({ success: false, message: 'Payment does not belong to this user' });
+      }
+
+      if (!isSuccessfulChargeStatus(verified.status)) {
+        return res.json({
+          success: true,
+          verified: false,
+          status: verified.status,
+          reference,
+        });
+      }
+
+      if (metadata.type === 'activation') {
+        await publishToQueue('payment.activation', {
+          userId: metadata.userId,
+          amountLocal: verified.amount / 100,
+          currency: verified.currency,
+          providerTxId: verified.reference || reference,
+          provider: 'paystack',
+        });
+      } else if (metadata.type === 'token_purchase') {
+        await fulfillTokenPurchase(verified.reference || reference, 'paystack', verified.reference || reference);
+      } else if (metadata.type === 'deposit') {
+        await fulfillWalletDeposit(verified.reference || reference, 'paystack', verified.reference || reference);
+      } else {
+        return res.status(400).json({ success: false, message: 'Unsupported payment type' });
+      }
+
+      const refreshedTransaction = await Transaction.findById(existingTransaction._id);
+      return res.json(await buildVerificationResponse(refreshedTransaction || existingTransaction));
+    }
+
+    if (existingTransaction.provider === 'mpesa') {
+      const checkoutRequestId = existingTransaction.metadata?.checkoutRequestId || existingTransaction.providerTransactionId;
+
+      if (!checkoutRequestId) {
+        return res.json(await buildVerificationResponse(existingTransaction));
+      }
+
+      try {
+        const stkStatus = await darajaAdapter.queryStkStatus(checkoutRequestId);
+        const resultCode = Number(stkStatus?.ResultCode ?? stkStatus?.Body?.stkCallback?.ResultCode);
+        const resultDesc = stkStatus?.ResultDesc || stkStatus?.Body?.stkCallback?.ResultDesc || '';
+
+        if (resultCode === 0) {
+          if (existingTransaction.type === 'deposit') {
+            await fulfillWalletDeposit(existingTransaction.metadata?.reference || reference, 'mpesa', checkoutRequestId);
+          } else if (existingTransaction.type === 'token_purchase') {
+            await fulfillTokenPurchase(existingTransaction.metadata?.reference || reference, 'mpesa', checkoutRequestId);
+          } else if (existingTransaction.type === 'activation') {
+            await publishToQueue('payment.activation', {
+              userId: existingTransaction.userId.toString(),
+              amountLocal: existingTransaction.amountLocal,
+              currency: existingTransaction.currency,
+              providerTxId: checkoutRequestId,
+              provider: 'mpesa',
+            });
+          }
+
+          const refreshedTransaction = await Transaction.findById(existingTransaction._id);
+          return res.json(await buildVerificationResponse(refreshedTransaction || existingTransaction));
+        }
+
+        if (Number.isFinite(resultCode) && resultCode !== 0) {
+          await Transaction.findByIdAndUpdate(existingTransaction._id, {
+            status: 'failed',
+            failureReason: resultDesc || `M-Pesa ResultCode ${resultCode}`,
+            processedAt: new Date(),
+          });
+
+          const failedTransaction = await Transaction.findById(existingTransaction._id);
+          return res.json(await buildVerificationResponse(failedTransaction || existingTransaction));
+        }
+      } catch (mpesaError) {
+        logger.warn(`Daraja STK status check failed for ${reference}: ${mpesaError.message}`);
+      }
+
+      const ageMinutes = (Date.now() - new Date(existingTransaction.createdAt).getTime()) / 60000;
+      if (ageMinutes > 30) {
+        await Transaction.findByIdAndUpdate(existingTransaction._id, {
+          status: 'failed',
+          failureReason: 'Payment timed out after 30 minutes',
+          processedAt: new Date(),
+        });
+        return res.json({
+          success: true,
+          verified: false,
+          status: 'failed',
+          message: 'Payment timed out. Please try again.',
+          reference,
+        });
+      }
+
       return res.json(await buildVerificationResponse(existingTransaction));
     }
 
-    const verified = await verifyPaystackTransaction(reference);
-    const metadata = verified.metadata || {};
-
-    if (!metadata.userId || metadata.userId !== req.user.id) {
-      return res.status(403).json({ success: false, message: 'Payment does not belong to this user' });
-    }
-
-    if (!isSuccessfulChargeStatus(verified.status)) {
-      return res.json({
-        success: true,
-        verified: false,
-        status: verified.status,
-        reference,
-      });
-    }
-
-    if (metadata.type === 'activation') {
-      await publishToQueue('payment.activation', {
-        userId: metadata.userId,
-        amountLocal: verified.amount / 100,
-        currency: verified.currency,
-        providerTxId: verified.reference || reference,
-        provider: 'paystack',
-      });
-    } else if (metadata.type === 'token_purchase') {
-      await fulfillTokenPurchase(verified.reference || reference, 'paystack', verified.reference || reference);
-    } else if (metadata.type === 'deposit') {
-      await fulfillWalletDeposit(verified.reference || reference, 'paystack', verified.reference || reference);
-    } else {
-      return res.status(400).json({ success: false, message: 'Unsupported payment type' });
-    }
-
-    const refreshedTransaction = await Transaction.findById(existingTransaction._id);
-    res.json(await buildVerificationResponse(refreshedTransaction || existingTransaction));
+    return res.json(await buildVerificationResponse(existingTransaction));
   } catch (error) {
     logger.error(`verifyPayment error: ${error.message}`);
     res.status(500).json({ success: false, message: error.message });

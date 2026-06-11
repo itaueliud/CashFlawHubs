@@ -18,15 +18,20 @@ exports.getReferralDashboard = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(50);
 
+    const activeReferrals = referrals.filter(
+      (r) => r.newUserId?.activationStatus === true
+    );
+
     const stats = {
-      totalReferrals: user.totalReferrals,
+      totalReferrals: activeReferrals.length,
       totalEarnedUSD: wallet?.referralEarnings || 0,
       referralCode: user.referralCode,
       referralLink: `${getCanonicalFrontendUrl()}/register?ref=${user.referralCode}`,
-      referrals: referrals.map(r => ({
+      referrals: referrals.map((r) => ({
         user: r.newUserId,
         rewardUSD: r.rewardAmountUSD,
-        status: r.status,
+        status: r.newUserId?.activationStatus ? r.status : 'pending',
+        activated: r.newUserId?.activationStatus || false,
         date: r.createdAt,
       })),
     };
@@ -41,12 +46,46 @@ exports.getReferralDashboard = async (req, res) => {
 // @GET /api/referrals/leaderboard
 exports.getLeaderboard = async (req, res) => {
   try {
-    const topReferrers = await User.find({ totalReferrals: { $gt: 0 } })
-      .select('name totalReferrals country level badges')
-      .sort({ totalReferrals: -1 })
-      .limit(20);
+    const leaderboard = await Referral.aggregate([
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'newUserId',
+          foreignField: '_id',
+          as: 'referredUser',
+        },
+      },
+      { $unwind: '$referredUser' },
+      { $match: { 'referredUser.activationStatus': true } },
+      {
+        $group: {
+          _id: '$referrerUserId',
+          activeReferrals: { $sum: 1 },
+        },
+      },
+      { $sort: { activeReferrals: -1 } },
+      { $limit: 20 },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'referrer',
+        },
+      },
+      { $unwind: '$referrer' },
+      {
+        $project: {
+          _id: 0,
+          name: '$referrer.name',
+          country: '$referrer.country',
+          level: '$referrer.level',
+          totalReferrals: '$activeReferrals',
+        },
+      },
+    ]);
 
-    res.json({ success: true, leaderboard: topReferrers });
+    res.json({ success: true, leaderboard });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -144,3 +144,35 @@ exports.initiateWithdrawal = async ({ reference, amountLocal, currency, callback
     raw: response.data,
   };
 };
+
+exports.queryStkStatus = async (checkoutRequestId) => {
+  const config = getConfig();
+  if (!config.shortcode || !config.passkey) {
+    throw new Error('Daraja STK configuration is incomplete');
+  }
+
+  if (!checkoutRequestId) {
+    throw new Error('checkoutRequestId is required');
+  }
+
+  const timestamp = buildTimestamp();
+  const password = Buffer.from(`${config.shortcode}${config.passkey}${timestamp}`).toString('base64');
+  const token = await getAccessToken();
+
+  const response = await axios.post(
+    `${config.baseUrl}/mpesa/stkpushquery/v1/query`,
+    {
+      BusinessShortCode: config.shortcode,
+      Password: password,
+      Timestamp: timestamp,
+      CheckoutRequestID: checkoutRequestId,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return response.data;
+};
