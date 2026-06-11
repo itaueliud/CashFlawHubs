@@ -56,7 +56,7 @@ const BASE_NAV = [
   { href: '/dashboard/profile', icon: User, labelKey: 'nav.profile', category: 'Account' },
 ];
 
-const REAL_USER_BLOCKED_ROUTES: string[] = [];
+const REAL_USER_BLOCKED_ROUTES: string[] = ['/dashboard/tasks', '/dashboard/ads-network', '/dashboard/offerwalls'];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
