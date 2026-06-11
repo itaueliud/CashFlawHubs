@@ -121,12 +121,6 @@ export default function ChallengesPage() {
                   </div>
 
                   <div className="flex items-center gap-2 relative z-10">
-                    <Link
-                      href={getChallengeTarget(challenge)}
-                      className="inline-flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-emerald-400/40 hover:text-white"
-                    >
-                      Go to activity <ArrowRight size={12} className="transition-transform group-hover:translate-x-1" />
-                    </Link>
                     {canClaim && (
                       <button
                         onClick={(e) => {

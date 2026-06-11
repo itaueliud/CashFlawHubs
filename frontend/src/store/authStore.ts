@@ -103,7 +103,7 @@ export const useAuthStore = create<AuthState>()(
       refreshUser: async () => {
         try {
           const res = await api.get('/auth/me');
-          set({ user: { ...get().user, ...res.data.user, balanceUSD: res.data.wallet?.balanceUSD || 0 } });
+          set({ user: { ...res.data.user, balanceUSD: res.data.wallet?.balanceUSD || 0 } });
         } catch {}
       },
     }),
