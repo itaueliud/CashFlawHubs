@@ -15,9 +15,16 @@ const SAFARICOM_IPS = [
 ];
 
 module.exports = (req, res, next) => {
-  // Skip in sandbox/dev
   const env = String(process.env.DARAJA_ENV || 'sandbox').toLowerCase();
   if (env !== 'live' && env !== 'production') return next();
+
+  const callbackKey = process.env.DARAJA_CALLBACK_KEY || process.env.MPESA_CALLBACK_KEY;
+  if (callbackKey && String(req.query?.key || '') === callbackKey) {
+    return next();
+  }
+
+  const enforceIpWhitelist = String(process.env.DARAJA_ENFORCE_IP_WHITELIST || 'false').toLowerCase() === 'true';
+  if (!enforceIpWhitelist) return next();
 
   const ip = req.ip || req.headers['x-forwarded-for']?.split(',')[0]?.trim();
   if (!ip || !SAFARICOM_IPS.includes(ip)) {

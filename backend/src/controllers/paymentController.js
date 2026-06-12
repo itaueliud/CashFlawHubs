@@ -49,9 +49,18 @@ const useDarajaForKenya = () => String(process.env.USE_DARAJA).toLowerCase() ===
 const getDarajaEnv = () => String(process.env.DARAJA_ENV || process.env.MPESA_ENV || process.env.NODE_ENV || 'sandbox').toLowerCase();
 const isDarajaLive = () => ['live', 'production'].includes(getDarajaEnv());
 const getMpesaCallbackUrl = () =>
-  process.env.DARAJA_CALLBACK_URL ||
-  process.env.MPESA_CALLBACK_URL ||
-  `${process.env.BACKEND_URL}/api/payments/mpesa/callback`;
+  (() => {
+    const baseUrl =
+      process.env.DARAJA_CALLBACK_URL ||
+      process.env.MPESA_CALLBACK_URL ||
+      `${process.env.BACKEND_URL}/api/payments/mpesa/callback`;
+    const callbackKey = process.env.DARAJA_CALLBACK_KEY || process.env.MPESA_CALLBACK_KEY;
+    if (!callbackKey) return baseUrl;
+
+    const url = new URL(baseUrl);
+    url.searchParams.set('key', callbackKey);
+    return url.toString();
+  })();
 
 const getPaystackHeaders = () => {
   if (!process.env.PAYSTACK_SECRET_KEY) {

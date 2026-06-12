@@ -27,8 +27,13 @@ export default function ActivatePage() {
     }
   }, [user?.phone]);
 
+  useEffect(() => {
+    if (user?.activationStatus) {
+      router.replace('/dashboard');
+    }
+  }, [router, user?.activationStatus]);
+
   if (user?.activationStatus) {
-    router.push('/dashboard');
     return null;
   }
 
