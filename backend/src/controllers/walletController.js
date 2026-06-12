@@ -54,6 +54,7 @@ exports.getWallet = async (req, res) => {
         totalTokensPurchased: wallet.totalTokensPurchased || 0,
         tokenPackages: TOKEN_PACKAGES,
         totalEarned: wallet.totalEarned,
+        totalEarnedLocal: Number((wallet.totalEarned * rate).toFixed(2)),
         totalDeposited: wallet.totalDeposited,
         totalWithdrawn: wallet.totalWithdrawn,
         breakdown: {
@@ -68,6 +69,7 @@ exports.getWallet = async (req, res) => {
         xpRedeemable: Math.floor((req.user.xpPoints || 0) / XP_REDEMPTION_BLOCK) * XP_REDEMPTION_BLOCK,
         xpCashLocal: Math.floor((req.user.xpPoints || 0) / XP_REDEMPTION_BLOCK) * XP_REDEMPTION_LOCAL_KES,
         xpCashUSD: Number((((Math.floor((req.user.xpPoints || 0) / XP_REDEMPTION_BLOCK) * XP_REDEMPTION_LOCAL_KES) / rate)).toFixed(4)),
+        xpPerBlockLocal: XP_REDEMPTION_LOCAL_KES,
         withdrawalOpen,
         nextPayoutDate: withdrawalOpen
           ? (friday ? 'Today. Friday payouts are running now.' : 'Open now')
@@ -169,11 +171,37 @@ exports.redeemXp = async (req, res) => {
 
 // @GET /api/wallet/token-packages
 exports.getTokenPackages = async (req, res) => {
-  res.json({
-    success: true,
-    currency: 'KES',
-    packages: TOKEN_PACKAGES,
-  });
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const countryConfig = COUNTRIES[user.country];
+    const rate = await getCurrencyRate(countryConfig.currency);
+    const kesRate = await getCurrencyRate('KES');
+
+    const packages = TOKEN_PACKAGES.map((pkg) => {
+      const amountUSD = Number((pkg.amountKES / kesRate).toFixed(4));
+      const amountLocal = Number((amountUSD * rate).toFixed(2));
+      return {
+        tokens: pkg.tokens,
+        amountKES: pkg.amountKES,
+        amountUSD,
+        amountLocal,
+        currency: countryConfig.currency,
+        symbol: countryConfig.symbol,
+        label: `${countryConfig.symbol}${amountLocal.toLocaleString()}`,
+      };
+    });
+
+    res.json({
+      success: true,
+      currency: countryConfig.currency,
+      symbol: countryConfig.symbol,
+      packages,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 };
 
 // @POST /api/wallet/tokens/purchase

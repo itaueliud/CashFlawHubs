@@ -34,7 +34,8 @@ export default function DashboardPage() {
   const { t } = useTranslation();
   const { user, refreshUser } = useAuthStore();
   const isRealUser = user?.role === 'user' && (user?.userAccessType || 'real') === 'real';
-  const blockedForRealUser = new Set(['/dashboard/surveys', '/dashboard/tasks', '/dashboard/ads-network', '/dashboard/offerwalls']);
+  // surveys removed (unblurred), cash-tasks removed (working), surveys unblurred
+  const blockedForRealUser = new Set(['/dashboard/tasks', '/dashboard/ads-network', '/dashboard/offerwalls']);
 
   const { data: walletData } = useQuery({
     queryKey: ['wallet'],

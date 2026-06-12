@@ -54,6 +54,12 @@ export default function WalletPage() {
     refetchInterval: 60000,
   });
 
+  const { data: tokenPackageData } = useQuery({
+    queryKey: ['token-packages'],
+    queryFn: () => api.get('/wallet/token-packages').then((r) => r.data),
+    staleTime: 5 * 60_000,
+  });
+
   const { data: transactionData } = useQuery({
     queryKey: ['transactions'],
     queryFn: () => api.get('/wallet/transactions?limit=30').then((response) => response.data.transactions),
@@ -76,14 +82,28 @@ export default function WalletPage() {
   const wallet = walletData || {};
   const transactions = transactionData || [];
   const tokenPackages = user?.tokenPackages || [];
+  const fetchedTokenPackages = tokenPackageData?.packages || [];
+  const tokenPackagesList = fetchedTokenPackages.length ? fetchedTokenPackages : (user?.tokenPackages || []);
+  const pkgSymbol = tokenPackageData?.symbol || wallet.symbol || 'KSh';
+  const pkgCurrency = tokenPackageData?.currency || wallet.currency || 'KES';
   const pendingReference = pendingPurchase?.reference || null;
   const pendingDepositReference = pendingDeposit?.reference || null;
   const withdrawalOpen = Boolean(wallet.withdrawalOpen);
-  const xpBlocksAvailable = Math.floor((user?.xpPoints || 0) / 20000);
-  const xpRedeemable = xpBlocksAvailable * 20000;
-  const xpCashLocal = xpBlocksAvailable * 1000;
+  const xpRedeemable = wallet.xpRedeemable || 0;
+  const xpCashLocal = wallet.xpCashLocal || 0;
+  const xpCashUSD = wallet.xpCashUSD || 0;
+  const xpPerBlockLocal = wallet.xpPerBlockLocal || 1000;
+  const symbol = wallet.symbol || '';
+  const currency = wallet.currency || '';
+  const formatNumber = (value: number | string | undefined | null) =>
+    Number(value ?? 0).toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 0 });
+  const formatDate = (value: string | number | Date | undefined | null) =>
+    value ? new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(value)) : '';
   const [turnstileToken, setTurnstileToken] = useState('');
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || '';
+  const [selectedPkg, setSelectedPkg] = useState<number | null>(null);
+  const [payMethod, setPayMethod] = useState<string | null>(null);
+  const [tokenModalOpen, setTokenModalOpen] = useState(false);
 
   const persistPendingPurchase = (payload: PendingTokenPurchase | null) => {
     if (typeof window === 'undefined') return;
@@ -374,12 +394,13 @@ export default function WalletPage() {
             Pending Friday Payout
           </div>
           <div className="text-3xl font-black text-yellow-400">${(wallet.pendingBalanceUSD || 0).toFixed(2)}</div>
-          <div className="mt-1 text-xs text-slate-500">{wallet.symbol}{wallet.pendingBalanceLocal} {wallet.currency}</div>
+          <div className="mt-1 text-xs text-slate-500">{symbol}{formatNumber(wallet.pendingBalanceLocal)} {currency}</div>
         </div>
 
         <div className="card">
           <div className="mb-1 text-xs text-slate-400">Total Earned</div>
           <div className="text-2xl font-black">${(wallet.totalEarned || 0).toFixed(2)}</div>
+          <div className="mt-1 text-sm text-slate-400">{symbol}{formatNumber(wallet.totalEarnedLocal)} {currency}</div>
           <div className="mt-0.5 text-xs text-slate-500">All time</div>
         </div>
       </div>
@@ -391,15 +412,15 @@ export default function WalletPage() {
               <BadgeCheck size={16} />
               <span className="text-sm font-semibold uppercase tracking-[0.16em]">XP Cashout</span>
             </div>
-            <div className="mt-2 text-2xl font-black text-white">{(user?.xpPoints || 0).toLocaleString()} XP Total</div>
+            <div className="mt-2 text-2xl font-black text-white">{formatNumber(user?.xpPoints || 0)} XP Total</div>
             <div className="mt-1 text-sm text-slate-400">
-              {xpRedeemable.toLocaleString()} XP is currently redeemable. 20,000 XP = KSh 1,000. You can redeem cash once you have a full block available.
+              {formatNumber(xpRedeemable)} XP is currently redeemable. 20,000 XP = {symbol}{formatNumber(xpPerBlockLocal)} {currency}. You can redeem cash once you have a full block available.
             </div>
           </div>
           <div className="rounded-2xl border border-emerald-400/20 bg-slate-950/50 px-4 py-3 text-right">
             <div className="text-xs text-slate-400">Estimated cash value</div>
-            <div className="text-2xl font-black text-emerald-300">KSh {xpCashLocal.toLocaleString()}</div>
-            <div className="text-xs text-slate-500">${Number(wallet.xpCashUSD || 0).toFixed(2)} USD equivalent</div>
+            <div className="text-2xl font-black text-emerald-300">{symbol}{formatNumber(xpCashLocal)} {currency}</div>
+            <div className="text-xs text-slate-500">${Number(xpCashUSD).toFixed(2)} USD equivalent</div>
             <button
               type="button"
               onClick={() => void onRedeemXp()}
@@ -469,6 +490,7 @@ export default function WalletPage() {
 
       <div className="card">
         <h3 className="mb-4 font-bold">Buy Tokens</h3>
+        <div className="mb-2 text-sm text-slate-400">Tokens are used for job posting and gig applications</div>
         {pendingPurchase && (
           <div className="mb-4 flex items-center justify-between rounded-2xl border border-cyan-500/30 bg-cyan-500/5 px-4 py-3 text-sm">
             <div>
@@ -486,21 +508,143 @@ export default function WalletPage() {
           </div>
         )}
         <div className="grid gap-3 md:grid-cols-3">
-          {tokenPackages.map((pkg) => (
-            <button
-              key={pkg.tokens}
-              onClick={() => onBuyTokens(pkg.tokens)}
-              disabled={buyingTokens === pkg.tokens}
-              className="rounded-2xl border border-slate-700 bg-slate-900 p-4 text-left transition hover:border-cyan-500/40"
-            >
-              <div className="text-sm text-slate-400">{pkg.tokens} Tokens</div>
-              <div className="mt-1 text-2xl font-black text-cyan-300">KSh {pkg.amountKES}</div>
-              <div className="mt-3 text-xs text-slate-500">
-                {buyingTokens === pkg.tokens ? 'Starting payment...' : 'Tap to purchase'}
-              </div>
-            </button>
-          ))}
+          {tokenPackagesList.map((pkg: any) => {
+            const displaySymbol = pkg.symbol || pkgSymbol;
+            const displayAmount = pkg.amountLocal ?? pkg.amountKES;
+            const perToken = displayAmount && pkg.tokens ? (Number(displayAmount) / pkg.tokens).toFixed(2) : '';
+            const isBestValue = pkg.tokens === 100;
+            const isPopular = pkg.tokens === 50;
+
+            return (
+              <button
+                key={pkg.tokens}
+                onClick={() => { setSelectedPkg(pkg.tokens); setPayMethod(null); setTokenModalOpen(true); }}
+                disabled={!!buyingTokens}
+                className={`relative rounded-2xl border p-4 text-left transition-all duration-150 ${selectedPkg === pkg.tokens ? 'border-cyan-400 bg-cyan-500/15' : 'border-slate-700 bg-slate-900 hover:border-cyan-500/50'}`}
+              >
+                {isBestValue && <div className="absolute -top-2 right-3 rounded-full bg-amber-400/90 px-3 py-1 text-xs font-semibold text-slate-900">Best Value</div>}
+                {isPopular && !isBestValue && <div className="absolute -top-2 right-3 rounded-full bg-emerald-400/90 px-3 py-1 text-xs font-semibold text-slate-900">Popular</div>}
+
+                <div className="text-sm text-slate-400">{pkg.tokens} Tokens</div>
+                <div className="mt-1 text-2xl font-black text-cyan-300">{displaySymbol}{Number(displayAmount).toLocaleString()} </div>
+                <div className="mt-1 text-xs text-slate-400">{displaySymbol}{perToken}/ token · {pkg.currency || pkgCurrency}</div>
+                <div className="mt-3 text-xs text-slate-500">Tap to purchase</div>
+              </button>
+            );
+          })}
         </div>
+
+        {/* Token purchase modal */}
+        {tokenModalOpen && selectedPkg !== null && (() => {
+          const pkg = tokenPackagesList.find((p: any) => p.tokens === selectedPkg);
+          if (!pkg) return null;
+          const displaySymbol = pkg.symbol || pkgSymbol;
+          const displayAmount = pkg.amountLocal ?? pkg.amountKES;
+          const displayCurrency = pkg.currency || pkgCurrency;
+          const walletBalanceLocal = Number(wallet.balanceLocal || 0);
+          const canAffordWithWallet = walletBalanceLocal >= Number(displayAmount);
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/60" onClick={() => { setTokenModalOpen(false); setSelectedPkg(null); setPayMethod(null); }} />
+              <div className="relative w-full max-w-lg rounded-2xl bg-slate-900 p-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-lg font-bold">Buy {pkg.tokens} Tokens</div>
+                    <div className="text-sm text-slate-400 mt-1">{displaySymbol}{Number(displayAmount).toLocaleString()} {displayCurrency} {pkg.amountUSD ? `· $${pkg.amountUSD.toFixed(2)} USD` : ''}</div>
+                  </div>
+                  <button onClick={() => { setTokenModalOpen(false); setSelectedPkg(null); setPayMethod(null); }} className="rounded-xl bg-slate-800 p-2 text-slate-400">✕</button>
+                </div>
+
+                {!payMethod && (
+                  <div className="mt-6 grid gap-3">
+                    <div className="text-sm text-slate-400">Choose how to pay:</div>
+                    <button onClick={() => setPayMethod('mpesa')} className="flex w-full items-center gap-4 rounded-2xl border border-slate-700 bg-slate-950/50 px-4 py-4 text-left">
+                      <div className="text-2xl">📱</div>
+                      <div className="flex-1">
+                        <div className="font-semibold">{user?.country === 'KE' ? 'M-Pesa' : user?.country === 'UG' ? 'MTN MoMo' : user?.country === 'GH' ? 'MTN MoMo / Paystack' : user?.country === 'NG' ? 'Card / Paystack' : user?.country === 'ET' ? 'Telebirr' : 'Mobile Money'}</div>
+                        <div className="text-xs text-slate-400">You'll receive a payment prompt on your phone</div>
+                      </div>
+                      <div className="text-slate-400">›</div>
+                    </button>
+
+                    <button onClick={() => setPayMethod('wallet')} disabled={!canAffordWithWallet} className={`flex w-full items-center gap-4 rounded-2xl border px-4 py-4 text-left ${canAffordWithWallet ? 'border-slate-700 bg-slate-950/50' : 'cursor-not-allowed border-slate-800 bg-slate-950/30 opacity-60'}`}>
+                      <div className="text-2xl">💰</div>
+                      <div className="flex-1">
+                        <div className="font-semibold">Wallet Balance</div>
+                        <div className="text-xs text-slate-400">Available: {wallet.symbol}{Number(wallet.balanceLocal || 0).toFixed(2)} {wallet.currency} { !canAffordWithWallet && '· Insufficient balance' }</div>
+                      </div>
+                      <div className="text-slate-400">›</div>
+                    </button>
+                  </div>
+                )}
+
+                {payMethod === 'mpesa' && (
+                  <div className="mt-6">
+                    <div className="text-sm text-slate-400">A payment prompt will be sent to</div>
+                    <div className="mt-2 font-semibold">{user?.phone}</div>
+                    <div className="mt-2">Amount: {displaySymbol}{Number(displayAmount).toLocaleString()} {displayCurrency}</div>
+                    <div className="mt-6 flex gap-3">
+                      <button onClick={() => setPayMethod(null)} className="flex-1 rounded-xl border border-slate-700 py-2.5 text-sm text-slate-400">Back</button>
+                      <button onClick={async () => {
+                        setBuyingTokens(pkg.tokens);
+                        try {
+                          const { data } = await api.post('/payments/tokens/purchase', { tokens: pkg.tokens });
+                          persistPendingPurchase({ reference: data.reference, tokens: pkg.tokens, provider: data.provider, checkoutUrl: data.checkoutUrl });
+                          setPendingPurchase({ reference: data.reference, tokens: pkg.tokens, provider: data.provider, checkoutUrl: data.checkoutUrl });
+                          setTokenModalOpen(false);
+                          setSelectedPkg(null);
+                          setPayMethod(null);
+                          if (data.checkoutUrl) {
+                            window.location.assign(data.checkoutUrl);
+                            return;
+                          }
+                          toast.success(data.message || 'Payment prompt sent to your phone. Enter your PIN.');
+                        } catch (err: any) {
+                          toast.error(err.response?.data?.message || 'Payment initiation failed');
+                        } finally {
+                          setBuyingTokens(null);
+                        }
+                      }} className="flex-1 rounded-xl bg-green-500 py-2.5 text-sm font-semibold text-slate-900">{buyingTokens === pkg.tokens ? 'Sending…' : 'Send Payment Prompt'}</button>
+                    </div>
+                  </div>
+                )}
+
+                {payMethod === 'wallet' && (
+                  <div className="mt-6">
+                    <div className="text-sm text-slate-400">Deducting from your wallet</div>
+                    <div className="mt-2">Cost: {displaySymbol}{Number(displayAmount).toLocaleString()} {displayCurrency}</div>
+                    <div className="mt-2">Balance after: {wallet.symbol}{Math.max(0, walletBalanceLocal - Number(displayAmount)).toFixed(2)} {wallet.currency}</div>
+                    <div className="mt-2">Tokens received: +{pkg.tokens}T</div>
+                    <div className="mt-6 flex gap-3">
+                      <button onClick={() => setPayMethod(null)} className="flex-1 rounded-xl border border-slate-700 py-2.5 text-sm text-slate-400">Back</button>
+                      <button onClick={async () => {
+                        setBuyingTokens(pkg.tokens);
+                        try {
+                          const { data } = await api.post('/wallet/tokens/purchase', { packageTokens: pkg.tokens });
+                          toast.success(data.message || `${pkg.tokens} tokens added to your account`);
+                          if (user) {
+                            setUser({ ...user, tokenBalance: data.tokenBalance ?? (user.tokenBalance || 0) + pkg.tokens, balanceUSD: data.balanceUSD ?? user.balanceUSD });
+                          }
+                          await refreshUser();
+                          await queryClient.invalidateQueries({ queryKey: ['wallet'] });
+                          await queryClient.invalidateQueries({ queryKey: ['transactions'] });
+                          setTokenModalOpen(false);
+                          setSelectedPkg(null);
+                          setPayMethod(null);
+                        } catch (err: any) {
+                          toast.error(err.response?.data?.message || 'Purchase failed');
+                        } finally {
+                          setBuyingTokens(null);
+                        }
+                      }} className="flex-1 rounded-xl bg-cyan-500 py-2.5 text-sm font-semibold text-slate-900">{buyingTokens === pkg.tokens ? 'Processing…' : 'Confirm Purchase'}</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       <div
@@ -583,7 +727,7 @@ export default function WalletPage() {
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium capitalize">{tx.type.replace('_', ' ')}</div>
                   <div className="text-xs text-slate-500">
-                    {new Date(tx.createdAt).toLocaleDateString()} -{' '}
+                    {formatDate(tx.createdAt)} -{' '}
                     <span className={`rounded-full px-2 py-0.5 font-semibold ${tx.status === 'successful' ? 'bg-green-500/10 text-green-300' : tx.status === 'failed' ? 'bg-red-500/10 text-red-300' : tx.status === 'reversed' ? 'bg-orange-500/10 text-orange-300' : 'bg-yellow-500/10 text-yellow-300'}`}>
                       {tx.status}
                     </span>

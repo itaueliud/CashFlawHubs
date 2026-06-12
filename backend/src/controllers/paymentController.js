@@ -653,15 +653,21 @@ exports.initiateTokenPurchase = async (req, res) => {
     }
 
     const countryConfig = COUNTRIES[user.country];
+    const kesRate = await getCurrencyRate('KES');
+    const localRate = await getCurrencyRate(countryConfig.currency);
+
+    const amountUSD = Number((tokenPackage.amountKES / kesRate).toFixed(4));
+    const amountLocal = Number((amountUSD * localRate).toFixed(2));
+
     const reference = buildReference('TOK', user.userId);
     const frontendReturnUrl = getFrontendReturnUrl('token_purchase', reference);
 
     const transaction = await Transaction.create({
       userId: user._id,
       type: 'token_purchase',
-      amountLocal: tokenPackage.amountKES,
-      amountUSD: await localToUSD(tokenPackage.amountKES, 'KES'),
-      currency: 'KES',
+      amountLocal,
+      amountUSD,
+      currency: countryConfig.currency,
       country: user.country,
       provider: countryConfig.paymentProvider === 'daraja' ? 'mpesa' : (countryConfig.paymentProvider || 'paystack'),
       providerTransactionId: reference,
@@ -683,8 +689,8 @@ exports.initiateTokenPurchase = async (req, res) => {
       frontendReturnUrl,
       payloadBase: {
         reference,
-        amountLocal: tokenPackage.amountKES,
-        currency: 'KES',
+        amountLocal,
+        currency: countryConfig.currency,
         customer: {
           name: user.name,
           email: user.email || `${normalizePhoneNumber(user.phone)}@cashflawhubs.app`,
@@ -701,19 +707,26 @@ exports.initiateTokenPurchase = async (req, res) => {
     transaction.provider = payment.provider || transaction.provider;
     await transaction.save();
 
+    const isMpesa = ['mpesa', 'daraja'].includes(payment.provider);
+
     res.json({
       success: true,
       transactionId: transaction._id,
       reference,
       tokens: tokenPackage.tokens,
-      amount: tokenPackage.amountKES,
-      currency: 'KES',
+      amountLocal,
+      amountUSD,
+      currency: countryConfig.currency,
+      symbol: countryConfig.symbol,
       provider: payment.provider,
-      strategy: payment.strategy,
       checkoutUrl: payment.checkoutUrl || null,
-      returnUrl: frontendReturnUrl,
+      stkPushSent: isMpesa,
       verificationMode: payment.checkoutUrl ? 'redirect' : 'poll',
-      payment,
+      message: isMpesa
+        ? `M-Pesa prompt sent to ${user.phone}. Enter your PIN to complete.`
+        : payment.checkoutUrl
+          ? 'Redirecting to payment page...'
+          : 'Payment initiated. Waiting for confirmation.',
     });
   } catch (error) {
     logger.error(`initiateTokenPurchase error: ${error.message}`);
