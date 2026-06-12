@@ -373,6 +373,7 @@ export default function ProfilePage() {
     queryKey: ['referral-summary'],
     queryFn: () => api.get('/referrals/summary').then((r) => r.data),
     staleTime: 30_000,
+    refetchInterval: 15_000,
   });
   const [isSendingVerification, setIsSendingVerification] = useState(false);
   const [verificationCooldown, setVerificationCooldown] = useState(0);
@@ -580,7 +581,7 @@ export default function ProfilePage() {
             <div className="rounded-2xl border border-green-400/20 bg-green-400/10 p-4 text-center">
               <div className="text-xs text-slate-400">Referred</div>
               <div className="mt-2 text-2xl font-black text-green-300">{totalReferred}</div>
-              <div className="mt-1 text-xs text-slate-500">Activated and paid</div>
+              <div className="mt-1 text-xs text-slate-500">Activated</div>
             </div>
             <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-4 text-center">
               <div className="text-xs text-slate-400">Earned</div>
