@@ -82,9 +82,23 @@ const verifyPaystackSignature = (req) => {
     return false;
   }
 
+  // Paystack sends a signature computed over the raw request body. When the
+  // route is configured with `bodyParser.raw`, `req.body` will be a Buffer.
+  // Otherwise fall back to JSON.stringify(req.body).
+  let rawBodyString;
+  try {
+    if (Buffer.isBuffer(req.body)) {
+      rawBodyString = req.body.toString();
+    } else {
+      rawBodyString = JSON.stringify(req.body || {});
+    }
+  } catch (e) {
+    rawBodyString = '';
+  }
+
   const expectedSignature = crypto
     .createHmac('sha512', process.env.PAYSTACK_SECRET_KEY)
-    .update(JSON.stringify(req.body))
+    .update(rawBodyString)
     .digest('hex');
 
   return signature === expectedSignature;
@@ -850,8 +864,14 @@ exports.paystackWebhook = async (req, res) => {
       return res.status(401).json({ message: 'Invalid Paystack signature' });
     }
 
-    const event = req.body.event;
-    const data = req.body.data || {};
+    // Support raw body (Buffer) when route uses bodyParser.raw
+    let payload = req.body;
+    if (Buffer.isBuffer(req.body)) {
+      try { payload = JSON.parse(req.body.toString()); } catch (e) { payload = {}; }
+    }
+
+    const event = payload.event;
+    const data = payload.data || {};
 
     if (event === 'charge.success') {
       const metadata = data.metadata || {};
