@@ -31,8 +31,8 @@ export default function ReferralsPage() {
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {[
-          { label: 'Invited', value: isLoading && !data ? '…' : (data?.totalInvited ?? invited.length ?? 0), icon: Users, color: 'text-emerald-400' },
-          { label: 'Referred', value: isLoading && !data ? '…' : (data?.totalReferred ?? referred.length ?? 0), icon: Trophy, color: 'text-yellow-400' },
+          { label: 'Invited', value: isLoading && !data ? '…' : (data?.invitedCount ?? data?.totalInvited ?? invited.length ?? 0), icon: Users, color: 'text-emerald-400' },
+          { label: 'Referred', value: isLoading && !data ? '…' : (data?.activatedCount ?? data?.totalReferred ?? referred.length ?? 0), icon: Trophy, color: 'text-yellow-400' },
           { label: 'Earned', value: `${(data?.totalEarnedUSD || 0).toFixed(2)} USD`, icon: DollarSign, color: 'text-green-400' },
           { label: 'Per Referral', value: '200 KES', icon: Trophy, color: 'text-yellow-400' },
         ].map((s) => (

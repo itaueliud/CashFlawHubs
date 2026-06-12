@@ -447,8 +447,8 @@ export default function ProfilePage() {
 
   const invitedUsers = referralDashboard?.invited || referralDashboard?.recentInvited || [];
   const referredUsers = referralDashboard?.referred || referralDashboard?.recentReferred || [];
-  const totalInvited = referralDashboard?.totalInvited ?? invitedUsers.length ?? 0;
-  const totalReferred = referralDashboard?.totalReferred ?? referredUsers.length ?? 0;
+  const totalInvited = referralDashboard?.invitedCount ?? referralDashboard?.totalInvited ?? invitedUsers.length ?? 0;
+  const totalReferred = referralDashboard?.activatedCount ?? referralDashboard?.totalReferred ?? referredUsers.length ?? 0;
   const totalEarnedUSD = referralDashboard?.totalEarnedUSD ?? 0;
   const totalPendingUSD = referralDashboard?.pendingUSD ?? 0;
   const referralCountsReady = !referralLoading || !!referralDashboard;
