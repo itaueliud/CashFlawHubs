@@ -3,11 +3,14 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { Copy, Users, DollarSign, Trophy, MessageCircle, Send } from 'lucide-react';
+import { useAuthStore } from '@/store/authStore';
 
 export default function ReferralsPage() {
+  const { user, hasHydrated } = useAuthStore();
   const { data, isLoading } = useQuery({
-    queryKey: ['referral-dashboard'],
+    queryKey: ['referral-dashboard', user?.id],
     queryFn: () => api.get('/referrals/dashboard').then(r => r.data),
+    enabled: hasHydrated && !!user?.id,
     staleTime: 0,
     refetchInterval: 5_000,
     refetchOnWindowFocus: true,
