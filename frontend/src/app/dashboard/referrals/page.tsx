@@ -5,7 +5,14 @@ import toast from 'react-hot-toast';
 import { Copy, Users, DollarSign, Trophy, MessageCircle, Send } from 'lucide-react';
 
 export default function ReferralsPage() {
-  const { data } = useQuery({ queryKey: ['referral-dashboard'], queryFn: () => api.get('/referrals/dashboard').then(r => r.data) });
+  const { data, isLoading } = useQuery({
+    queryKey: ['referral-dashboard'],
+    queryFn: () => api.get('/referrals/dashboard').then(r => r.data),
+    staleTime: 0,
+    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
+  });
   const { data: leaderboard } = useQuery({ queryKey: ['leaderboard'], queryFn: () => api.get('/referrals/leaderboard').then(r => r.data.leaderboard) });
   const invited = data?.invited || [];
   const referred = data?.referred || [];
@@ -24,8 +31,8 @@ export default function ReferralsPage() {
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {[
-          { label: 'Invited', value: data?.totalInvited ?? invited.length ?? 0, icon: Users, color: 'text-emerald-400' },
-          { label: 'Referred', value: data?.totalReferred ?? referred.length ?? 0, icon: Trophy, color: 'text-yellow-400' },
+          { label: 'Invited', value: isLoading && !data ? '…' : (data?.totalInvited ?? invited.length ?? 0), icon: Users, color: 'text-emerald-400' },
+          { label: 'Referred', value: isLoading && !data ? '…' : (data?.totalReferred ?? referred.length ?? 0), icon: Trophy, color: 'text-yellow-400' },
           { label: 'Earned', value: `${(data?.totalEarnedUSD || 0).toFixed(2)} USD`, icon: DollarSign, color: 'text-green-400' },
           { label: 'Per Referral', value: '200 KES', icon: Trophy, color: 'text-yellow-400' },
         ].map((s) => (

@@ -368,12 +368,18 @@ const getAchievements = (user: any) => [
 
 export default function ProfilePage() {
   const { t } = useTranslation();
-  const { user, refreshUser } = useAuthStore();
-  const { data: referralDashboard } = useQuery({
-    queryKey: ['referral-dashboard'],
+  const { user, refreshUser, hasHydrated } = useAuthStore();
+  const {
+    data: referralDashboard,
+    isLoading: referralLoading,
+  } = useQuery({
+    queryKey: ['referral-dashboard', user?.id],
     queryFn: () => api.get('/referrals/dashboard').then((r) => r.data),
-    staleTime: 30_000,
-    refetchInterval: 15_000,
+    enabled: hasHydrated && !!user?.id,
+    staleTime: 0,
+    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
   });
   const [isSendingVerification, setIsSendingVerification] = useState(false);
   const [verificationCooldown, setVerificationCooldown] = useState(0);
@@ -445,6 +451,9 @@ export default function ProfilePage() {
   const totalReferred = referralDashboard?.totalReferred ?? referredUsers.length ?? 0;
   const totalEarnedUSD = referralDashboard?.totalEarnedUSD ?? 0;
   const totalPendingUSD = referralDashboard?.pendingUSD ?? 0;
+  const referralCountsReady = !referralLoading || !!referralDashboard;
+  const invitedCountLabel = referralCountsReady ? String(totalInvited) : '…';
+  const referredCountLabel = referralCountsReady ? String(totalReferred) : '…';
 
   const stats = [
     { label: 'EARNED',   value: `$${totalEarnedUSD.toFixed(2)}`, color: 'text-green-300' },
@@ -577,12 +586,12 @@ export default function ProfilePage() {
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl border border-blue-400/20 bg-blue-400/10 p-4 text-center">
               <div className="text-xs text-slate-400">Invited</div>
-              <div className="mt-2 text-2xl font-black text-blue-300">{totalInvited}</div>
+              <div className="mt-2 text-2xl font-black text-blue-300">{invitedCountLabel}</div>
               <div className="mt-1 text-xs text-slate-500">Signed up with your code</div>
             </div>
             <div className="rounded-2xl border border-green-400/20 bg-green-400/10 p-4 text-center">
               <div className="text-xs text-slate-400">Referred</div>
-              <div className="mt-2 text-2xl font-black text-green-300">{totalReferred}</div>
+              <div className="mt-2 text-2xl font-black text-green-300">{referredCountLabel}</div>
               <div className="mt-1 text-xs text-slate-500">Activated</div>
             </div>
             <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-4 text-center">
@@ -598,7 +607,9 @@ export default function ProfilePage() {
               <button type="button" onClick={() => copyText(user?.referralCode || '', 'Referral code')} className="flex-shrink-0 rounded-xl bg-green-400 px-4 py-2 text-sm font-bold text-slate-900 transition-colors hover:bg-green-300 active:scale-95">Copy</button>
             </div>
             <p className="mt-3 text-xs text-slate-500">Share your referral code or send this link to earn rewards.</p>
-            {invitedUsers.length === 0 && referredUsers.length === 0 ? (
+            {referralLoading && !referralDashboard ? (
+              <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-400">Loading referral activity...</div>
+            ) : invitedUsers.length === 0 && referredUsers.length === 0 ? (
               <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-400">No recent referral activity yet. Share your code to get started.</div>
             ) : (
               <div className="mt-4 space-y-3">
