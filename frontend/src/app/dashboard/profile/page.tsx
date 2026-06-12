@@ -421,6 +421,8 @@ export default function ProfilePage() {
   const initials = user?.name?.split(' ').filter(Boolean).slice(0, 2).map((p: string) => p[0]?.toUpperCase()).join('') || 'U';
   const achievements = getAchievements(user);
   const phoneDraft = watch('phone') || '';
+  const emailVerified = Boolean(user?.emailVerified);
+  const showEmailVerificationPrompt = hasHydrated && !!user?.email && !emailVerified;
 
   const copyText = async (value: string, label: string) => { try { await navigator.clipboard.writeText(value); toast.success(`${label} copied`); } catch { toast.error(`Could not copy ${label.toLowerCase()}`); } };
 
@@ -533,7 +535,7 @@ export default function ProfilePage() {
             {[{ label: 'Identity Verification (KYC)', sublabel: 'Required to withdraw above $50', status: (user as any)?.identityVerificationStatus === 'verified' ? 'Verified' : ((user as any)?.identityVerificationStatus === 'submitted' ? 'Under review' : 'Start →'), statusClass: (user as any)?.identityVerificationStatus === 'verified' ? 'text-green-400' : 'text-orange-400', icon: Shield, action: () => setModal('kyc') }, { label: 'Two-Factor Authentication', sublabel: 'Protects your earnings', status: (user as any)?.twoFactorEnabled ? 'Enabled' : 'Enable ›', statusClass: (user as any)?.twoFactorEnabled ? 'text-green-400' : 'text-orange-400', icon: CheckCircle2 }, { label: 'Email Verified', sublabel: user?.email || 'Not added', status: user?.emailVerified ? '✓ Done' : 'Verify', statusClass: user?.emailVerified ? 'text-green-400' : 'text-yellow-400', icon: Mail }].map((item) => { const Icon = item.icon as any; return (<button key={item.label} onClick={item.action} className="flex w-full items-center justify-between gap-3 rounded-xl border border-transparent px-2 py-3 hover:border-slate-800 hover:bg-slate-950/40 transition-colors"><div className="flex min-w-0 items-center gap-3"><div className="flex-shrink-0 rounded-xl bg-slate-800/70 p-2 text-slate-400"><Icon size={15} /></div><div className="min-w-0"><div className="text-sm font-medium text-white">{item.label}</div><div className="truncate text-xs text-slate-500">{item.sublabel}</div></div></div><span className={`flex-shrink-0 text-sm font-semibold ${item.statusClass}`}>{item.status}</span></button>); })}
           </div>
 
-          {!user?.emailVerified && (
+          {showEmailVerificationPrompt && (
             <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4">
               <p className="text-sm font-semibold text-amber-200">Verify your email</p>
               <input className="input mt-2 text-sm" type="email" value={emailDraft} onChange={(e) => setEmailDraft(e.target.value)} placeholder="you@example.com" />
