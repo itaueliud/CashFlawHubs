@@ -3,17 +3,31 @@ import { normalizeLanguage } from '@/i18n';
 
 const getApiBaseUrl = () => {
   const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  const canonicalApiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim() || 'https://cashflowhubs.onrender.com/api';
   if (configuredApiUrl) {
     const normalized = configuredApiUrl.replace(/\/+$/, '');
     // Allow either NEXT_PUBLIC_API_URL=https://host or https://host/api
-    return normalized.endsWith('/api') ? normalized : `${normalized}/api`;
+    const baseUrl = normalized.endsWith('/api') ? normalized : `${normalized}/api`;
+
+    if (typeof window !== 'undefined') {
+      const currentOrigin = window.location.origin.replace(/\/+$/, '');
+      if ((baseUrl === currentOrigin || baseUrl === `${currentOrigin}/api`) && window.location.hostname.endsWith('.onrender.com')) {
+        return canonicalApiUrl;
+      }
+    }
+
+    return baseUrl;
   }
 
   if (typeof window !== 'undefined') {
-    return `${window.location.origin}/api`;
+    const currentOrigin = window.location.origin.replace(/\/+$/, '');
+    if (window.location.hostname.endsWith('.onrender.com')) {
+      return canonicalApiUrl;
+    }
+    return `${currentOrigin}/api`;
   }
 
-  return 'http://localhost:5000/api';
+  return canonicalApiUrl;
 };
 
 const api = axios.create({

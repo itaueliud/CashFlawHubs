@@ -44,6 +44,7 @@ exports.getWallet = async (req, res) => {
     res.json({
       success: true,
       wallet: {
+        currencyRate: rate,
         balanceUSD: wallet.balanceUSD,
         balanceLocal: (wallet.balanceUSD * rate).toFixed(2),
         pendingBalanceUSD: wallet.pendingBalance,
@@ -69,6 +70,8 @@ exports.getWallet = async (req, res) => {
         xpRedeemable: Math.floor((req.user.xpPoints || 0) / XP_REDEMPTION_BLOCK) * XP_REDEMPTION_BLOCK,
         xpCashLocal: Math.floor((req.user.xpPoints || 0) / XP_REDEMPTION_BLOCK) * XP_REDEMPTION_LOCAL_KES,
         xpCashUSD: Number((((Math.floor((req.user.xpPoints || 0) / XP_REDEMPTION_BLOCK) * XP_REDEMPTION_LOCAL_KES) / rate)).toFixed(4)),
+        xpEstimatedLocal: Number((((req.user.xpPoints || 0) / XP_REDEMPTION_BLOCK) * XP_REDEMPTION_LOCAL_KES).toFixed(2)),
+        xpEstimatedUSD: Number((((req.user.xpPoints || 0) / XP_REDEMPTION_BLOCK) * XP_REDEMPTION_LOCAL_KES / rate).toFixed(4)),
         xpPerBlockLocal: XP_REDEMPTION_LOCAL_KES,
         withdrawalOpen,
         nextPayoutDate: withdrawalOpen

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import api from '@/lib/api';
@@ -38,6 +38,7 @@ type PendingWalletDeposit = {
 
 export default function WalletPage() {
   const MIN_DEPOSIT_LOCAL = 100;
+  const XP_REDEMPTION_BLOCK = 20000;
   const [withdrawing, setWithdrawing] = useState(false);
   const [depositing, setDepositing] = useState(false);
   const [buyingTokens, setBuyingTokens] = useState<number | null>(null);
@@ -89,9 +90,13 @@ export default function WalletPage() {
   const pendingReference = pendingPurchase?.reference || null;
   const pendingDepositReference = pendingDeposit?.reference || null;
   const withdrawalOpen = Boolean(wallet.withdrawalOpen);
-  const xpRedeemable = wallet.xpRedeemable || 0;
-  const xpCashLocal = wallet.xpCashLocal || 0;
-  const xpCashUSD = wallet.xpCashUSD || 0;
+  const xpPoints = Number(user?.xpPoints || 0);
+  const xpRedeemable = Math.floor(xpPoints / XP_REDEMPTION_BLOCK) * XP_REDEMPTION_BLOCK;
+  const xpCashLocal = Number(((xpPoints / XP_REDEMPTION_BLOCK) * (wallet.xpPerBlockLocal || 1000)).toFixed(2));
+  const currencyRate = Number(wallet.currencyRate || 0);
+  const xpCashUSD = currencyRate > 0
+    ? Number((xpCashLocal / currencyRate).toFixed(4))
+    : Number(wallet.xpEstimatedUSD || 0);
   const xpPerBlockLocal = wallet.xpPerBlockLocal || 1000;
   const symbol = wallet.symbol || '';
   const currency = wallet.currency || '';
@@ -104,6 +109,7 @@ export default function WalletPage() {
   const [selectedPkg, setSelectedPkg] = useState<number | null>(null);
   const [payMethod, setPayMethod] = useState<string | null>(null);
   const [tokenModalOpen, setTokenModalOpen] = useState(false);
+  const previousXpPoints = useRef<number | null>(null);
 
   const persistPendingPurchase = (payload: PendingTokenPurchase | null) => {
     if (typeof window === 'undefined') return;
@@ -228,6 +234,18 @@ export default function WalletPage() {
   }, []);
 
   useEffect(() => {
+    if (previousXpPoints.current === null) {
+      previousXpPoints.current = xpPoints;
+      return;
+    }
+
+    if (previousXpPoints.current !== xpPoints) {
+      previousXpPoints.current = xpPoints;
+      void queryClient.invalidateQueries({ queryKey: ['wallet'] });
+    }
+  }, [queryClient, xpPoints]);
+
+  useEffect(() => {
     if (!pendingReference) return undefined;
 
     const interval = window.setInterval(() => {
@@ -325,7 +343,7 @@ export default function WalletPage() {
   };
 
   const onRedeemXp = async () => {
-    if (xpRedeemable < 20000) {
+    if (xpRedeemable < XP_REDEMPTION_BLOCK) {
       toast.error('You need at least 20,000 XP to redeem cash.');
       return;
     }
@@ -412,7 +430,7 @@ export default function WalletPage() {
               <BadgeCheck size={16} />
               <span className="text-sm font-semibold uppercase tracking-[0.16em]">XP Cashout</span>
             </div>
-            <div className="mt-2 text-2xl font-black text-white">{formatNumber(user?.xpPoints || 0)} XP Total</div>
+            <div className="mt-2 text-2xl font-black text-white">{formatNumber(xpPoints)} XP Total</div>
             <div className="mt-1 text-sm text-slate-400">
               {formatNumber(xpRedeemable)} XP is currently redeemable. 20,000 XP = {symbol}{formatNumber(xpPerBlockLocal)} {currency}. You can redeem cash once you have a full block available.
             </div>
@@ -424,7 +442,7 @@ export default function WalletPage() {
             <button
               type="button"
               onClick={() => void onRedeemXp()}
-              disabled={redeemingXp || xpRedeemable < 20000}
+              disabled={redeemingXp || xpRedeemable < XP_REDEMPTION_BLOCK}
               className="mt-3 inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
             >
               {redeemingXp && <Loader2 size={14} className="animate-spin" />}

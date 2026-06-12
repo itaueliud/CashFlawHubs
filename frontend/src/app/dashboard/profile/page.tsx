@@ -369,9 +369,9 @@ const getAchievements = (user: any) => [
 export default function ProfilePage() {
   const { t } = useTranslation();
   const { user, refreshUser } = useAuthStore();
-  const { data: referralSummary } = useQuery({
-    queryKey: ['referral-summary'],
-    queryFn: () => api.get('/referrals/summary').then((r) => r.data),
+  const { data: referralDashboard } = useQuery({
+    queryKey: ['referral-dashboard'],
+    queryFn: () => api.get('/referrals/dashboard').then((r) => r.data),
     staleTime: 30_000,
     refetchInterval: 15_000,
   });
@@ -439,10 +439,12 @@ export default function ProfilePage() {
     const vals = getValues(); const trimmedPhone = String(vals.phone || '').trim(); const trimmedOtp = phoneOtp.trim(); if (!trimmedPhone) { toast.error('Add a phone number first'); return; } if (!trimmedOtp) { toast.error('Enter the OTP'); return; } const saved = await saveProfile({ ...vals, phone: trimmedPhone }); if (!saved) return; try { setIsVerifyingPhoneOtp(true); await api.post('/auth/verify-phone-otp', { phone: trimmedPhone, otp: trimmedOtp }); await refreshUser(); setPhoneOtp(''); toast.success('Phone verified'); } catch (err: any) { toast.error(err?.response?.data?.message || 'Failed to verify OTP'); } finally { setIsVerifyingPhoneOtp(false); }
   };
 
-  const totalInvited = referralSummary?.totalInvited ?? (user?.totalReferrals ?? 0);
-  const totalReferred = referralSummary?.totalReferred ?? (user?.totalReferrals ?? 0);
-  const totalEarnedUSD = referralSummary?.totalEarnedUSD ?? ((user as any)?.totalEarned || 0);
-  const totalPendingUSD = referralSummary?.pendingUSD ?? 0;
+  const invitedUsers = referralDashboard?.invited || referralDashboard?.recentInvited || [];
+  const referredUsers = referralDashboard?.referred || referralDashboard?.recentReferred || [];
+  const totalInvited = referralDashboard?.totalInvited ?? invitedUsers.length ?? 0;
+  const totalReferred = referralDashboard?.totalReferred ?? referredUsers.length ?? 0;
+  const totalEarnedUSD = referralDashboard?.totalEarnedUSD ?? 0;
+  const totalPendingUSD = referralDashboard?.pendingUSD ?? 0;
 
   const stats = [
     { label: 'EARNED',   value: `$${totalEarnedUSD.toFixed(2)}`, color: 'text-green-300' },
@@ -596,32 +598,32 @@ export default function ProfilePage() {
               <button type="button" onClick={() => copyText(user?.referralCode || '', 'Referral code')} className="flex-shrink-0 rounded-xl bg-green-400 px-4 py-2 text-sm font-bold text-slate-900 transition-colors hover:bg-green-300 active:scale-95">Copy</button>
             </div>
             <p className="mt-3 text-xs text-slate-500">Share your referral code or send this link to earn rewards.</p>
-            {referralSummary?.recentInvited?.length === 0 && referralSummary?.recentReferred?.length === 0 ? (
+            {invitedUsers.length === 0 && referredUsers.length === 0 ? (
               <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-400">No recent referral activity yet. Share your code to get started.</div>
             ) : (
               <div className="mt-4 space-y-3">
-                {referralSummary?.recentReferred?.length ? (
+                {referredUsers.length ? (
                   <div>
                     <div className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">Recent activated referrals</div>
                     <div className="space-y-2">
-                      {(referralSummary.recentReferred || []).map((r: any, idx: number) => (
+                      {(referredUsers || []).map((r: any, idx: number) => (
                         <div key={`referred-${idx}`} className="rounded-2xl border border-white/10 bg-slate-950/50 px-3 py-3 text-sm">
                           <div className="font-semibold text-white">{r.name}</div>
-                          <div className="text-xs text-slate-400">{r.country} · {new Date(r.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                          <div className="text-xs text-slate-400">{r.country} · {new Date(r.joinedAt || r.date || Date.now()).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
                           <div className="mt-1 flex items-center justify-between text-xs text-slate-400"><span>{r.reward} {r.currency}</span><span>{r.status === 'paid' ? '✓ Paid' : '⏳ Pending'}</span></div>
                         </div>
                       ))}
                     </div>
                   </div>
                 ) : null}
-                {referralSummary?.recentInvited?.length ? (
+                {invitedUsers.length ? (
                   <div>
                     <div className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">Recent invited users</div>
                     <div className="space-y-2">
-                      {(referralSummary.recentInvited || []).map((u: any, idx: number) => (
+                      {(invitedUsers || []).map((u: any, idx: number) => (
                         <div key={`invited-${idx}`} className="rounded-2xl border border-white/10 bg-slate-950/50 px-3 py-3 text-sm">
                           <div className="font-semibold text-white">{u.name || 'Unknown'}</div>
-                          <div className="text-xs text-slate-400">{u.country} · {new Date(u.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                          <div className="text-xs text-slate-400">{u.country} · {new Date(u.joinedAt || u.date || Date.now()).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
                           <div className="mt-1 text-xs text-slate-400">Awaiting activation</div>
                         </div>
                       ))}

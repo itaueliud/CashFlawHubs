@@ -7,6 +7,8 @@ import { Copy, Users, DollarSign, Trophy, MessageCircle, Send } from 'lucide-rea
 export default function ReferralsPage() {
   const { data } = useQuery({ queryKey: ['referral-dashboard'], queryFn: () => api.get('/referrals/dashboard').then(r => r.data) });
   const { data: leaderboard } = useQuery({ queryKey: ['leaderboard'], queryFn: () => api.get('/referrals/leaderboard').then(r => r.data.leaderboard) });
+  const invited = data?.invited || [];
+  const referred = data?.referred || [];
 
   const link = data?.referralLink || '';
   const shareText = `Join CashFlowHubs and start earning from paid surveys, microtasks, remote jobs, and referral bonuses. Sign up free here: ${link}`;
@@ -22,8 +24,9 @@ export default function ReferralsPage() {
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {[
-          { label: 'Total Referrals', value: data?.totalReferrals || 0, icon: Users, color: 'text-emerald-400' },
-          { label: 'Total Earned', value: `$${(data?.totalEarnedUSD || 0).toFixed(2)}`, icon: DollarSign, color: 'text-green-400' },
+          { label: 'Invited', value: data?.totalInvited ?? invited.length ?? 0, icon: Users, color: 'text-emerald-400' },
+          { label: 'Referred', value: data?.totalReferred ?? referred.length ?? 0, icon: Trophy, color: 'text-yellow-400' },
+          { label: 'Earned', value: `${(data?.totalEarnedUSD || 0).toFixed(2)} USD`, icon: DollarSign, color: 'text-green-400' },
           { label: 'Per Referral', value: '200 KES', icon: Trophy, color: 'text-yellow-400' },
         ].map((s) => (
           <div key={s.label} className="card text-center">
@@ -66,6 +69,41 @@ export default function ReferralsPage() {
           </div>
         </div>
       )}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="card">
+          <h3 className="mb-3 font-bold">Recent Invited Users</h3>
+          {invited.length === 0 ? (
+            <p className="text-sm text-slate-400">No invited users yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {invited.map((u: any, idx: number) => (
+                <div key={`invited-${idx}`} className="rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm">
+                  <div className="font-medium text-white">{u.name || 'Unknown'}</div>
+                  <div className="text-xs text-slate-400">{u.country} · {new Date(u.joinedAt || u.date || Date.now()).toLocaleDateString()}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="card">
+          <h3 className="mb-3 font-bold">Recent Activated Referrals</h3>
+          {referred.length === 0 ? (
+            <p className="text-sm text-slate-400">No activated referrals yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {referred.map((u: any, idx: number) => (
+                <div key={`referred-${idx}`} className="rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm">
+                  <div className="font-medium text-white">{u.name || 'Unknown'}</div>
+                  <div className="text-xs text-slate-400">{u.country} · {new Date(u.joinedAt || u.date || Date.now()).toLocaleDateString()}</div>
+                  <div className="mt-1 text-xs text-slate-400">{u.rewardLocal ? `${u.rewardLocal} ${u.currency || ''}`.trim() : 'Pending reward'}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
