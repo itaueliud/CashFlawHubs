@@ -19,32 +19,23 @@ exports.getReferralDashboard = async (req, res) => {
     const referralCode = String(user.referralCode || '').trim();
     const referralCodeFilter = referralCode ? new RegExp(`^${escapeRegex(referralCode)}$`, 'i') : null;
 
+    const referredUsers = await User.find(
+      referralCodeFilter ? { referredBy: referralCodeFilter } : { referredBy: referralCode }
+    )
+      .select('name country createdAt activationStatus phoneVerified')
+      .sort({ createdAt: -1 })
+      .limit(200);
+
+    const invitedUsers = referredUsers.filter((u) => !u.activationStatus);
+    const activatedUsers = referredUsers.filter((u) => u.activationStatus);
+
     const referralRecords = await Referral.find({ referrerUserId: user._id })
       .populate('newUserId', 'name country createdAt activationStatus phoneVerified')
       .sort({ createdAt: -1 })
       .limit(100);
 
-    const activatedUserIds = new Set(
-      referralRecords
-        .filter((r) => r.newUserId)
-        .map((r) => r.newUserId._id.toString())
-    );
-
-    const activatedCount = new Set(referralRecords.map((r) => r.newUserId?._id?.toString()).filter(Boolean)).size;
-    const invitedCountByCode = await User.countDocuments(
-      referralCodeFilter ? { referredBy: referralCodeFilter } : { referredBy: referralCode }
-    );
-    const invitedUsers = await User.find({
-      ...(referralCodeFilter ? { referredBy: referralCodeFilter } : { referredBy: referralCode }),
-      activationStatus: false,
-      _id: { $nin: Array.from(activatedUserIds) },
-    })
-      .select('name country createdAt phoneVerified')
-      .sort({ createdAt: -1 })
-      .limit(100);
-
-    const totalInvited = Math.max(invitedCountByCode, activatedCount);
-    const totalReferred = Math.max(activatedCount, Number(user.totalReferrals || 0));
+    const totalInvited = referredUsers.length;
+    const totalReferred = activatedUsers.length;
 
     res.json({
       success: true,
@@ -61,17 +52,22 @@ exports.getReferralDashboard = async (req, res) => {
         joinedAt: u.createdAt,
         activated: false,
       })),
-      referred: referralRecords.map((r) => ({
-        name: r.newUserId?.name || 'Unknown',
-        country: r.newUserId?.country || '—',
-        joinedAt: r.createdAt,
-        activated: true,
-        rewardUSD: r.rewardAmountUSD,
-        rewardLocal: r.rewardAmountLocal,
-        currency: r.currency,
-        status: r.status,
-        paidAt: r.paidAt,
-      })),
+      referred: activatedUsers.map((u) => {
+        const rewardRecord = referralRecords.find(
+          (r) => String(r.newUserId?._id || r.newUserId) === String(u._id)
+        );
+        return {
+          name: u.name || 'Unknown',
+          country: u.country || '—',
+          joinedAt: u.createdAt,
+          activated: true,
+          rewardUSD: rewardRecord?.rewardAmountUSD || 0,
+          rewardLocal: rewardRecord?.rewardAmountLocal || 0,
+          currency: rewardRecord?.currency || 'USD',
+          status: rewardRecord?.status || (u.activationStatus ? 'paid' : 'pending'),
+          paidAt: rewardRecord?.paidAt || null,
+        };
+      }),
     });
   } catch (error) {
     logger.error(`getReferralDashboard error: ${error.message}`);
@@ -133,7 +129,6 @@ exports.validateReferralCode = async (req, res) => {
     const { code } = req.params;
     let referrer = await User.findOne({ referralCode: code }).select('name country');
     if (!referrer) {
-      // Fallback to local dev auth store when MongoDB doesn't have the code
       const devRef = devAuthStore.findByReferralCode(code);
       if (devRef) {
         return res.json({ success: true, referrer: { name: devRef.name, country: devRef.country } });

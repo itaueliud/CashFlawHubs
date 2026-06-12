@@ -11,67 +11,53 @@ router.get('/summary', protect, async (req, res) => {
     const Referral = require('../models/Referral');
     const Wallet = require('../models/Wallet');
 
-    const user = await User.findById(req.user.id).select('referralCode totalReferrals');
+    const user = await User.findById(req.user.id).select('referralCode');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     const referralCode = String(user.referralCode || '').trim();
     const escapedCode = referralCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const referralCodeFilter = referralCode ? new RegExp(`^${escapedCode}$`, 'i') : null;
 
-    const [invitedUsers, referralRecords, wallet] = await Promise.all([
-      User.find(referralCodeFilter ? { referredBy: referralCodeFilter } : { referredBy: referralCode }).select('_id name country createdAt'),
-      Referral.find({ referrerUserId: req.user.id })
-        .select('newUserId createdAt rewardAmountLocal currency status')
-        .populate('newUserId', 'name country createdAt'),
-      Wallet.findOne({ userId: req.user.id }).select('referralEarnings pendingBalance'),
-    ]);
+    const referredUsers = await User.find(
+      referralCodeFilter ? { referredBy: referralCodeFilter } : { referredBy: referralCode }
+    )
+      .select('name country createdAt activationStatus')
+      .sort({ createdAt: -1 })
+      .limit(200);
 
-    const activatedUserIds = new Set(
-      referralRecords
-        .filter((record) => record.newUserId)
-        .map((record) => record.newUserId._id.toString())
-    );
+    const invited = referredUsers.filter((u) => !u.activationStatus);
+    const activated = referredUsers.filter((u) => u.activationStatus);
 
-    const totalInvited = new Set([
-      ...invitedUsers.map((u) => u._id.toString()),
-      ...activatedUserIds,
-    ]).size;
+    const referralRecords = await Referral.find({ referrerUserId: req.user.id })
+      .select('newUserId createdAt rewardAmountLocal currency status')
+      .populate('newUserId', 'name country createdAt');
 
-    const totalReferred = Math.max(
-      new Set(referralRecords.map((record) => record.newUserId?._id?.toString()).filter(Boolean)).size,
-      Number(user.totalReferrals || 0)
-    );
-
-    const recentReferred = referralRecords
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, 5);
-
-    const recentInvited = invitedUsers
-      .filter((u) => !activatedUserIds.has(u._id.toString()))
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, 5);
+    const wallet = await Wallet.findOne({ userId: req.user.id }).select('referralEarnings pendingBalance');
 
     res.json({
       success: true,
-      totalInvited,
-      totalReferred,
-      invitedCount: totalInvited,
-      activatedCount: totalReferred,
+      totalInvited: referredUsers.length,
+      totalReferred: activated.length,
+      invitedCount: referredUsers.length,
+      activatedCount: activated.length,
       totalEarnedUSD: wallet?.referralEarnings || 0,
       pendingUSD: wallet?.pendingBalance || 0,
-      recentReferred: recentReferred.map((r) => ({
-        name: r.newUserId?.name || 'User',
-        country: r.newUserId?.country || '—',
-        date: r.createdAt,
-        reward: r.rewardAmountLocal,
-        currency: r.currency,
-        status: r.status,
-      })),
-      recentInvited: recentInvited.map((u) => ({
+      recentInvited: invited.slice(0, 5).map((u) => ({
         name: u.name,
         country: u.country,
         date: u.createdAt,
       })),
+      recentReferred: activated.slice(0, 5).map((u) => {
+        const rewardRecord = referralRecords.find((r) => String(r.newUserId?._id || r.newUserId) === String(u._id));
+        return {
+          name: u.name,
+          country: u.country,
+          date: u.createdAt,
+          reward: rewardRecord?.rewardAmountLocal || 0,
+          currency: rewardRecord?.currency || 'USD',
+          status: rewardRecord?.status || 'paid',
+        };
+      }),
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
