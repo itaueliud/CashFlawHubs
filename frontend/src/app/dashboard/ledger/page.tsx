@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { ArrowRight, Clock3, Download, FileBarChart2, PlusCircle, Receipt, ShieldCheck } from 'lucide-react';
-import ManualPaymentModal from '../../../components/ledger/ManualPaymentModal';
+import ManualPaymentModal from '@/components/ledger/ManualPaymentModal';
 
 export default function LedgerStandalonePage() {
   const { user } = useAuthStore();
