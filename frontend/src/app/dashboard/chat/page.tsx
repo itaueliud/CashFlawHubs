@@ -29,6 +29,7 @@ export default function ChatPage() {
 
   const jobId = params?.get('jobId') || '';
   const applicantId = params?.get('applicantId') || '';
+  const canInitiateJobChat = Boolean(jobId && applicantId);
 
   const sessionsQuery = useQuery({
     queryKey: ['chat-sessions'],
@@ -179,9 +180,19 @@ export default function ChatPage() {
           <input value={search} onChange={(e) => setSearch(e.target.value)} className="input mt-2" placeholder="Search chats..." />
         </div>
         {jobId && (
-          <button className="btn-primary mb-3 w-full text-sm" onClick={() => initiateMutation.mutate()} disabled={initiateMutation.isPending}>
-            {initiateMutation.isPending ? 'Opening...' : 'Open Job Chat'}
+          <button
+            className="btn-primary mb-3 w-full text-sm"
+            onClick={() => initiateMutation.mutate()}
+            disabled={initiateMutation.isPending || !canInitiateJobChat}
+            title={canInitiateJobChat ? '' : 'Add an applicantId to start a new job chat'}
+          >
+            {initiateMutation.isPending ? 'Opening...' : canInitiateJobChat ? 'Open Job Chat' : 'Select applicant to start chat'}
           </button>
+        )}
+        {jobId && !applicantId && (
+          <div className="mb-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-400">
+            This job chat is poster-only. Add `applicantId` to start a new conversation.
+          </div>
         )}
         <div className="space-y-2">
           {filteredSessions.map((session: any) => (

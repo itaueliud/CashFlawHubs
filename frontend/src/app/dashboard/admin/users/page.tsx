@@ -84,6 +84,19 @@ export default function AdminUsersPage() {
     }
   };
 
+  const activateUser = async (userId: string) => {
+    try {
+      await api.post(`/admin/users/${userId}/activate`);
+      toast.success('User activated');
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      if (selectedUserId === userId) {
+        queryClient.invalidateQueries({ queryKey: ['admin-user-ledger', selectedUserId] });
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to activate user');
+    }
+  };
+
   const resetUserPassword = async (userId: string) => {
     const newPassword = resetPasswordMap[userId];
     if (!newPassword || newPassword.length < 8) {
@@ -202,6 +215,14 @@ export default function AdminUsersPage() {
                   {item.isBanned ? <Unlock size={14} /> : <Ban size={14} />}
                   {item.isBanned ? 'Unblock user' : 'Block user'}
                 </button>
+                {!item.activationStatus && (
+                  <button
+                    onClick={() => activateUser(item._id)}
+                    className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200 hover:border-emerald-300/50"
+                  >
+                    <Shield size={14} /> Activate user
+                  </button>
+                )}
               </div>
 
               <div className="mt-3 rounded-2xl border border-slate-700 bg-slate-950/60 p-3">

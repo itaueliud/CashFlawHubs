@@ -1,4 +1,6 @@
-﻿'use client';
+'use client';
+
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -16,15 +18,37 @@ export default function ReferralsPage() {
     refetchOnWindowFocus: true,
     refetchOnMount: 'always',
   });
-  const { data: leaderboard } = useQuery({ queryKey: ['leaderboard'], queryFn: () => api.get('/referrals/leaderboard').then(r => r.data.leaderboard) });
-  const invited = data?.invited || [];
-  const referred = data?.referred || [];
+  const { data: leaderboard } = useQuery({
+    queryKey: ['leaderboard'],
+    queryFn: () => api.get('/referrals/leaderboard').then(r => r.data.leaderboard),
+  });
+  const invited = data?.invited || data?.recentInvited || [];
+  const referred = data?.referred || data?.recentReferred || [];
+  const totalInvited = data?.invitedCount ?? data?.totalInvited ?? invited.length ?? 0;
+  const totalReferred = data?.activatedCount ?? data?.totalReferred ?? referred.length ?? 0;
+  const pendingUSD = data?.pendingUSD ?? 0;
+  const totalEarnedUSD = data?.totalEarnedUSD ?? 0;
+  const referralBaseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'https://www.cashflowhubs.com';
 
-  const link = data?.referralLink || '';
+  const link = useMemo(
+    () => data?.referralLink || (user?.referralCode ? `${referralBaseUrl}/register?ref=${user.referralCode}` : ''),
+    [data?.referralLink, referralBaseUrl, user?.referralCode]
+  );
+
   const shareText = `Join CashFlowHubs and start earning from paid surveys, microtasks, remote jobs, and referral bonuses. Sign up free here: ${link}`;
-  const copy = () => { navigator.clipboard.writeText(link); toast.success('Copied!'); };
-  const whatsapp = () => window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`);
-  const telegram = () => window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(shareText)}`);
+  const copy = () => {
+    if (!link) return;
+    navigator.clipboard.writeText(link);
+    toast.success('Copied!');
+  };
+  const whatsapp = () => {
+    if (!link) return;
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`);
+  };
+  const telegram = () => {
+    if (!link) return;
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(shareText)}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -34,9 +58,9 @@ export default function ReferralsPage() {
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {[
-          { label: 'Invited', value: isLoading && !data ? '…' : (data?.invitedCount ?? data?.totalInvited ?? invited.length ?? 0), icon: Users, color: 'text-emerald-400' },
-          { label: 'Referred', value: isLoading && !data ? '…' : (data?.activatedCount ?? data?.totalReferred ?? referred.length ?? 0), icon: Trophy, color: 'text-yellow-400' },
-          { label: 'Earned', value: `${(data?.totalEarnedUSD || 0).toFixed(2)} USD`, icon: DollarSign, color: 'text-green-400' },
+          { label: 'Invited', value: isLoading && !data ? '…' : totalInvited, icon: Users, color: 'text-emerald-400' },
+          { label: 'Referred', value: isLoading && !data ? '…' : totalReferred, icon: Trophy, color: 'text-yellow-400' },
+          { label: 'Earned', value: `${Number(totalEarnedUSD).toFixed(2)} USD`, icon: DollarSign, color: 'text-green-400' },
           { label: 'Per Referral', value: '200 KES', icon: Trophy, color: 'text-yellow-400' },
         ].map((s) => (
           <div key={s.label} className="card text-center">
@@ -48,11 +72,13 @@ export default function ReferralsPage() {
       </div>
       <div className="card">
         <h3 className="font-bold mb-3">Your Referral Link</h3>
-        <div className="bg-slate-900 rounded-xl px-4 py-3 font-mono text-sm text-slate-300 mb-3 break-all">{link || 'Loading...'}</div>
+        <div className="bg-slate-900 rounded-xl px-4 py-3 font-mono text-sm text-slate-300 mb-3 break-all">
+          {link || (isLoading ? 'Loading...' : 'Referral link unavailable')}
+        </div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={copy} className="btn-secondary text-sm flex items-center gap-2"><Copy size={14} /> Copy Link</button>
-          <button onClick={whatsapp} className="bg-green-600 hover:bg-green-500 text-white text-sm px-4 py-2 rounded-xl transition-all inline-flex items-center gap-2"><MessageCircle size={14} /> WhatsApp</button>
-          <button onClick={telegram} className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-xl transition-all inline-flex items-center gap-2"><Send size={14} /> Telegram</button>
+          <button onClick={copy} disabled={!link} className="btn-secondary text-sm flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"><Copy size={14} /> Copy Link</button>
+          <button onClick={whatsapp} disabled={!link} className="bg-green-600 hover:bg-green-500 text-white text-sm px-4 py-2 rounded-xl transition-all inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"><MessageCircle size={14} /> WhatsApp</button>
+          <button onClick={telegram} disabled={!link} className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-xl transition-all inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"><Send size={14} /> Telegram</button>
         </div>
       </div>
       <div className="card bg-slate-900 border-emerald-500/20">
@@ -114,7 +140,24 @@ export default function ReferralsPage() {
           )}
         </div>
       </div>
+
+      <div className="card">
+        <h3 className="mb-3 font-bold">Referral Summary</h3>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
+            <div className="text-xs text-slate-400">Invited</div>
+            <div className="mt-1 text-2xl font-black">{totalInvited}</div>
+          </div>
+          <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
+            <div className="text-xs text-slate-400">Referred</div>
+            <div className="mt-1 text-2xl font-black">{totalReferred}</div>
+          </div>
+          <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
+            <div className="text-xs text-slate-400">Pending</div>
+            <div className="mt-1 text-2xl font-black">{Number(pendingUSD).toFixed(2)} USD</div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
-

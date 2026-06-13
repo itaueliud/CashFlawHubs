@@ -252,6 +252,8 @@ function TwoFactorModal({ user, onClose, onSaved }: { user: any; onClose: () => 
   const [status, setStatus] = useState<{ enabled: boolean; enabledAt?: string; backupCodesCount?: number } | null>(null);
   const [setupData, setSetupData] = useState<any>(null);
   const [token, setToken] = useState('');
+  const [disablePassword, setDisablePassword] = useState('');
+  const [disableToken, setDisableToken] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => { let mounted = true; (async () => { try { const { data } = await api.get('/2fa/status'); if (mounted) setStatus(data); } catch (e) { /* ignore */ } })(); return () => { mounted = false; }; }, []);
@@ -291,6 +293,11 @@ function TwoFactorModal({ user, onClose, onSaved }: { user: any; onClose: () => 
     <ModalShell title="Two-Factor Authentication" onClose={onClose}>
       <div className="space-y-4">
         <div className="text-sm text-slate-400">Protect your account with an authenticator app (Google Authenticator, Authy).</div>
+        {status?.enabled && !setupData && (
+          <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-100">
+            2FA is currently enabled. Backup codes left: {status.backupCodesCount ?? 0}
+          </div>
+        )}
         {setupData ? (
           <div>
             <img src={setupData.qrCodeUrl} alt="QR code" className="h-40 w-40" />
@@ -300,8 +307,26 @@ function TwoFactorModal({ user, onClose, onSaved }: { user: any; onClose: () => 
             <div className="mt-3"><input value={token} onChange={(e)=>setToken(e.target.value)} placeholder="Enter 6-digit code" className="input" /></div>
             <div className="mt-3 flex justify-end"><button onClick={verifySetup} disabled={loading} className="btn-primary">Verify & Activate</button></div>
           </div>
+        ) : status?.enabled ? (
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-xs text-slate-400">Authenticator code</label>
+              <input value={disableToken} onChange={(e) => setDisableToken(e.target.value)} className="input" placeholder="Enter 6-digit code" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-slate-400">Password</label>
+              <input value={disablePassword} onChange={(e) => setDisablePassword(e.target.value)} type="password" className="input" placeholder="Confirm your password" />
+            </div>
+            <div className="flex justify-between gap-3">
+              <button onClick={startSetup} className="btn-secondary" disabled={loading}>{loading ? 'Starting…' : 'Reconfigure 2FA'}</button>
+              <button onClick={() => disable(disablePassword, disableToken)} disabled={loading || !disablePassword || !disableToken} className="btn-primary">Disable 2FA</button>
+            </div>
+          </div>
         ) : (
-          <div className="flex justify-between"><button onClick={startSetup} className="btn-primary" disabled={loading}>{loading? 'Starting…' : 'Set up 2FA'}</button>{status?.enabled && <span className="text-sm text-green-400">Enabled</span>}</div>
+          <div className="flex justify-between">
+            <button onClick={startSetup} className="btn-primary" disabled={loading}>{loading? 'Starting…' : 'Set up 2FA'}</button>
+            <span className="text-sm text-slate-400">Not enabled</span>
+          </div>
         )}
       </div>
     </ModalShell>
@@ -532,7 +557,7 @@ export default function ProfilePage() {
         <section className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5 sm:p-6">
           <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-green-400">Verification & Trust</h3>
           <div className="space-y-1">
-            {[{ label: 'Identity Verification (KYC)', sublabel: 'Required to withdraw above $50', status: (user as any)?.identityVerificationStatus === 'verified' ? 'Verified' : ((user as any)?.identityVerificationStatus === 'submitted' ? 'Under review' : 'Start →'), statusClass: (user as any)?.identityVerificationStatus === 'verified' ? 'text-green-400' : 'text-orange-400', icon: Shield, action: () => setModal('kyc') }, { label: 'Two-Factor Authentication', sublabel: 'Protects your earnings', status: (user as any)?.twoFactorEnabled ? 'Enabled' : 'Enable ›', statusClass: (user as any)?.twoFactorEnabled ? 'text-green-400' : 'text-orange-400', icon: CheckCircle2 }, { label: 'Email Verified', sublabel: user?.email || 'Not added', status: user?.emailVerified ? '✓ Done' : 'Verify', statusClass: user?.emailVerified ? 'text-green-400' : 'text-yellow-400', icon: Mail }].map((item) => { const Icon = item.icon as any; return (<button key={item.label} onClick={item.action} className="flex w-full items-center justify-between gap-3 rounded-xl border border-transparent px-2 py-3 hover:border-slate-800 hover:bg-slate-950/40 transition-colors"><div className="flex min-w-0 items-center gap-3"><div className="flex-shrink-0 rounded-xl bg-slate-800/70 p-2 text-slate-400"><Icon size={15} /></div><div className="min-w-0"><div className="text-sm font-medium text-white">{item.label}</div><div className="truncate text-xs text-slate-500">{item.sublabel}</div></div></div><span className={`flex-shrink-0 text-sm font-semibold ${item.statusClass}`}>{item.status}</span></button>); })}
+            {[{ label: 'Identity Verification (KYC)', sublabel: 'Required to withdraw above $50', status: (user as any)?.identityVerificationStatus === 'verified' ? 'Verified' : ((user as any)?.identityVerificationStatus === 'submitted' ? 'Under review' : 'Start →'), statusClass: (user as any)?.identityVerificationStatus === 'verified' ? 'text-green-400' : 'text-orange-400', icon: Shield, action: () => setModal('kyc') }, { label: 'Two-Factor Authentication', sublabel: 'Protects your earnings', status: (user as any)?.twoFactorEnabled ? 'Enabled' : 'Enable ›', statusClass: (user as any)?.twoFactorEnabled ? 'text-green-400' : 'text-orange-400', icon: CheckCircle2, action: () => setModal('twofa') }, { label: 'Email Verified', sublabel: user?.email || 'Not added', status: user?.emailVerified ? '✓ Done' : 'Verify', statusClass: user?.emailVerified ? 'text-green-400' : 'text-yellow-400', icon: Mail, action: () => {} }].map((item) => { const Icon = item.icon as any; return (<button key={item.label} onClick={item.action} className="flex w-full items-center justify-between gap-3 rounded-xl border border-transparent px-2 py-3 hover:border-slate-800 hover:bg-slate-950/40 transition-colors"><div className="flex min-w-0 items-center gap-3"><div className="flex-shrink-0 rounded-xl bg-slate-800/70 p-2 text-slate-400"><Icon size={15} /></div><div className="min-w-0"><div className="text-sm font-medium text-white">{item.label}</div><div className="truncate text-xs text-slate-500">{item.sublabel}</div></div></div><span className={`flex-shrink-0 text-sm font-semibold ${item.statusClass}`}>{item.status}</span></button>); })}
           </div>
 
           {showEmailVerificationPrompt && (

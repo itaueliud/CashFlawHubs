@@ -18,6 +18,7 @@ type JobDetails = {
   category: string;
   categoryOther?: string | null;
   source: string;
+  postedBy?: string;
   jobType?: string;
   location?: string;
   salary?: string;
@@ -132,6 +133,8 @@ export default function JobDetailsPage() {
   const managedApplications = data?.applications || [];
   const isStaff = ['admin', 'superadmin', 'ledger'].includes(user?.role || '');
   const isExternalJob = Boolean(job?.source && job.source !== 'internal');
+  const canOpenJobChat =
+    Boolean(job && job.source === 'internal' && user && job.postedBy && String(job.postedBy) === String(user.id || user.userId || ''));
   const shouldShowRedirectFlow = Boolean(isExternalJob && !handoffDismissed && (applicationFlow || userApplication?.status === 'redirected'));
   const isValidEmail = (value: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim().toLowerCase());
 
@@ -731,6 +734,14 @@ export default function JobDetailsPage() {
                                   );
                                 })}
                               </div>
+                              {canOpenJobChat && (application.applicant?.id || application.applicant?.userId) ? (
+                                <Link
+                                  href={`/dashboard/chat?jobId=${jobId}&applicantId=${application.applicant?.id || application.applicant?.userId}`}
+                                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-xs font-semibold text-emerald-200 hover:border-emerald-300/50 hover:bg-emerald-500/15"
+                                >
+                                  <MessageSquare size={14} /> {t('jobs.detail.openJobChat')}
+                                </Link>
+                              ) : null}
                             </div>
                           );
                         })}
@@ -742,9 +753,6 @@ export default function JobDetailsPage() {
             )}
             <Link href="/dashboard/jobs/applications" className="btn-secondary w-full flex items-center justify-center gap-2">
               <ExternalLink size={16} /> {t('jobs.detail.myApplications')}
-            </Link>
-            <Link href={`/dashboard/chat?jobId=${jobId}`} className="btn-secondary w-full flex items-center justify-center gap-2">
-              <MessageSquare size={16} /> {t('jobs.detail.openJobChat')}
             </Link>
           </div>
         </div>

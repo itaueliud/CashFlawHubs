@@ -20,20 +20,7 @@ import {
   Menu,
   Trophy,
   Radio,
-  ShieldCheck,
-  Shield,
-  FileBarChart2,
-  Download,
-  Receipt,
-  KeyRound,
-  Activity,
-  UsersRound,
-  Landmark,
-  Gauge,
   MessagesSquare,
-  SlidersHorizontal,
-  ShieldAlert,
-  ClipboardCheck,
   Mail,
   Loader2,
 } from 'lucide-react';
@@ -85,7 +72,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, []);
 
   useEffect(() => {
-    if (hasHydrated && !user) router.push('/login');
+    if (!hasHydrated) return;
+    if (!user) {
+      const timer = setTimeout(() => {
+        if (!useAuthStore.getState().user) {
+          router.push('/login');
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
   }, [hasHydrated, router, user]);
 
   useEffect(() => {
@@ -100,43 +95,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!hasHydrated || !user) return;
 
-    if (user.role === 'user') {
-      if ((user.userAccessType || 'real') === 'test' && pathname.startsWith('/dashboard/coming-soon')) {
-        router.push('/dashboard');
-        return;
-      }
-      if ((user.userAccessType || 'real') === 'real' && REAL_USER_BLOCKED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
-        const moduleKey = pathname.split('/')[2] || '';
-        router.push(`/dashboard/coming-soon?module=${encodeURIComponent(moduleKey)}`);
-        return;
-      }
-      if (pathname.startsWith('/dashboard/admin') || pathname.startsWith('/dashboard/admin-console') || pathname.startsWith('/dashboard/ledger') || pathname.startsWith('/dashboard/superadmin')) {
-        router.push('/dashboard');
-      }
+    if (user.role !== 'user') {
+      router.replace('/login');
       return;
     }
 
-    if (user.role === 'ledger' && pathname.startsWith('/dashboard/admin/users')) {
-      router.push('/dashboard/ledger');
+    if ((user.userAccessType || 'real') === 'test' && pathname.startsWith('/dashboard/coming-soon')) {
+      router.push('/dashboard');
       return;
     }
-
-    if (user.role === 'admin' && (pathname === '/dashboard' || pathname.startsWith('/dashboard/surveys') || pathname.startsWith('/dashboard/tasks') || pathname.startsWith('/dashboard/ads-network') || pathname.startsWith('/dashboard/offerwalls') || pathname.startsWith('/dashboard/cash-tasks') || pathname.startsWith('/dashboard/referrals') || pathname.startsWith('/dashboard/wallet') || pathname.startsWith('/dashboard/profile') || pathname.startsWith('/dashboard/activate') || pathname.startsWith('/dashboard/freelance') || pathname.startsWith('/dashboard/admin/ledger') || pathname.startsWith('/dashboard/admin/admins') || pathname.startsWith('/dashboard/ledger') || pathname.startsWith('/dashboard/superadmin'))) {
-      router.push('/dashboard/admin-console');
-      return;
-    }
-
-    if (user.role === 'superadmin' && (pathname === '/dashboard' || pathname.startsWith('/dashboard/surveys') || pathname.startsWith('/dashboard/tasks') || pathname.startsWith('/dashboard/ads-network') || pathname.startsWith('/dashboard/offerwalls') || pathname.startsWith('/dashboard/cash-tasks') || pathname.startsWith('/dashboard/referrals') || pathname.startsWith('/dashboard/wallet') || pathname.startsWith('/dashboard/profile') || pathname.startsWith('/dashboard/activate') || pathname.startsWith('/dashboard/freelance'))) {
-      router.push('/dashboard/superadmin');
-      return;
-    }
-
-    if (user.role === 'ledger' && (pathname === '/dashboard' || pathname.startsWith('/dashboard/jobs') || pathname.startsWith('/dashboard/surveys') || pathname.startsWith('/dashboard/tasks') || pathname.startsWith('/dashboard/ads-network') || pathname.startsWith('/dashboard/offerwalls') || pathname.startsWith('/dashboard/cash-tasks') || pathname.startsWith('/dashboard/referrals') || pathname.startsWith('/dashboard/wallet') || pathname.startsWith('/dashboard/profile') || pathname.startsWith('/dashboard/activate') || pathname.startsWith('/dashboard/freelance'))) {
-      router.push('/dashboard/ledger');
+    if ((user.userAccessType || 'real') === 'real' && REAL_USER_BLOCKED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
+      const moduleKey = pathname.split('/')[2] || '';
+      router.push(`/dashboard/coming-soon?module=${encodeURIComponent(moduleKey)}`);
     }
   }, [hasHydrated, user, pathname, router]);
 
-  if (!mounted || !hasHydrated) {
+  if (!mounted || !hasHydrated || !user) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-950 text-slate-400">
         {t('common.loadingDashboard')}
@@ -144,46 +118,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  if (!user) return null;
-
-  const userBaseNav = BASE_NAV;
-
-  const nav = user.role === 'ledger'
-    ? [
-        { href: '/dashboard/ledger', icon: Gauge, labelKey: 'nav.overview' },
-        { href: '/dashboard/admin/ledger', icon: Landmark, labelKey: 'nav.payoutControl' },
-        { href: '/dashboard/admin/admins', icon: ShieldCheck, labelKey: 'nav.admins' },
-        { href: '/dashboard/ledger/reports', icon: FileBarChart2, labelKey: 'nav.reports' },
-        { href: '/dashboard/ledger/export', icon: Download, labelKey: 'nav.export' },
-        { href: '/dashboard/ledger/transactions', icon: Receipt, labelKey: 'nav.transactions' },
-        { href: '/dashboard/ledger/reconciliation', icon: ClipboardCheck, labelKey: 'nav.reconciliation' },
-        { href: '/dashboard/admin/audit', icon: ShieldAlert, labelKey: 'nav.audit' },
-        { href: '/dashboard/admin/config', icon: SlidersHorizontal, labelKey: 'nav.config' },
-        { href: '/dashboard/ledger/profile', icon: KeyRound, labelKey: 'nav.profile' },
-      ]
-    : user.role === 'admin'
-    ? [
-        { href: '/dashboard/admin-console', icon: Gauge, labelKey: 'nav.overview' },
-        { href: '/dashboard/jobs', icon: Briefcase, labelKey: 'nav.remoteJobs' },
-        { href: '/dashboard/admin/users', icon: UsersRound, labelKey: 'nav.users' },
-        { href: '/dashboard/admin/moderation', icon: ShieldCheck, labelKey: 'nav.moderation' },
-        { href: '/dashboard/admin/support', icon: MessagesSquare, labelKey: 'nav.support' },
-        { href: '/dashboard/admin/audit', icon: ShieldAlert, labelKey: 'nav.audit' },
-        { href: '/dashboard/admin/provider-health', icon: Activity, labelKey: 'nav.providerHealth' },
-      ]
-    : user.role === 'superadmin'
-      ? [
-          { href: '/dashboard/superadmin', icon: Shield, labelKey: 'nav.overview' },
-          { href: '/dashboard/jobs', icon: Briefcase, labelKey: 'nav.remoteJobs' },
-          { href: '/dashboard/admin/users', icon: UsersRound, labelKey: 'nav.users' },
-          { href: '/dashboard/admin/admins', icon: ShieldCheck, labelKey: 'nav.admins' },
-          { href: '/dashboard/admin/moderation', icon: ShieldCheck, labelKey: 'nav.moderation' },
-          { href: '/dashboard/admin/support', icon: MessagesSquare, labelKey: 'nav.support' },
-          { href: '/dashboard/admin/audit', icon: ShieldAlert, labelKey: 'nav.audit' },
-          { href: '/dashboard/admin/config', icon: SlidersHorizontal, labelKey: 'nav.config' },
-          { href: '/dashboard/admin/provider-health', icon: Activity, labelKey: 'nav.providerHealth' },
-        ]
-      : userBaseNav;
+  const nav = BASE_NAV;
 
   const isNavActive = (href: string) =>
     href.includes('#')

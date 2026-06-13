@@ -481,8 +481,10 @@ export default function WalletPage() {
                   value: MIN_DEPOSIT_LOCAL,
                   message: 'Minimum amount to deposit is 100',
                 },
+                validate: (value) => Number(value) > 0 || 'Amount must be positive',
               })}
               type="number"
+              min={MIN_DEPOSIT_LOCAL}
               step="0.01"
               placeholder="e.g. 100"
               className="input"
@@ -703,7 +705,18 @@ export default function WalletPage() {
         <form onSubmit={handleSubmit(onWithdraw)} className="max-w-sm space-y-4">
           <div>
             <label className="mb-1.5 block text-sm text-slate-300">Amount (USD)</label>
-            <input {...register('amountUSD', { required: true })} type="number" step="0.01" placeholder="e.g. 5.00" className="input" />
+            <input
+              {...register('amountUSD', {
+                required: true,
+                min: { value: 0.01, message: 'Amount must be greater than zero' },
+                validate: (value) => Number(value) > 0 || 'Amount must be greater than zero',
+              })}
+              type="number"
+              min="0.01"
+              step="0.01"
+              placeholder="e.g. 5.00"
+              className="input"
+            />
           </div>
 
           <button

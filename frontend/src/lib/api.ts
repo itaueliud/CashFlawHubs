@@ -69,7 +69,8 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401 && typeof window !== 'undefined') {
+    const isBackgroundRefresh = err?.config?.headers?.['x-background-refresh'] === 'true';
+    if (err.response?.status === 401 && typeof window !== 'undefined' && !isBackgroundRefresh) {
       localStorage.removeItem('earnhub-auth');
       window.location.href = '/login';
     }

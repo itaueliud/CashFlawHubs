@@ -112,36 +112,17 @@ export default function AdminLedgerPage() {
 
       {tab === 'summary' && (
         <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="card">
-              <TrendingUp className="mb-2 text-blue-300" />
-              <div className="text-xs text-slate-400">Superadmin share</div>
-              <div className="text-3xl font-black text-white">{ledger.superadminSharePercent}%</div>
-              <div className="mt-2 text-sm text-slate-300">${Number(ledger.superadminShareUSD || 0).toFixed(2)}</div>
-            </div>
-            <div className="card">
-              <Users className="mb-2 text-blue-300" />
-              <div className="text-xs text-slate-400">Admin share</div>
-              <div className="text-3xl font-black text-white">{ledger.adminSharePercent}%</div>
-              <div className="mt-2 text-sm text-slate-300">${Number(ledger.adminShareUSD || 0).toFixed(2)}</div>
-            </div>
-            <div className="card">
-              <Landmark className="mb-2 text-blue-300" />
-              <div className="text-xs text-slate-400">Policy</div>
-              <div className="text-3xl font-black text-white">{ledger.superadminSharePercent >= 51 ? 'Valid' : 'Adjust'}</div>
-              <div className="mt-2 text-sm text-slate-300">Top role keeps more than half of earned revenue.</div>
-            </div>
-          </div>
+          {/* Removed display-only share cards (superadmin/admin share and policy). These values remain in backend payout logic but are no longer shown in the UI. */}
 
           {ledger.totalUSD > 0 && ['ledger', 'superadmin'].includes(user?.role || '') && (
             <div className="card">
               <button
-                onClick={() => setShowConfirm(true)}
-                disabled={executeMutation.isPending || ledger.superadminSharePercent < 51}
-                className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 font-semibold text-white transition hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {executeMutation.isPending ? 'Executing payout...' : 'Execute Payout'}
-              </button>
+                  onClick={() => setShowConfirm(true)}
+                  disabled={executeMutation.isPending}
+                  className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 font-semibold text-white transition hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {executeMutation.isPending ? 'Executing payout...' : 'Execute Payout'}
+                </button>
             </div>
           )}
         </>

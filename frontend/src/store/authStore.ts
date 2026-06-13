@@ -54,7 +54,16 @@ interface AuthState {
   setUser: (user: User) => void;
   setToken: (token: string) => void;
   setHasHydrated: (hasHydrated: boolean) => void;
-  login: (identifier: string, password: string, turnstileToken?: string, browserLanguage?: string, timezone?: string, portal?: string) => Promise<void>;
+  login: (
+    identifier: string,
+    password: string,
+    turnstileToken?: string,
+    browserLanguage?: string,
+    timezone?: string,
+    portal?: string,
+    twoFactorToken?: string,
+    twoFactorChallengeId?: string
+  ) => Promise<User | { success: true; requires2FA: true; challengeId: string; userId: string; message?: string }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -74,7 +83,7 @@ export const useAuthStore = create<AuthState>()(
       },
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
 
-      login: async (identifier, password, turnstileToken, browserLanguage, timezone, portal) => {
+      login: async (identifier, password, turnstileToken, browserLanguage, timezone, portal, twoFactorToken, twoFactorChallengeId) => {
         set({ isLoading: true });
         try {
           const res = await api.post('/auth/login', {
@@ -84,10 +93,19 @@ export const useAuthStore = create<AuthState>()(
             browser_language: browserLanguage,
             timezone,
             portal,
+            twoFactorToken,
+            twoFactorChallengeId,
           });
-          const { token, user } = res.data;
+          const payload = res.data;
+          if (payload?.requires2FA && !payload?.token) {
+            set({ isLoading: false });
+            return payload;
+          }
+
+          const { token, user } = payload;
           set({ token, user, isLoading: false });
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          return user;
         } catch (err) {
           set({ isLoading: false });
           throw err;
@@ -102,9 +120,18 @@ export const useAuthStore = create<AuthState>()(
 
       refreshUser: async () => {
         try {
-          const res = await api.get('/auth/me');
+          const res = await api.get('/auth/me', { headers: { 'x-background-refresh': 'true' } });
           set({ user: { ...res.data.user, balanceUSD: res.data.wallet?.balanceUSD || 0 } });
-        } catch {}
+        } catch (err: any) {
+          // Don't clear session on background refresh failures. Only redirect if there's truly no user state.
+          if (err?.response?.status === 401) {
+            const currentUser = useAuthStore.getState().user;
+            if (!currentUser && typeof window !== 'undefined') {
+              localStorage.removeItem('earnhub-auth');
+              window.location.href = '/login';
+            }
+          }
+        }
       },
     }),
     {
@@ -116,7 +143,9 @@ export const useAuthStore = create<AuthState>()(
         if (token) {
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         }
-        state?.setHasHydrated(true);
+        // Always mark hydration complete — even when there was no persisted state
+        const store = state ?? useAuthStore.getState();
+        store?.setHasHydrated(true);
       },
     }
   )
