@@ -22,7 +22,7 @@ const EMPTY_FORM = {
   categoryOther: '',
 };
 const JOB_TYPES = ['full-time', 'part-time', 'contract', 'internship'];
-const JOB_LOCATIONS = ['Remote', 'Hybrid', 'On-site'];
+const JOB_LOCATIONS = ['Remote', 'On-site'];
 const BUDGET_CURRENCIES = ['KES', 'USD', 'UGX', 'TZS', 'GHS', 'NGN', 'ETB'];
 
 export default function JobsPage() {
@@ -30,11 +30,9 @@ export default function JobsPage() {
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
-  const [locationFilter, setLocationFilter] = useState<'all' | 'remote' | 'hybrid' | 'on-site'>('all');
   const [view, setView] = useState<'unique' | 'all' | 'duplicates'>('unique');
   const [page, setPage] = useState(1);
   const [tab, setTab] = useState<'browse' | 'post' | 'recent'>('browse');
-  const [sourceFilter, setSourceFilter] = useState<'all' | 'internal' | 'external'>('all');
   const [posting, setPosting] = useState(false);
   const [syncingJobs, setSyncingJobs] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -43,9 +41,9 @@ export default function JobsPage() {
   const isStaff = ['admin', 'superadmin', 'ledger'].includes(user?.role || '');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['jobs', search, category, page, view, sourceFilter],
+    queryKey: ['jobs', search, category, page, view],
     queryFn: () =>
-      api.get(`/jobs?search=${search}&category=${category}&page=${page}&limit=20&view=${view}&source=${sourceFilter === 'all' ? '' : sourceFilter}`).then((r) => r.data),
+      api.get(`/jobs?search=${search}&category=${category}&page=${page}&limit=20&view=${view}`).then((r) => r.data),
   });
   const { data: catData } = useQuery({
     queryKey: ['job-cats'],
@@ -60,8 +58,8 @@ export default function JobsPage() {
   });
 
   const { data: recentData, isLoading: recentLoading } = useQuery({
-    queryKey: ['jobs-recent', sourceFilter],
-    queryFn: () => api.get(`/jobs?limit=20&page=1&view=unique&sort=newest&source=${sourceFilter === 'all' ? '' : sourceFilter}`).then((r) => r.data),
+    queryKey: ['jobs-recent'],
+    queryFn: () => api.get(`/jobs?limit=20&page=1&view=unique&sort=newest`).then((r) => r.data),
     enabled: tab === 'recent',
     staleTime: 60_000,
   });
@@ -69,25 +67,12 @@ export default function JobsPage() {
 
   const jobs = data?.jobs || [];
   const pagination = data?.pagination || {};
-  const locationMatches = (job: any) => {
-    if (locationFilter === 'all') return true;
-    const location = String(job.location || '').toLowerCase();
-    if (locationFilter === 'on-site') return location.includes('on-site') || location.includes('onsite');
-    if (locationFilter === 'hybrid') return location.includes('hybrid');
-    if (locationFilter === 'remote') return location.includes('remote');
-    return true;
-  };
-  const visibleJobs = jobs.filter(locationMatches);
-  const visibleRecentJobs = recentJobs.filter(locationMatches);
+  const visibleJobs = jobs;
+  const visibleRecentJobs = recentJobs;
   const onSiteCount = jobs.filter((job: any) => {
     const location = String(job.location || '').toLowerCase();
     return location.includes('on-site') || location.includes('onsite');
   }).length;
-  const remoteCount = jobs.filter((job: any) => String(job.location || '').toLowerCase().includes('remote')).length;
-  const visibleJobsCount = Math.max(Number(pagination.total ?? 0), 9001);
-  const sourceCounts = isStaff ? (data?.sourceCounts || {}) : {};
-  const sourceCount = Object.values(sourceCounts).filter((count: any) => Number(count) > 0).length;
-  const activeView = (isStaff ? data?.view : 'unique') || 'unique';
   const tokenPolicy = data?.tokenPolicy;
   const availableCategories: string[] = (catData && catData.length > 0) ? catData : ['Other'];
 
@@ -169,26 +154,12 @@ export default function JobsPage() {
             </div>
             <div className="flex flex-wrap gap-3">
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <div className="text-xs text-slate-400">{t('jobs.board.visibleJobs')}</div>
-                <div className="text-2xl font-black text-emerald-300">{visibleJobsCount}</div>
-              </div>
-              {isStaff && (
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <div className="text-xs text-slate-400">{t('jobs.board.sources')}</div>
-                  <div className="text-2xl font-black text-white">{sourceCount || 0}</div>
-                </div>
-              )}
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-xs text-slate-400">{t('jobs.board.tokenBalance')}</div>
                 <div className="text-2xl font-black text-white">{user?.tokenBalance || 0}T</div>
               </div>
               <div className="rounded-2xl border border-cyan-400/15 bg-cyan-500/10 px-4 py-3">
                 <div className="text-xs text-slate-400">On-site jobs</div>
                 <div className="text-2xl font-black text-cyan-300">{onSiteCount}</div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <div className="text-xs text-slate-400">Remote jobs</div>
-                <div className="text-2xl font-black text-white">{remoteCount}</div>
               </div>
             </div>
           </div>
@@ -226,47 +197,6 @@ export default function JobsPage() {
             </button>
           ))}
         </div>
-        <div className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950 px-4 py-2 text-xs text-slate-400">
-          <Filter size={12} /> On-site first browsing
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-800 bg-slate-950/80 p-3">
-        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Source</span>
-        {[
-          { key: 'all', label: 'All jobs' },
-          { key: 'internal', label: 'Internal posts' },
-          { key: 'external', label: 'External jobs' },
-        ].map((item) => (
-          <button
-            key={item.key}
-            onClick={() => {
-              setSourceFilter(item.key as typeof sourceFilter);
-              setPage(1);
-            }}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${sourceFilter === item.key ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-800 bg-slate-950/80 p-3">
-        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Location</span>
-        {[
-          { key: 'all', label: 'All locations' },
-          { key: 'on-site', label: 'On-site' },
-          { key: 'remote', label: 'Remote' },
-          { key: 'hybrid', label: 'Hybrid' },
-        ].map((item) => (
-          <button
-            key={item.key}
-            onClick={() => setLocationFilter(item.key as typeof locationFilter)}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${locationFilter === item.key ? 'bg-cyan-500 text-slate-950' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-          >
-            {item.label}
-          </button>
-        ))}
       </div>
 
       {tab === 'recent' && (
@@ -289,7 +219,7 @@ export default function JobsPage() {
             </div>
           ) : visibleRecentJobs.length === 0 ? (
             <div className="rounded-2xl border border-slate-700/50 bg-slate-900/50 py-16 text-center text-slate-400 text-sm">
-              No jobs match the current filters. Try clearing location or source filters.
+              No jobs match the current filters. Try clearing location filters.
             </div>
           ) : (
             <div className="grid gap-3">
@@ -376,9 +306,6 @@ export default function JobsPage() {
                         >
                           {isOnSite ? 'Apply On Site' : 'View Job'} <ArrowRight size={13} />
                         </button>
-                        {job.source === 'internal' && (
-                          <span className="text-[10px] uppercase tracking-widest text-slate-500">Community post</span>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -527,20 +454,6 @@ export default function JobsPage() {
                 </button>
               )}
             </div>
-            {Object.keys(sourceCounts).length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                {isStaff && (
-                  <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-emerald-200">
-                    View: {activeView}
-                  </span>
-                )}
-                {Object.entries(sourceCounts).map(([source, count]) => (
-                  <span key={source} className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-slate-300">
-                    {source}: {Number(count)}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
 
           {isLoading ? (
@@ -557,12 +470,10 @@ export default function JobsPage() {
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0 flex-1 space-y-4">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="badge-green">{t('jobs.board.badges.remote')}</span>
                         <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${isOnSite ? 'border-cyan-400/20 bg-cyan-500/10 text-cyan-300' : 'border-slate-700 bg-slate-800 text-slate-300'}`}>
                           {locationLabel}
                         </span>
                         <span className="badge-blue">{job.category === 'Other' && job.categoryOther ? t('jobs.board.badges.other', { category: job.categoryOther }) : job.category}</span>
-                        {job.source === 'internal' && <span className="badge-yellow">{t('jobs.board.badges.applyCost', { cost: job.applicationTokenCost })}</span>}
                         {isStaff && Number(job.duplicateCount || 1) > 1 && (
                           <span className="rounded-full border border-yellow-400/30 bg-yellow-500/10 px-3 py-1 text-xs font-semibold text-yellow-200">
                             {t('jobs.board.badges.duplicates', { count: job.duplicateCount })}
@@ -576,8 +487,7 @@ export default function JobsPage() {
                           <span className="flex items-center gap-1"><Building2 size={12} />{job.company}</span>
                           <span className="flex items-center gap-1"><Clock size={12} />{new Date(job.publishedAt).toLocaleDateString()}</span>
                           <span className="capitalize">{job.jobType}</span>
-                          {isStaff && <span className="capitalize text-slate-500">{job.source}</span>}
-                        </div>
+                          </div>
                       </div>
                     </div>
                     <div className="flex flex-col items-start gap-3 lg:items-end">
