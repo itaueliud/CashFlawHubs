@@ -58,7 +58,8 @@
     "users": "Utilisateurs",
     "moderation": "Modération",
     "support": "Support",
-    "providerHealth": "Santé des fournisseurs"
+    "providerHealth": "Santé des fournisseurs",
+    "myApplications": "Mes candidatures"
   },
   "auth": {
     "welcomeBack": "Bon retour",

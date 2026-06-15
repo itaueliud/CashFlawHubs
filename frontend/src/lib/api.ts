@@ -20,9 +20,9 @@ const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
     const currentOrigin = window.location.origin.replace(/\/+$/, '');
     if (window.location.hostname.endsWith('.onrender.com')) {
-      return canonicalApiUrl;
+      return `${currentOrigin}/api`;
     }
-    return `${currentOrigin}/api`;
+    return canonicalApiUrl;
   }
 
   return canonicalApiUrl;

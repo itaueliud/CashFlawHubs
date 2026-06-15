@@ -22,6 +22,7 @@ import {
   Radio,
   MessagesSquare,
   Mail,
+  BookOpen,
   Loader2,
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -38,6 +39,7 @@ const BASE_NAV = [
   { href: '/dashboard/cash-tasks', icon: TrendingUp, labelKey: 'nav.cashTasks', category: 'Earn Features' },
   { href: '/dashboard/challenges', icon: Trophy, labelKey: 'nav.dailyChallenges', category: 'Earn Features' },
   { href: '/dashboard/chat', icon: MessagesSquare, labelKey: 'nav.jobChats', category: 'Social / Community' },
+  { href: '/dashboard/jobs/applications', icon: BookOpen, labelKey: 'nav.myApplications', category: 'Social / Community' },
   { href: '/dashboard/referrals', icon: Star, labelKey: 'nav.referAndEarn', category: 'Social / Community' },
   { href: '/dashboard/wallet', icon: Wallet, labelKey: 'nav.wallet', category: 'Account' },
   { href: '/dashboard/profile', icon: User, labelKey: 'nav.profile', category: 'Account' },

@@ -58,7 +58,8 @@
     "users": "Watumiaji",
     "moderation": "Usimamizi",
     "support": "Msaada",
-    "providerHealth": "Hali ya Watoa Huduma"
+    "providerHealth": "Hali ya Watoa Huduma",
+    "myApplications": "Maombi Yangu"
   },
   "auth": {
     "welcomeBack": "Karibu tena",

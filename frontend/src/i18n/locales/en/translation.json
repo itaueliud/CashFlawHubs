@@ -58,7 +58,8 @@
     "users": "Users",
     "moderation": "Moderation",
     "support": "Support",
-    "providerHealth": "Provider Health"
+    "providerHealth": "Provider Health",
+    "myApplications": "My Applications"
   },
   "auth": {
     "welcomeBack": "Welcome back",
