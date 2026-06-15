@@ -17,11 +17,10 @@ const getApiBaseUrl = () => {
     return normalized.endsWith('/api') ? normalized : `${normalized}/api`;
   }
 
+  // In runtime (browser), prefer an explicit NEXT_PUBLIC_API_URL when set.
+  // Avoid assuming the current origin hosts the backend (some preview frontends
+  // are deployed without the API), as that causes 404s for API routes.
   if (typeof window !== 'undefined') {
-    const currentOrigin = window.location.origin.replace(/\/+$/, '');
-    if (window.location.hostname.endsWith('.onrender.com')) {
-      return `${currentOrigin}/api`;
-    }
     return canonicalApiUrl;
   }
 
