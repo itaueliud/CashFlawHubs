@@ -32,7 +32,7 @@ export default function JobsPage() {
   const [category, setCategory] = useState('');
   const [view, setView] = useState<'unique' | 'all' | 'duplicates'>('unique');
   const [page, setPage] = useState(1);
-  const [tab, setTab] = useState<'browse' | 'post' | 'recent'>('browse');
+  const [tab, setTab] = useState<'browse' | 'recent' | 'post' | 'onsite'>('browse');
   const [posting, setPosting] = useState(false);
   const [syncingJobs, setSyncingJobs] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -158,8 +158,8 @@ export default function JobsPage() {
                 <div className="text-2xl font-black text-white">{user?.tokenBalance || 0}T</div>
               </div>
               <div className="rounded-2xl border border-cyan-400/15 bg-cyan-500/10 px-4 py-3">
-                <div className="text-xs text-slate-400">On-site jobs</div>
-                <div className="text-2xl font-black text-cyan-300">{onSiteCount}</div>
+                <div className="text-xs text-slate-400">Total Jobs</div>
+                <div className="text-2xl font-black text-cyan-300">{isLoading ? '…' : (data?.pagination?.total ?? jobs.length)}</div>
               </div>
             </div>
           </div>
@@ -187,13 +187,13 @@ export default function JobsPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-500/10 bg-slate-900/90 p-4">
         <div className="flex items-center gap-2">
-          {(['browse', 'recent', 'post'] as const).map((tabName) => (
+          {(['browse', 'recent', 'post', 'onsite'] as const).map((tabName) => (
             <button
               key={tabName}
               onClick={() => setTab(tabName)}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition-all capitalize ${tab === tabName ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${tab === tabName ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
             >
-              {tabName === 'recent' ? '🕐 Recent' : tabName}
+              {tabName === 'recent' ? '🕐 Recent' : tabName === 'onsite' ? '🏢 On-site' : tabName === 'browse' ? 'Browse' : 'Post'}
             </button>
           ))}
         </div>
@@ -519,8 +519,81 @@ export default function JobsPage() {
               <button disabled={page === pagination.pages} onClick={() => setPage((p) => p + 1)} className="btn-secondary text-sm py-1.5 px-4 disabled:opacity-40">{t('common.next')}</button>
             </div>
           )}
-        </>
-      ) : null}
+        </>      ) : tab === 'onsite' ? (
+        <>
+          <div className="rounded-2xl border border-emerald-500/10 bg-slate-900/90 p-4">
+            <h2 className="text-lg font-black text-white">On-site Jobs</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Positions requiring in-office or on-location work</p>
+          </div>
+
+          {isLoading ? (
+            <div className="space-y-3">
+              {Array(6).fill(0).map((_, i) => (
+                <div key={i} className="h-24 rounded-2xl bg-slate-800/50 animate-pulse" />
+              ))}
+            </div>
+          ) : jobs.filter((job: any) => {
+            const loc = String(job.location || '').toLowerCase();
+            return loc.includes('on-site') || loc.includes('onsite');
+          }).length === 0 ? (
+            <div className="rounded-2xl border border-slate-700/50 bg-slate-900/50 py-16 text-center text-slate-400 text-sm">
+              No on-site jobs found. Try browsing all jobs or check back soon.
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {jobs
+                .filter((job: any) => {
+                  const loc = String(job.location || '').toLowerCase();
+                  return loc.includes('on-site') || loc.includes('onsite');
+                })
+                .map((job: any) => {
+                  const locationLabel = String(job.location || 'Remote');
+                  return (
+                    <div
+                      key={job._id}
+                      className="rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 transition-all hover:-translate-y-1 hover:border-emerald-400/30 hover:shadow-xl hover:shadow-emerald-950/15"
+                    >
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="min-w-0 flex-1 space-y-4">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-300">
+                              {locationLabel}
+                            </span>
+                            <span className="badge-blue">{job.category === 'Other' && job.categoryOther ? `Other: ${job.categoryOther}` : job.category}</span>
+                            {job.salary && <span className="badge" style={{ background: 'rgba(16,185,129,0.14)', color: '#6ee7b7' }}>{job.salary}</span>}
+                          </div>
+                          <div className="space-y-2">
+                            <h3 className="text-xl font-bold text-white">{job.title}</h3>
+                            <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400">
+                              <span className="flex items-center gap-1"><Building2 size={12} />{job.company}</span>
+                              <span className="flex items-center gap-1"><Clock size={12} />{new Date(job.publishedAt).toLocaleDateString()}</span>
+                              <span className="capitalize">{job.jobType}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-start gap-3 lg:items-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!job?._id) {
+                                toast.error('Unable to open this job');
+                                return;
+                              }
+                              router.push(`/dashboard/jobs/${job._id}`);
+                            }}
+                            className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
+                          >
+                            Apply on-site <ArrowRight size={14} />
+                          </button>
+                          <div className="text-xs uppercase tracking-[0.2em] text-slate-500">On-site position</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </>      ) : null}
     </div>
   );
 }

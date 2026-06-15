@@ -402,7 +402,7 @@ export default function ProfilePage() {
     queryFn: () => api.get('/referrals/dashboard').then((r) => r.data),
     enabled: hasHydrated && !!user?.id,
     staleTime: 0,
-    refetchInterval: 5_000,
+    refetchInterval: 60_000,
     refetchOnWindowFocus: true,
     refetchOnMount: 'always',
   });
@@ -557,14 +557,14 @@ export default function ProfilePage() {
         <section className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5 sm:p-6">
           <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-green-400">Verification & Trust</h3>
           <div className="space-y-1">
-            {[{ label: 'Identity Verification (KYC)', sublabel: 'Required to withdraw above $50', status: (user as any)?.identityVerificationStatus === 'verified' ? 'Verified' : ((user as any)?.identityVerificationStatus === 'submitted' ? 'Under review' : 'Start →'), statusClass: (user as any)?.identityVerificationStatus === 'verified' ? 'text-green-400' : 'text-orange-400', icon: Shield, action: () => setModal('kyc') }, { label: 'Two-Factor Authentication', sublabel: 'Protects your earnings', status: (user as any)?.twoFactorEnabled ? 'Enabled' : 'Enable ›', statusClass: (user as any)?.twoFactorEnabled ? 'text-green-400' : 'text-orange-400', icon: CheckCircle2, action: () => setModal('twofa') }, { label: 'Email Verified', sublabel: user?.email || 'Not added', status: user?.emailVerified ? '✓ Done' : 'Verify', statusClass: user?.emailVerified ? 'text-green-400' : 'text-yellow-400', icon: Mail, action: () => {} }].map((item) => { const Icon = item.icon as any; return (<button key={item.label} onClick={item.action} className="flex w-full items-center justify-between gap-3 rounded-xl border border-transparent px-2 py-3 hover:border-slate-800 hover:bg-slate-950/40 transition-colors"><div className="flex min-w-0 items-center gap-3"><div className="flex-shrink-0 rounded-xl bg-slate-800/70 p-2 text-slate-400"><Icon size={15} /></div><div className="min-w-0"><div className="text-sm font-medium text-white">{item.label}</div><div className="truncate text-xs text-slate-500">{item.sublabel}</div></div></div><span className={`flex-shrink-0 text-sm font-semibold ${item.statusClass}`}>{item.status}</span></button>); })}
+            {[{ label: 'Identity Verification (KYC)', sublabel: 'Required to withdraw above $50', status: (user as any)?.identityVerificationStatus === 'verified' ? 'Verified' : ((user as any)?.identityVerificationStatus === 'submitted' ? 'Under review' : 'Start →'), statusClass: (user as any)?.identityVerificationStatus === 'verified' ? 'text-green-400' : 'text-orange-400', icon: Shield, action: () => setModal('kyc') }, { label: 'Two-Factor Authentication', sublabel: 'Protects your earnings', status: (user as any)?.twoFactorEnabled ? 'Enabled' : 'Enable ›', statusClass: (user as any)?.twoFactorEnabled ? 'text-green-400' : 'text-orange-400', icon: CheckCircle2, action: () => setModal('twofa') }, { label: 'Email Verified', sublabel: user?.email || 'Not added', status: user?.emailVerified ? '✓ Verified' : 'Verify', statusClass: user?.emailVerified ? 'text-green-400' : 'text-yellow-400', icon: Mail, action: user?.emailVerified ? undefined : () => {} }].map((item) => { const Icon = item.icon as any; return (<button key={item.label} onClick={item.action} className="flex w-full items-center justify-between gap-3 rounded-xl border border-transparent px-2 py-3 hover:border-slate-800 hover:bg-slate-950/40 transition-colors"><div className="flex min-w-0 items-center gap-3"><div className="flex-shrink-0 rounded-xl bg-slate-800/70 p-2 text-slate-400"><Icon size={15} /></div><div className="min-w-0"><div className="text-sm font-medium text-white">{item.label}</div><div className="truncate text-xs text-slate-500">{item.sublabel}</div></div></div><span className={`flex-shrink-0 text-sm font-semibold ${item.statusClass}`}>{item.status}</span></button>); })}
           </div>
 
-          {showEmailVerificationPrompt && (
+          {!emailVerified && !!user?.email && (
             <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4">
               <p className="text-sm font-semibold text-amber-200">Verify your email</p>
-              <input className="input mt-2 text-sm" type="email" value={emailDraft} onChange={(e) => setEmailDraft(e.target.value)} placeholder="you@example.com" />
-              <button type="button" onClick={requestEmailVerification} disabled={isSendingVerification || verificationCooldown > 0} className="btn-primary mt-2 w-full text-sm">{isSendingVerification ? 'Sending…' : verificationCooldown > 0 ? `Resend in ${verificationCooldown}s` : 'Send Verification'}</button>
+              <p className="mt-2 text-sm text-amber-100">{user?.email}</p>
+              <button type="button" onClick={requestEmailVerification} disabled={isSendingVerification || verificationCooldown > 0} className="btn-primary mt-3 w-full text-sm">{isSendingVerification ? 'Sending…' : verificationCooldown > 0 ? `Resend in ${verificationCooldown}s` : 'Send Verification'}</button>
             </div>
           )}
 
@@ -603,73 +603,34 @@ export default function ProfilePage() {
 
         <section className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5 sm:p-6">
           <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-widest text-green-400">Refer & Earn</h3>
-              <p className="text-sm text-slate-400">Track your invited and activated referrals.</p>
-            </div>
+            <h3 className="text-xs font-bold uppercase tracking-widest text-green-400">Refer & Earn</h3>
             <a href="/dashboard/referrals" className="text-xs font-medium text-green-400 hover:underline">Full Dashboard</a>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl border border-blue-400/20 bg-blue-400/10 p-4 text-center">
               <div className="text-xs text-slate-400">Invited</div>
               <div className="mt-2 text-2xl font-black text-blue-300">{invitedCountLabel}</div>
-              <div className="mt-1 text-xs text-slate-500">Signed up with your code</div>
             </div>
             <div className="rounded-2xl border border-green-400/20 bg-green-400/10 p-4 text-center">
-              <div className="text-xs text-slate-400">Referred</div>
+              <div className="text-xs text-slate-400">Activated</div>
               <div className="mt-2 text-2xl font-black text-green-300">{referredCountLabel}</div>
-              <div className="mt-1 text-xs text-slate-500">Activated</div>
-            </div>
-            <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-4 text-center">
-              <div className="text-xs text-slate-400">Earned</div>
-              <div className="mt-2 text-2xl font-black text-yellow-300">${totalEarnedUSD.toFixed(2)}</div>
-              <div className="mt-1 text-xs text-slate-500">Referral rewards</div>
             </div>
           </div>
 
           <div className="mt-4 rounded-2xl border border-green-400/25 bg-green-400/10 px-4 py-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-3 mb-3">
               <div className="min-w-0 truncate font-mono text-base font-black tracking-[0.2em] text-green-300 sm:text-lg">{user?.referralCode || '—'}</div>
-              <button type="button" onClick={() => copyText(user?.referralCode || '', 'Referral code')} className="flex-shrink-0 rounded-xl bg-green-400 px-4 py-2 text-sm font-bold text-slate-900 transition-colors hover:bg-green-300 active:scale-95">Copy</button>
+              <button type="button" onClick={() => copyText(user?.referralCode || '', 'Referral code')} className="flex-shrink-0 rounded-xl bg-green-400 px-4 py-2 text-sm font-bold text-slate-900 transition-colors hover:bg-green-300 active:scale-95">Copy Code</button>
             </div>
-            <p className="mt-3 text-xs text-slate-500">Share your referral code or send this link to earn rewards.</p>
-            {referralLoading && !referralDashboard ? (
-              <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-400">Loading referral activity...</div>
-            ) : invitedUsers.length === 0 && referredUsers.length === 0 ? (
-              <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-400">No recent referral activity yet. Share your code to get started.</div>
-            ) : (
-              <div className="mt-4 space-y-3">
-                {referredUsers.length ? (
-                  <div>
-                    <div className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">Recent activated referrals</div>
-                    <div className="space-y-2">
-                      {(referredUsers || []).map((r: any, idx: number) => (
-                        <div key={`referred-${idx}`} className="rounded-2xl border border-white/10 bg-slate-950/50 px-3 py-3 text-sm">
-                          <div className="font-semibold text-white">{r.name}</div>
-                          <div className="text-xs text-slate-400">{r.country} · {new Date(r.joinedAt || r.date || Date.now()).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
-                          <div className="mt-1 flex items-center justify-between text-xs text-slate-400"><span>{r.reward} {r.currency}</span><span>{r.status === 'paid' ? '✓ Paid' : '⏳ Pending'}</span></div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                {invitedUsers.length ? (
-                  <div>
-                    <div className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">Recent invited users</div>
-                    <div className="space-y-2">
-                      {(invitedUsers || []).map((u: any, idx: number) => (
-                        <div key={`invited-${idx}`} className="rounded-2xl border border-white/10 bg-slate-950/50 px-3 py-3 text-sm">
-                          <div className="font-semibold text-white">{u.name || 'Unknown'}</div>
-                          <div className="text-xs text-slate-400">{u.country} · {new Date(u.joinedAt || u.date || Date.now()).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
-                          <div className="mt-1 text-xs text-slate-400">Awaiting activation</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            )}
+            
+            <div className="rounded-xl border border-slate-700 bg-slate-900/50 px-3 py-3 mt-3">
+              <div className="text-xs font-semibold text-slate-300 mb-1">Referral Link</div>
+              <div className="font-mono text-xs text-slate-400 break-all">{`${process.env.NEXT_PUBLIC_APP_URL || 'https://www.cashflowhubs.com'}/register?ref=${user?.referralCode || ''}`}</div>
+              <button type="button" onClick={() => copyText(`${process.env.NEXT_PUBLIC_APP_URL || 'https://www.cashflowhubs.com'}/register?ref=${user?.referralCode || ''}`, 'Referral link')} className="mt-2 w-full rounded-lg bg-slate-700 px-3 py-1 text-xs font-bold text-white hover:bg-slate-600 transition-colors">Copy Link</button>
+            </div>
+            
+            <p className="mt-3 text-xs text-slate-500">Share your code or link to earn rewards when friends activate.</p>
           </div>
         </section>
       </div>

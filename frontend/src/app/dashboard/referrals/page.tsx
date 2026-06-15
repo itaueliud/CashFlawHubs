@@ -14,7 +14,7 @@ export default function ReferralsPage() {
     queryFn: () => api.get('/referrals/dashboard').then(r => r.data),
     enabled: hasHydrated && !!user?.id,
     staleTime: 0,
-    refetchInterval: 5_000,
+    refetchInterval: 60_000,
     refetchOnWindowFocus: true,
     refetchOnMount: 'always',
   });
@@ -106,58 +106,7 @@ export default function ReferralsPage() {
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="card">
-          <h3 className="mb-3 font-bold">Recent Invited Users</h3>
-          {invited.length === 0 ? (
-            <p className="text-sm text-slate-400">No invited users yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {invited.map((u: any, idx: number) => (
-                <div key={`invited-${idx}`} className="rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm">
-                  <div className="font-medium text-white">{u.name || 'Unknown'}</div>
-                  <div className="text-xs text-slate-400">{u.country} · {new Date(u.joinedAt || u.date || Date.now()).toLocaleDateString()}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
 
-        <div className="card">
-          <h3 className="mb-3 font-bold">Recent Activated Referrals</h3>
-          {referred.length === 0 ? (
-            <p className="text-sm text-slate-400">No activated referrals yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {referred.map((u: any, idx: number) => (
-                <div key={`referred-${idx}`} className="rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm">
-                  <div className="font-medium text-white">{u.name || 'Unknown'}</div>
-                  <div className="text-xs text-slate-400">{u.country} · {new Date(u.joinedAt || u.date || Date.now()).toLocaleDateString()}</div>
-                  <div className="mt-1 text-xs text-slate-400">{u.rewardLocal ? `${u.rewardLocal} ${u.currency || ''}`.trim() : 'Pending reward'}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="card">
-        <h3 className="mb-3 font-bold">Referral Summary</h3>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
-            <div className="text-xs text-slate-400">Invited</div>
-            <div className="mt-1 text-2xl font-black">{totalInvited}</div>
-          </div>
-          <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
-            <div className="text-xs text-slate-400">Referred</div>
-            <div className="mt-1 text-2xl font-black">{totalReferred}</div>
-          </div>
-          <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
-            <div className="text-xs text-slate-400">Pending</div>
-            <div className="mt-1 text-2xl font-black">{Number(pendingUSD).toFixed(2)} USD</div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
