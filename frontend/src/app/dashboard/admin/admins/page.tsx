@@ -108,7 +108,7 @@ export default function AdminsPage() {
             <div>
               <label className="mb-1 block text-sm text-slate-300">Country</label>
               <select className="input" value={form.country} onChange={(e) => onChange('country', e.target.value)}>
-                {['KE', 'UG', 'TZ', 'ET', 'GH', 'NG'].map((country) => (
+                {['BJ', 'BF', 'CM', 'CG', 'CD', 'ET', 'GA', 'GH', 'CI', 'KE', 'LS', 'MW', 'MZ', 'NG', 'RW', 'SN', 'SL', 'TZ', 'UG', 'ZM'].map((country) => (
                   <option key={country} value={country}>{country}</option>
                 ))}
               </select>

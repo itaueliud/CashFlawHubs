@@ -23,7 +23,7 @@ const EMPTY_FORM = {
 };
 const JOB_TYPES = ['full-time', 'part-time', 'contract', 'internship'];
 const JOB_LOCATIONS = ['Remote', 'On-site'];
-const BUDGET_CURRENCIES = ['KES', 'USD', 'UGX', 'TZS', 'GHS', 'NGN', 'ETB'];
+const BUDGET_CURRENCIES = ['KES', 'USD', 'UGX', 'TZS', 'GHS', 'NGN', 'ETB', 'XOF', 'XAF', 'CDF', 'LSL', 'MWK', 'MZN', 'RWF', 'SLL', 'ZMW'];
 
 export default function JobsPage() {
   const { t } = useTranslation();

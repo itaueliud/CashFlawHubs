@@ -14,12 +14,26 @@ import { normalizeLanguage, setAppLanguage } from '@/i18n';
 const langs = ['en', 'sw', 'fr'];
 
 const countries = [
-  { code: 'KE', name: 'Kenya',    dialCode: '+254', localDigits: 9,  hint: '7XXXXXXXX' },
-  { code: 'UG', name: 'Uganda',   dialCode: '+256', localDigits: 9,  hint: '7XXXXXXXX' },
-  { code: 'TZ', name: 'Tanzania', dialCode: '+255', localDigits: 9,  hint: '7XXXXXXXX' },
-  { code: 'ET', name: 'Ethiopia', dialCode: '+251', localDigits: 9,  hint: '9XXXXXXXX' },
-  { code: 'GH', name: 'Ghana',    dialCode: '+233', localDigits: 9,  hint: '2XXXXXXXX' },
-  { code: 'NG', name: 'Nigeria',  dialCode: '+234', localDigits: 10, hint: '80XXXXXXXX' },
+  { code: 'BJ', name: 'Benin',              dialCode: '+229', localDigits: 8,  hint: '9XXXXXXX' },
+  { code: 'BF', name: 'Burkina Faso',       dialCode: '+226', localDigits: 8,  hint: '6XXXXXXX' },
+  { code: 'CM', name: 'Cameroon',           dialCode: '+237', localDigits: 9,  hint: '6XXXXXXXX' },
+  { code: 'CG', name: 'Congo-Brazzaville',  dialCode: '+242', localDigits: 9,  hint: '6XXXXXXXX' },
+  { code: 'CD', name: 'DRC (Dem. Rep. Congo)', dialCode: '+243', localDigits: 9,  hint: '8XXXXXXXX' },
+  { code: 'ET', name: 'Ethiopia',           dialCode: '+251', localDigits: 9,  hint: '9XXXXXXXX' },
+  { code: 'GA', name: 'Gabon',              dialCode: '+241', localDigits: 7,  hint: '6XXXXXX' },
+  { code: 'GH', name: 'Ghana',              dialCode: '+233', localDigits: 9,  hint: '2XXXXXXXX' },
+  { code: 'CI', name: 'Ivory Coast (Côte d\'Ivoire)', dialCode: '+225', localDigits: 8,  hint: '0XXXXXXX' },
+  { code: 'KE', name: 'Kenya',              dialCode: '+254', localDigits: 9,  hint: '7XXXXXXXX' },
+  { code: 'LS', name: 'Lesotho',            dialCode: '+266', localDigits: 8,  hint: '2XXXXXXX' },
+  { code: 'MW', name: 'Malawi',             dialCode: '+265', localDigits: 9,  hint: '1XXXXXXXX' },
+  { code: 'MZ', name: 'Mozambique',         dialCode: '+258', localDigits: 9,  hint: '8XXXXXXXX' },
+  { code: 'NG', name: 'Nigeria',            dialCode: '+234', localDigits: 10, hint: '80XXXXXXXX' },
+  { code: 'RW', name: 'Rwanda',             dialCode: '+250', localDigits: 9,  hint: '7XXXXXXXX' },
+  { code: 'SN', name: 'Senegal',            dialCode: '+221', localDigits: 9,  hint: '7XXXXXXXX' },
+  { code: 'SL', name: 'Sierra Leone',       dialCode: '+232', localDigits: 8,  hint: '7XXXXXXX' },
+  { code: 'TZ', name: 'Tanzania',           dialCode: '+255', localDigits: 9,  hint: '7XXXXXXXX' },
+  { code: 'UG', name: 'Uganda',             dialCode: '+256', localDigits: 9,  hint: '7XXXXXXXX' },
+  { code: 'ZM', name: 'Zambia',             dialCode: '+260', localDigits: 9,  hint: '9XXXXXXXX' },
 ];
 
 const translations: Record<string, Record<string, string>> = {

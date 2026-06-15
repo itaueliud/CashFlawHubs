@@ -375,7 +375,26 @@ const formatPhone = (phone?: string) => {
 const LEVELS = ['Beginner','Active Worker','Power Earner','Expert','Master Earner','Champion','Legend','Icon'];
 const XP_TARGETS = [100, 300, 600, 1000, 1500, 2200, 3000, 5000];
 const COUNTRY_LABELS: Record<string, string> = {
-  KE: 'Kenya', UG: 'Uganda', TZ: 'Tanzania', ET: 'Ethiopia', GH: 'Ghana', NG: 'Nigeria',
+  BJ: 'Benin',
+  BF: 'Burkina Faso',
+  CM: 'Cameroon',
+  CG: 'Congo-Brazzaville',
+  CD: 'DRC (Dem. Rep. Congo)',
+  ET: 'Ethiopia',
+  GA: 'Gabon',
+  GH: 'Ghana',
+  CI: 'Ivory Coast (Côte d\'Ivoire)',
+  KE: 'Kenya',
+  LS: 'Lesotho',
+  MW: 'Malawi',
+  MZ: 'Mozambique',
+  NG: 'Nigeria',
+  RW: 'Rwanda',
+  SN: 'Senegal',
+  SL: 'Sierra Leone',
+  TZ: 'Tanzania',
+  UG: 'Uganda',
+  ZM: 'Zambia',
 };
 
 type ProfileForm = { name: string; bio: string; userLanguage: string; phone: string };
