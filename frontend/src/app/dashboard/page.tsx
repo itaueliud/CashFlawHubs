@@ -55,15 +55,23 @@ export default function DashboardPage() {
   const wallet = walletData || {};
   const transactions = txData || [];
 
-  const chartData = [
-    { day: 'Mon', earn: 0.4 },
-    { day: 'Tue', earn: 1.2 },
-    { day: 'Wed', earn: 0.8 },
-    { day: 'Thu', earn: 2.1 },
-    { day: 'Fri', earn: 1.5 },
-    { day: 'Sat', earn: 3.2 },
-    { day: 'Sun', earn: 1.8 },
-  ];
+  // Build chart data from recent transactions (group by weekday)
+  const weekdayOrder = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const txByDay: Record<string, number> = { Sun: 0, Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0 };
+  let weeklyTotal = 0;
+  transactions.forEach((tx: any) => {
+    try {
+      const d = new Date(tx.createdAt);
+      const day = weekdayOrder[d.getUTCDay()];
+      const amt = Number(tx.direction === 'credit' ? tx.amountUSD : -tx.amountUSD) || 0;
+      txByDay[day] = (txByDay[day] || 0) + amt;
+      weeklyTotal += amt;
+    } catch (e) {
+      // ignore parsing errors
+    }
+  });
+
+  const chartData = weekdayOrder.map((day) => ({ day, earn: Number((txByDay[day] || 0).toFixed(4)) }));
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -94,7 +102,7 @@ export default function DashboardPage() {
         <div className="card md:col-span-2">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm font-medium">{t('dashboard.thisWeeksEarnings')}</div>
-            <div className="text-xs text-green-400">+$9.00</div>
+            <div className="text-xs text-green-400">{weeklyTotal >= 0 ? `+$${weeklyTotal.toFixed(2)}` : `-$${Math.abs(weeklyTotal).toFixed(2)}`}</div>
           </div>
           <ResponsiveContainer width="100%" height={80}>
             <AreaChart data={chartData}>
@@ -117,7 +125,7 @@ export default function DashboardPage() {
           { label: t('dashboard.surveysDone'), value: user?.surveysCompleted || 0, icon: ClipboardList, color: 'text-blue-400' },
           { label: t('dashboard.tasksDone'), value: user?.tasksCompleted || 0, icon: Zap, color: 'text-yellow-400' },
           { label: t('dashboard.referrals'), value: user?.totalReferrals || 0, icon: Star, color: 'text-green-400' },
-          { label: t('common.tokens'), value: user?.tokenBalance || 0, icon: TrendingUp, color: 'text-cyan-400' },
+          { label: t('common.tokens'), value: wallet.tokenBalance || 0, icon: TrendingUp, color: 'text-cyan-400' },
           { label: t('dashboard.dayStreak'), value: `${user?.streak || 0}`, icon: Flame, color: 'text-orange-400' },
         ].map((stat) => (
           <div key={stat.label} className="card">
