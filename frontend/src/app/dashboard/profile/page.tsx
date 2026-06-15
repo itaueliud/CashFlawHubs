@@ -460,31 +460,51 @@ export default function ProfilePage() {
   };
 
   const requestEmailVerification = async () => {
-    const trimmedEmail = emailDraft.trim().toLowerCase(); if (!trimmedEmail) { toast.error('Add an email first'); return; }
-    try { 
-      setIsSendingVerification(true); 
-      if (user?.email && trimmedEmail === user.email.toLowerCase()) { 
-        if (user.emailVerified) { 
-          toast.success('Email already verified'); 
-          return; 
-        } 
-        await api.post('/auth/resend-verification-email'); 
-      } else { 
-        await api.post('/users/me/email', { newEmail: trimmedEmail }); 
-      } 
-      setVerificationCooldown(60); 
-      await refreshUser(); 
-      toast.success('Verification link sent'); 
-    } catch (err: any) { 
+    const trimmedEmail = emailDraft.trim().toLowerCase();
+    if (!trimmedEmail) {
+      toast.error('Add an email first');
+      return;
+    }
+
+    try {
+      setIsSendingVerification(true);
+
+      if (user?.email && trimmedEmail === user.email.toLowerCase()) {
+        if (user.emailVerified) {
+          toast.success('Email already verified');
+          return;
+        }
+        await api.post('/auth/resend-verification-email');
+      } else {
+        await api.post('/users/me/email', { newEmail: trimmedEmail });
+      }
+
+      setVerificationCooldown(60);
+      await refreshUser();
+      toast.success('Verification link sent');
+    } catch (err: any) {
       const message = err?.response?.data?.message || 'Failed to send verification';
-      if (message.includes('already verified')) { 
+      const statusCode = err?.response?.status;
+
+      // Check if error is "already verified"
+      const isAlreadyVerified =
+        message.toLowerCase().includes('already verified') ||
+        message.toLowerCase().includes('already been verified');
+
+      if (isAlreadyVerified) {
+        // Manually mark email as verified in the store
+        const { setUser } = useAuthStore.getState();
+        if (user) {
+          setUser({ ...user, emailVerified: true });
+        }
+        toast.success('Email already verified');
+      } else {
+        // Try to refresh for other errors too
         await refreshUser();
-        toast.success('Email already verified'); 
-      } else { 
-        toast.error(message); 
-      } 
-    } finally { 
-      setIsSendingVerification(false); 
+        toast.error(message);
+      }
+    } finally {
+      setIsSendingVerification(false);
     }
   };
 
