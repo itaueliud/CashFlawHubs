@@ -1,0 +1,9 @@
+{
+  "name": "cashflawhubs-monorepo-root",
+  "private": true,
+  "scripts": {
+    "postinstall": "cd backend && npm install",
+    "start-backend": "cd backend && npm run start",
+    "dev-backend": "cd backend && npm run dev"
+  }
+}
