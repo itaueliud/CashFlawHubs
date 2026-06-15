@@ -4,9 +4,14 @@
   "description": "EarnHub API Server",
   "main": "src/server.js",
   "scripts": {
-    "start": "node --max-old-space-size=512 src/server.js",
+    "start": "node start.js",
     "dev": "nodemon src/server.js",
+    "test": "vitest",
     "seed": "node scripts/seed.js",
+    "seed:reset": "node scripts/seed.js --reset",
+    "restore": "node scripts/restore.js",
+    "replace-test-user": "node scripts/replace-test-user.js",
+    "delete-all-users-except-core": "node scripts/delete-all-users-except-core.js",
     "set-test-tokens": "node scripts/set-test-user-tokens.js"
   },
   "dependencies": {
@@ -34,9 +39,11 @@
     "node-cron": "^3.0.3",
     "node-fetch": "^2.7.0",
     "nodemailer": "^6.9.7",
+    "qrcode": "^1.5.4",
     "redis": "^4.6.10",
     "rss-parser": "^3.13.0",
     "socket.io": "^4.8.1",
+    "speakeasy": "^2.0.0",
     "twilio": "^4.19.0",
     "uuid": "^9.0.0",
     "winston": "^3.11.0"
