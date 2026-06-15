@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -15,36 +15,11 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState('');
-  const [portal, setPortal] = useState('');
-  const [mounted, setMounted] = useState(false);
-  const { register, handleSubmit } = useForm<{ identifier: string; password: string }>();
+  const [twoFactorChallengeId, setTwoFactorChallengeId] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
+  const { register, handleSubmit, getValues } = useForm<{ identifier: string; password: string }>();
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || '';
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const queryPortal = String(params.get('portal') || '').toLowerCase();
-    if (queryPortal) {
-      setPortal(queryPortal);
-    } else {
-      const host = String(window.location.host || '').toLowerCase();
-      if (host.includes('ledger')) setPortal('ledger');
-      else if (host.includes('superadmin')) setPortal('superadmin');
-      else if (host.includes('admin')) setPortal('admin');
-      else setPortal('');
-    }
-    setMounted(true);
-  }, []);
-
-  const portalLabel = mounted
-    ? portal === 'ledger'
-      ? 'Ledger dashboard'
-      : portal === 'superadmin'
-        ? 'Superadmin dashboard'
-        : portal === 'admin'
-          ? 'Admin dashboard'
-          : ''
-    : '';
-  const hideSignup = mounted && (portal === 'admin' || portal === 'superadmin');
 
   const onSubmit = async (data: { identifier: string; password: string }) => {
     if (turnstileSiteKey && !turnstileToken) {
@@ -52,29 +27,65 @@ export default function LoginPage() {
       return;
     }
 
+    if (requiresTwoFactor && !twoFactorCode.trim()) {
+      toast.error('Enter your 2FA code');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const browserLanguage = (typeof navigator !== 'undefined' ? navigator.language : 'en').split('-')[0].toLowerCase();
       const timezone = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : '';
-      await login(data.identifier, data.password, turnstileToken || undefined, browserLanguage, timezone, portal || undefined);
-      const currentUser = useAuthStore.getState().user;
-      const language = normalizeLanguage(useAuthStore.getState().user?.userLanguage || browserLanguage || 'en');
+      const isTwoFactorStep = requiresTwoFactor && twoFactorChallengeId;
+      const currentUser = await login(
+        data.identifier,
+        data.password,
+        turnstileToken || undefined,
+        browserLanguage,
+        timezone,
+        undefined,
+        isTwoFactorStep ? twoFactorCode.trim() : undefined,
+        isTwoFactorStep ? twoFactorChallengeId : undefined
+      );
+
+      if ((currentUser as any)?.requires2FA) {
+        setRequiresTwoFactor(true);
+        setTwoFactorChallengeId((currentUser as any).challengeId);
+        setTwoFactorCode('');
+        toast.success('Enter your authenticator code to finish signing in');
+        return;
+      }
+
+      if ('role' in currentUser && currentUser.role && currentUser.role !== 'user') {
+        toast.error('Staff accounts must use their dedicated portal.');
+        router.replace('/login');
+        return;
+      }
+      const language = normalizeLanguage(('userLanguage' in currentUser ? currentUser.userLanguage : undefined) || browserLanguage || 'en');
       await setAppLanguage(language);
+      setRequiresTwoFactor(false);
+      setTwoFactorChallengeId('');
+      setTwoFactorCode('');
       toast.success('Welcome back');
-      const targetByPortal: Record<string, string> = {
-        ledger: '/dashboard/ledger',
-        superadmin: '/dashboard/superadmin',
-        admin: '/dashboard/admin-console',
-      };
-      const targetByRole: Record<string, string> = {
-        ledger: '/dashboard/ledger',
-        superadmin: '/dashboard/superadmin',
-        admin: '/dashboard/admin-console',
-      };
-      const nextPath = targetByPortal[portal] || targetByRole[currentUser?.role || ''] || '/dashboard';
-      router.replace(nextPath);
+      if (typeof window !== 'undefined') {
+        window.location.assign('/dashboard');
+      } else {
+        router.replace('/dashboard');
+      }
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Login failed');
+      const status = err?.response?.status;
+      const serverMsg = err?.response?.data?.message;
+      if (status === 403) {
+        if (String(serverMsg || '').toLowerCase().includes('staff')) {
+          toast.error('Staff accounts must use the dedicated staff portal.');
+        } else if (String(serverMsg || '').toLowerCase().includes('admin')) {
+          toast.error('Admin credentials required. Please use the admin portal.');
+        } else {
+          toast.error(serverMsg || 'Access denied');
+        }
+      } else {
+        toast.error(serverMsg || 'Login failed');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -87,11 +98,6 @@ export default function LoginPage() {
           <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center font-black text-xl mx-auto mb-4">C</div>
           <h1 className="text-2xl font-black">Welcome back</h1>
           <p className="text-slate-400 text-sm mt-1">Login to your CashFlowHubs account</p>
-          {portalLabel && (
-            <div className="mt-3 inline-flex items-center rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-green-300">
-              {portalLabel}
-            </div>
-          )}
         </div>
         <div className="card">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -110,6 +116,20 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
+            {requiresTwoFactor && (
+              <div>
+                <label className="text-sm font-medium text-slate-300 mb-1.5 block">Authenticator code</label>
+                <input
+                  value={twoFactorCode}
+                  onChange={(e) => setTwoFactorCode(e.target.value)}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="123 456"
+                  className="input tracking-[0.35em] text-center font-semibold"
+                />
+                <p className="mt-1 text-xs text-slate-500">Enter the 6-digit code from your authenticator app.</p>
+              </div>
+            )}
             <TurnstileWidget
               siteKey={turnstileSiteKey}
               onToken={setTurnstileToken}
@@ -121,12 +141,10 @@ export default function LoginPage() {
               {isLoading ? <Loader2 size={18} className="animate-spin" /> : 'Log in'}
             </button>
           </form>
-          {!hideSignup && (
-            <p className="text-center text-slate-400 text-sm mt-5">
-              Don't have an account?{' '}
-              <Link href="/register" className="text-green-400 hover:text-green-300 font-medium">Sign up free</Link>
-            </p>
-          )}
+          <p className="text-center text-slate-400 text-sm mt-5">
+            Don't have an account?{' '}
+            <Link href="/register" className="text-green-400 hover:text-green-300 font-medium">Sign up free</Link>
+          </p>
         </div>
       </div>
     </div>
