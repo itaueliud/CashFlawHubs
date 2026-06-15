@@ -347,7 +347,7 @@ function KycModal({ user, onClose, onSubmitted }: { user: any; onClose: () => vo
       if (idNumber) fd.append('idNumber', idNumber);
       if (idFile) fd.append('idDocumentImage', idFile);
       if (selfieFile) fd.append('faceVerificationImage', selfieFile);
-      await api.post('/users/kyc/submit', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await api.post('/users/kyc/submit', fd);
       toast.success('KYC submitted');
       onSubmitted && onSubmitted();
       onClose();
