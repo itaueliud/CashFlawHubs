@@ -346,7 +346,7 @@ export default function JobsPage() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm text-slate-300 mb-1 block">{t('jobs.board.labels.category')}</label>
               <select className="input" value={form.category} onChange={(e) => updateField('category', e.target.value)}>
@@ -358,12 +358,6 @@ export default function JobsPage() {
               <label className="text-sm text-slate-300 mb-1 block">{t('jobs.board.labels.jobType')}</label>
               <select className="input" value={form.jobType} onChange={(e) => updateField('jobType', e.target.value)}>
                 {JOB_TYPES.map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm text-slate-300 mb-1 block">{t('jobs.board.labels.location')}</label>
-              <select className="input" value={form.location} onChange={(e) => updateField('location', e.target.value)}>
-                {JOB_LOCATIONS.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
             </div>
           </div>
