@@ -528,10 +528,20 @@ export default function ProfilePage() {
   };
 
   const requestPhoneOtp = async () => {
+    if (!emailVerified) {
+      toast.error('Verify your email before requesting phone OTP');
+      return;
+    }
+
     const vals = getValues(); const trimmedPhone = String(vals.phone || '').trim(); if (!trimmedPhone) { toast.error('Add a phone number first'); return; } const saved = await saveProfile({ ...vals, phone: trimmedPhone }); if (!saved) return; try { setIsSendingPhoneOtp(true); await api.post('/auth/send-otp', { phone: trimmedPhone, country: user?.country }); await refreshUser(); toast.success('OTP sent'); } catch (err: any) { toast.error(err?.response?.data?.message || 'Failed to send OTP'); } finally { setIsSendingPhoneOtp(false); }
   };
 
   const verifyPhoneOtp = async () => {
+    if (!emailVerified) {
+      toast.error('Verify your email before verifying phone OTP');
+      return;
+    }
+
     const vals = getValues(); const trimmedPhone = String(vals.phone || '').trim(); const trimmedOtp = phoneOtp.trim(); if (!trimmedPhone) { toast.error('Add a phone number first'); return; } if (!trimmedOtp) { toast.error('Enter the OTP'); return; } const saved = await saveProfile({ ...vals, phone: trimmedPhone }); if (!saved) return; try { setIsVerifyingPhoneOtp(true); await api.post('/auth/verify-phone-otp', { phone: trimmedPhone, otp: trimmedOtp }); await refreshUser(); setPhoneOtp(''); toast.success('Phone verified'); } catch (err: any) { toast.error(err?.response?.data?.message || 'Failed to verify OTP'); } finally { setIsVerifyingPhoneOtp(false); }
   };
 
@@ -599,7 +609,11 @@ export default function ProfilePage() {
             <form onSubmit={handleSubmit((data) => void saveProfile(data))} className="space-y-4">
               <div><label className="mb-1.5 block text-xs font-medium text-slate-400">Full Name</label><input {...register('name')} className="input" placeholder="Your full name" /></div>
               <div><label className="mb-1.5 block text-xs font-medium text-slate-400">Bio</label><textarea {...register('bio')} rows={3} className="input resize-none" placeholder="A short bio..." /></div>
-              <div><label className="mb-1.5 block text-xs font-medium text-slate-400">Phone Number</label><input {...register('phone')} className="input" placeholder="+254..." /></div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-slate-400">Phone Number</label>
+                <input {...register('phone')} className="input" placeholder="+254..." disabled={!emailVerified} />
+                {!emailVerified ? <p className="mt-2 text-xs text-amber-300">Verify your email first to change your phone number.</p> : null}
+              </div>
               <div><LanguageSelect label="Language" value={watch('userLanguage') || ''} showAuto onSave={(lang) => { setTimeout(() => { reset({ ...getValues(), userLanguage: lang }); }, 0); }} /></div>
               <button type="submit" className="btn-primary w-full sm:w-auto">Save Changes</button>
             </form>
@@ -654,7 +668,28 @@ export default function ProfilePage() {
 
       <section className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5 sm:p-6">
         <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-green-400">Payout Methods</h3>
-        {user?.phone ? (<div className="flex items-center justify-between rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3.5"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-800 text-lg">📱</div><div><div className="text-sm font-semibold text-white">M-Pesa</div><div className="text-xs text-slate-500">{formatPhone(user.phone)} · Primary</div></div></div><ChevronRight size={16} className="text-slate-500" /></div>) : null}
+        {user?.phone ? (
+          <div className="flex items-center justify-between rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3.5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-800 text-lg">📱</div>
+              <div>
+                <div className="text-sm font-semibold text-white">M-Pesa</div>
+                <div className="text-xs text-slate-500">{formatPhone(user.phone)} · Primary</div>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-slate-500" />
+          </div>
+        ) : null}
+        <div className="mt-3 flex items-center justify-between rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3.5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-800 text-lg">💳</div>
+            <div>
+              <div className="text-sm font-semibold text-white">Pawapay</div>
+              <div className="text-xs text-slate-500">Available</div>
+            </div>
+          </div>
+          <ChevronRight size={16} className="text-slate-500" />
+        </div>
         <button className="mt-3 w-full rounded-2xl border border-dashed border-slate-700 py-3 text-sm text-slate-400 transition-colors hover:border-green-400/40 hover:text-green-300">+ Add Payout Method</button>
       </section>
 
