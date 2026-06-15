@@ -461,7 +461,31 @@ export default function ProfilePage() {
 
   const requestEmailVerification = async () => {
     const trimmedEmail = emailDraft.trim().toLowerCase(); if (!trimmedEmail) { toast.error('Add an email first'); return; }
-    try { setIsSendingVerification(true); if (user?.email && trimmedEmail === user.email.toLowerCase()) { if (user.emailVerified) { toast.success('Email already verified'); return; } await api.post('/auth/resend-verification-email'); } else { await api.post('/users/me/email', { newEmail: trimmedEmail }); } setVerificationCooldown(60); await refreshUser(); toast.success('Verification link sent'); } catch (err: any) { toast.error(err?.response?.data?.message || 'Failed to send verification'); } finally { setIsSendingVerification(false); }
+    try { 
+      setIsSendingVerification(true); 
+      if (user?.email && trimmedEmail === user.email.toLowerCase()) { 
+        if (user.emailVerified) { 
+          toast.success('Email already verified'); 
+          return; 
+        } 
+        await api.post('/auth/resend-verification-email'); 
+      } else { 
+        await api.post('/users/me/email', { newEmail: trimmedEmail }); 
+      } 
+      setVerificationCooldown(60); 
+      await refreshUser(); 
+      toast.success('Verification link sent'); 
+    } catch (err: any) { 
+      const message = err?.response?.data?.message || 'Failed to send verification';
+      if (message.includes('already verified')) { 
+        await refreshUser();
+        toast.success('Email already verified'); 
+      } else { 
+        toast.error(message); 
+      } 
+    } finally { 
+      setIsSendingVerification(false); 
+    }
   };
 
   const requestPhoneOtp = async () => {
