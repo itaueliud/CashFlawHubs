@@ -683,7 +683,7 @@ export default function WalletPage() {
 
         <div>
           <div className={`text-sm font-semibold ${wallet.withdrawalOpen ? 'text-green-400' : 'text-blue-400'}`}>
-            {wallet.withdrawalOpen ? 'Withdrawals are open today' : 'Friday payout system'}
+            {wallet.withdrawalOpen ? 'Withdrawals are open today (Friday only)' : 'Withdrawals are only on Friday'}
           </div>
           <div className="mt-0.5 text-xs text-slate-400">
             {wallet.withdrawalOpen ? 'Available now' : `${wallet.nextPayoutDate}${wallet.payoutNote ? ` - ${wallet.payoutNote}` : ''}`}
