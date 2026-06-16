@@ -684,7 +684,7 @@ export default function ProfilePage() {
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-800 text-lg">💳</div>
             <div>
-              <div className="text-sm font-semibold text-white">Pawapay</div>
+              <div className="text-sm font-semibold text-white">Mobile Money</div>
               <div className="text-xs text-slate-500">Available</div>
             </div>
           </div>

@@ -24,8 +24,8 @@ export default function ReferralsPage() {
   });
   const invited = data?.invited || data?.recentInvited || [];
   const referred = data?.referred || data?.recentReferred || [];
-  const totalInvited = data?.invitedCount ?? data?.totalInvited ?? invited.length ?? 0;
-  const totalReferred = data?.activatedCount ?? data?.totalReferred ?? referred.length ?? 0;
+  const totalInvited = data?.invitedCount ?? data?.totalInvited ?? 0;
+  const totalReferred = data?.activatedCount ?? data?.totalReferred ?? 0;
   const pendingUSD = data?.pendingUSD ?? 0;
   const totalEarnedUSD = data?.totalEarnedUSD ?? 0;
   const referralBaseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'https://www.cashflowhubs.com';

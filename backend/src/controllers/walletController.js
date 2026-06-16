@@ -240,6 +240,13 @@ exports.purchaseTokens = async (req, res) => {
     wallet.totalTokensPurchased += selectedPackage.tokens;
     await wallet.save();
 
+    const user = await User.findById(req.user.id);
+    if (user) {
+      user.tokenBalance = (user.tokenBalance || 0) + selectedPackage.tokens;
+      user.totalTokensPurchased = (user.totalTokensPurchased || 0) + selectedPackage.tokens;
+      await user.save();
+    }
+
     await Transaction.create({
       userId: req.user.id,
       type: 'token_purchase',

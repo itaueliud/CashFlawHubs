@@ -90,6 +90,7 @@ export default function WalletPage() {
   const pendingReference = pendingPurchase?.reference || null;
   const pendingDepositReference = pendingDeposit?.reference || null;
   const withdrawalOpen = Boolean(wallet.withdrawalOpen);
+  const walletBalanceUSD = Number(wallet.balanceUSD || 0);
   const xpPoints = Number(user?.xpPoints || 0);
   const xpRedeemable = Math.floor(xpPoints / XP_REDEMPTION_BLOCK) * XP_REDEMPTION_BLOCK;
   const xpCashLocal = Number(((xpPoints / XP_REDEMPTION_BLOCK) * (wallet.xpPerBlockLocal || 1000)).toFixed(2));
@@ -402,7 +403,7 @@ export default function WalletPage() {
 
         <div className="card border-cyan-500/30 bg-cyan-500/5">
           <div className="mb-1 text-xs text-cyan-300">Token Balance</div>
-          <div className="text-3xl font-black text-cyan-300">{user?.tokenBalance || 0}T</div>
+          <div className="text-3xl font-black text-cyan-300">{wallet.tokenBalance || 0}T</div>
           <div className="mt-1 text-xs text-slate-500">Used for job and gig posting</div>
         </div>
 
@@ -562,7 +563,7 @@ export default function WalletPage() {
           const displayAmount = pkg.amountLocal ?? pkg.amountKES;
           const displayCurrency = pkg.currency || pkgCurrency;
           const walletBalanceLocal = Number(wallet.balanceLocal || 0);
-          const canAffordWithWallet = walletBalanceLocal >= Number(displayAmount);
+          const canAffordWithWallet = walletBalanceUSD >= Number(pkg.amountUSD ?? 0);
 
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
