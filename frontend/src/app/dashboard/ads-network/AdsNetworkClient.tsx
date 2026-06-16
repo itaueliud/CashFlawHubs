@@ -5,33 +5,63 @@ import { AlertTriangle, CheckCircle2, Radio, Sparkles } from 'lucide-react';
 import api from '@/lib/api';
 
 type ScriptStatus = 'missing' | 'loading' | 'ready' | 'error';
-type PlacementKey = 'popunder' | 'inpage';
+type PlacementKey =
+  | 'adsterraPopunder'
+  | 'adsterraSmartlink'
+  | 'adsterraSocialBar'
+  | 'monetagOnclick'
+  | 'monetagInpage';
 type WatchState = 'idle' | 'tracking' | 'rewarded' | 'error';
 
-type ScriptConfig = {
-  kind: 'zone';
-  title: string;
-  description: string;
-  zoneId?: string;
-  scriptSrc?: string;
-};
+type ScriptConfig =
+  | {
+      kind: 'script';
+      title: string;
+      description: string;
+      scriptSrc?: string;
+    }
+  | {
+      kind: 'zone';
+      title: string;
+      description: string;
+      zoneId?: string;
+      scriptSrc?: string;
+    };
 
 type ScriptUrls = {
-  popunderZoneId: string;
-  popunderScriptSrc: string;
-  inpageZoneId: string;
-  inpageScriptSrc: string;
+  adsterraPopunderScriptSrc: string;
+  adsterraSmartlinkScriptSrc: string;
+  adsterraSocialBarScriptSrc: string;
+  monetagOnclickZoneId: string;
+  monetagOnclickScriptSrc: string;
+  monetagInpageZoneId: string;
+  monetagInpageScriptSrc: string;
 };
 
 const PLACEMENT_META: Record<PlacementKey, { title: string; accent: string; label: string }> = {
-  popunder: {
-    title: 'OnClick',
+  adsterraPopunder: {
+    title: 'Adsterra Popunder',
     accent: 'from-amber-400/20 to-rose-400/10',
+    label: 'Script',
+  },
+  adsterraSmartlink: {
+    title: 'Adsterra Smartlink',
+    accent: 'from-cyan-400/20 to-sky-400/10',
+    label: 'Script',
+  },
+  adsterraSocialBar: {
+    title: 'Adsterra Social Bar',
+    accent: 'from-emerald-400/20 to-teal-400/10',
+    label: 'Script',
+  },
+  monetagOnclick: {
+    title: 'Monetag OnClick',
+    accent: 'from-fuchsia-400/20 to-pink-400/10',
     label: 'Popunder',
   },
-  inpage: {
-    title: 'Push 1',
-    accent: 'from-cyan-400/20 to-sky-400/10',
+  monetagInpage: {
+    title: 'Monetag In-Page',
+    accent: 'from-violet-400/20 to-indigo-400/10',
     label: 'In-Page Push',
   },
 };
@@ -52,16 +82,18 @@ function isSafeScriptUrl(value: string | undefined): value is string {
 
 function useRouteScopedScript(config: ScriptConfig, id: string): ScriptStatus {
   const [status, setStatus] = useState<ScriptStatus>(() => {
-    return config.zoneId && isSafeScriptUrl(config.scriptSrc) ? 'loading' : 'missing';
+    if (config.kind === 'zone') {
+      return config.zoneId && isSafeScriptUrl(config.scriptSrc) ? 'loading' : 'missing';
+    }
+    return isSafeScriptUrl(config.scriptSrc) ? 'loading' : 'missing';
   });
 
   useEffect(() => {
     let mounted = true;
 
     const scriptSrc = config.scriptSrc;
-    const zoneId = config.zoneId;
-
-    const isConfigured = Boolean(zoneId && isSafeScriptUrl(scriptSrc));
+    const zoneId = config.kind === 'zone' ? config.zoneId : undefined;
+    const isConfigured = config.kind === 'zone' ? Boolean(zoneId && isSafeScriptUrl(scriptSrc)) : isSafeScriptUrl(scriptSrc);
 
     if (!isConfigured || !scriptSrc) {
       setStatus('missing');
@@ -105,7 +137,7 @@ function useRouteScopedScript(config: ScriptConfig, id: string): ScriptStatus {
       script.removeEventListener('error', handleError);
       script.remove();
     };
-  }, [config.kind, config.scriptSrc, config.zoneId, id]);
+  }, [config.kind, config.scriptSrc, id, 'zoneId' in config ? config.zoneId : undefined]);
 
   return status;
 }
@@ -267,25 +299,45 @@ export default function AdsNetworkClient({ scriptUrls }: { scriptUrls: ScriptUrl
   const placementKeys = Object.keys(PLACEMENT_META) as PlacementKey[];
   const watchState = useAdsWatchSession();
   const configs: Record<PlacementKey, ScriptConfig> = {
-    popunder: {
-      kind: 'zone',
-      title: 'OnClick',
-      description: 'Loads the OnClick popunder zone on this route only.',
-      zoneId: scriptUrls.popunderZoneId,
-      scriptSrc: scriptUrls.popunderScriptSrc,
+    adsterraPopunder: {
+      kind: 'script',
+      title: 'Adsterra Popunder',
+      description: 'Loads the Adsterra popunder script on this route only.',
+      scriptSrc: scriptUrls.adsterraPopunderScriptSrc,
     },
-    inpage: {
+    adsterraSmartlink: {
+      kind: 'script',
+      title: 'Adsterra Smartlink',
+      description: 'Loads the Adsterra smartlink script on this route only.',
+      scriptSrc: scriptUrls.adsterraSmartlinkScriptSrc,
+    },
+    adsterraSocialBar: {
+      kind: 'script',
+      title: 'Adsterra Social Bar',
+      description: 'Loads the Adsterra social bar script on this route only.',
+      scriptSrc: scriptUrls.adsterraSocialBarScriptSrc,
+    },
+    monetagOnclick: {
       kind: 'zone',
-      title: 'In-Page Push',
-      description: 'Loads the in-page push zone on this route only.',
-      zoneId: scriptUrls.inpageZoneId,
-      scriptSrc: scriptUrls.inpageScriptSrc,
+      title: 'Monetag OnClick',
+      description: 'Loads the Monetag OnClick zone on this route only.',
+      zoneId: scriptUrls.monetagOnclickZoneId,
+      scriptSrc: scriptUrls.monetagOnclickScriptSrc,
+    },
+    monetagInpage: {
+      kind: 'zone',
+      title: 'Monetag In-Page',
+      description: 'Loads the Monetag in-page zone on this route only.',
+      zoneId: scriptUrls.monetagInpageZoneId,
+      scriptSrc: scriptUrls.monetagInpageScriptSrc,
     },
   };
 
   const configuredCount = placementKeys.filter((placementKey) => {
     const config = configs[placementKey];
-    return Boolean(config.zoneId && isSafeScriptUrl(config.scriptSrc));
+    return config.kind === 'zone'
+      ? Boolean(config.zoneId && isSafeScriptUrl(config.scriptSrc))
+      : isSafeScriptUrl(config.scriptSrc);
   }).length;
 
   return (
@@ -310,13 +362,13 @@ export default function AdsNetworkClient({ scriptUrls }: { scriptUrls: ScriptUrl
             <div className="h-2 overflow-hidden rounded-full bg-slate-800">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400 transition-all"
-                style={{ width: `${(configuredCount / 3) * 100}%` }}
+                style={{ width: `${(configuredCount / placementKeys.length) * 100}%` }}
               />
             </div>
           </div>
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-3">
+        <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-5">
           {placementKeys.map((placementKey) => (
             <PlacementCard key={placementKey} placementKey={placementKey} config={configs[placementKey]} />
           ))}
