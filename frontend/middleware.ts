@@ -59,6 +59,11 @@ const buildConnectSrc = () => {
   return Array.from(sources).join(' ');
 };
 
+const ADS_ORIGINS = [
+  'https://effectivecpmnetwork.com',
+  'https://*.effectivecpmnetwork.com',
+];
+
 const buildContentSecurityPolicy = (nonce: string) =>
   [
     "default-src 'self'",
@@ -68,11 +73,11 @@ const buildContentSecurityPolicy = (nonce: string) =>
     "img-src 'self' data: https:",
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
-    `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com`,
+    `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com ${ADS_ORIGINS.join(' ')}`,
     `connect-src ${buildConnectSrc()}`,
-    "frame-src 'self' https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com https://www.ayetstudios.com https://wall.adgaterewards.com https://offers.cpx-research.com",
+    `frame-src 'self' https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com https://www.ayetstudios.com https://wall.adgaterewards.com https://offers.cpx-research.com ${ADS_ORIGINS.join(' ')}`,
     "worker-src 'self' blob: https://challenges.cloudflare.com",
-    "child-src 'self' blob: https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com https://www.ayetstudios.com https://wall.adgaterewards.com https://offers.cpx-research.com",
+    `child-src 'self' blob: https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com https://www.ayetstudios.com https://wall.adgaterewards.com https://offers.cpx-research.com ${ADS_ORIGINS.join(' ')}`,
   ].join('; ');
 
 const attachSecurityHeaders = (response: NextResponse, nonce: string) => {
@@ -81,39 +86,21 @@ const attachSecurityHeaders = (response: NextResponse, nonce: string) => {
   return response;
 };
 
-const resolvePortalFromHost = (host: string) => {
-  const normalizedHost = String(host || '').toLowerCase();
-  if (normalizedHost.includes('ledger')) return 'ledger';
-  if (normalizedHost.includes('superadmin')) return 'superadmin';
-  if (normalizedHost.includes('admin')) return 'admin';
-  return '';
-};
-
 const resolveRoleTarget = (request: NextRequest) => {
-  const envRole = String(process.env.ROLE_PORTAL_TARGET || '').toLowerCase().trim();
-  if (envRole in TARGET_ROUTE_BY_ROLE) return envRole;
-
-  return resolvePortalFromHost(String(request.headers.get('host') || ''));
+  const envRole = String(process.env.NEXT_PUBLIC_ROLE_PORTAL_TARGET || '').toLowerCase().trim();
+  return envRole in TARGET_ROUTE_BY_ROLE ? envRole : '';
 };
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const host = String(request.headers.get('host') || '');
   const nonce = createNonce();
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
 
+  // Allow Vercel preview hosts to function locally for branch previews.
+
   if (shouldSkip(pathname)) {
     return attachSecurityHeaders(NextResponse.next({ request: { headers: requestHeaders } }), nonce);
-  }
-
-  // Explicitly force root to login for portal hosts, regardless of env configuration.
-  const hostPortal = resolvePortalFromHost(host);
-  if (hostPortal && pathname === '/') {
-    const nextUrl = request.nextUrl.clone();
-    nextUrl.pathname = '/login';
-    nextUrl.searchParams.set('portal', hostPortal);
-    return attachSecurityHeaders(NextResponse.redirect(nextUrl), nonce);
   }
 
   const roleTarget = resolveRoleTarget(request);
@@ -126,7 +113,6 @@ export function middleware(request: NextRequest) {
   if (pathname === '/') {
     const nextUrl = request.nextUrl.clone();
     nextUrl.pathname = '/login';
-    nextUrl.searchParams.set('portal', roleTarget);
     return attachSecurityHeaders(NextResponse.redirect(nextUrl), nonce);
   }
 
