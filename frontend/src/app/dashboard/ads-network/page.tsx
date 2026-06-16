@@ -1,5 +1,8 @@
 import AdsNetworkClient from './AdsNetworkClient';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const resolveEnv = (...keys: string[]) => {
   for (const key of keys) {
     const value = process.env[key]?.trim();
