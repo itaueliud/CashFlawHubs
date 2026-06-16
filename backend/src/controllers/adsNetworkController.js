@@ -2,14 +2,13 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const AdsSession = require('../models/AdsSession');
-const { Challenge } = require('../models/Challenge');
+const { Challenge, ChallengeCompletion } = require('../models/Challenge');
 const logger = require('../utils/logger');
 const { getCategoryProviders } = require('../config/categoryProviders');
 const { trackEvent } = require('../services/eventTracker');
 
 const AD_SESSION_TTL_SECONDS = 60 * 60 * 12;
 const REWARDED_AD_PROVIDER_KEYS = new Set(['adgate_ads', 'ayet_ads']);
-const ADS_WATCH_WINDOW_SECONDS = 60 * 60 * 24;
 const ADS_WATCH_THRESHOLD_SECONDS = 2 * 60 * 60;
 const ADS_CHALLENGE_EVENT = 'ads_earning_2hr';
 
@@ -58,7 +57,13 @@ const createAdSession = async ({ user, providerKey }) => {
   return payload;
 };
 
-const getWatchWindowExpiresAt = (startedAt) => new Date(new Date(startedAt).getTime() + ADS_WATCH_WINDOW_SECONDS * 1000);
+const getNextAdsResetAt = (now = new Date()) => {
+  const utcNow = new Date(now);
+  const eatMs = utcNow.getTime() + (3 * 60 * 60 * 1000);
+  const eatDate = new Date(eatMs);
+  const nextEatMidnightUtc = Date.UTC(eatDate.getUTCFullYear(), eatDate.getUTCMonth(), eatDate.getUTCDate() + 1);
+  return new Date(nextEatMidnightUtc - (3 * 60 * 60 * 1000));
+};
 
 const formatAdsSession = (session, now = new Date()) => ({
   active: Boolean(session),
@@ -69,10 +74,10 @@ const formatAdsSession = (session, now = new Date()) => ({
   rewardGrantedAt: session?.rewardGrantedAt || null,
   rewardChallengeId: session?.rewardChallengeId || null,
   thresholdSeconds: ADS_WATCH_THRESHOLD_SECONDS,
-  remainingSeconds: session?.windowExpiresAt ? Math.max(0, Math.ceil((new Date(session.windowExpiresAt).getTime() - now.getTime()) / 1000)) : ADS_WATCH_WINDOW_SECONDS,
+  remainingSeconds: session?.windowExpiresAt ? Math.max(0, Math.ceil((new Date(session.windowExpiresAt).getTime() - now.getTime()) / 1000)) : Math.max(0, Math.ceil((getNextAdsResetAt(now).getTime() - now.getTime()) / 1000)),
 });
 
-const advanceWatchSession = async ({ userId, countElapsed = true }) => {
+const ensureWatchSession = async ({ userId, countElapsed = true }) => {
   const now = new Date();
   let session = await AdsSession.findOne({ userId });
 
@@ -80,7 +85,7 @@ const advanceWatchSession = async ({ userId, countElapsed = true }) => {
     session = new AdsSession({
       userId,
       windowStartedAt: now,
-      windowExpiresAt: getWatchWindowExpiresAt(now),
+      windowExpiresAt: getNextAdsResetAt(now),
       lastHeartbeatAt: now,
       accumulatedSeconds: 0,
       rewardGrantedAt: null,
@@ -96,7 +101,7 @@ const advanceWatchSession = async ({ userId, countElapsed = true }) => {
     }
 
     session.lastHeartbeatAt = now;
-    session.windowExpiresAt = getWatchWindowExpiresAt(session.windowStartedAt || now);
+    session.windowExpiresAt = getNextAdsResetAt(now);
   }
 
   if (session.accumulatedSeconds >= ADS_WATCH_THRESHOLD_SECONDS && !session.rewardGrantedAt) {
@@ -108,9 +113,18 @@ const advanceWatchSession = async ({ userId, countElapsed = true }) => {
     }).sort({ createdAt: -1 });
 
     if (activeChallenge) {
-      await trackEvent(userId, ADS_CHALLENGE_EVENT);
-      session.rewardGrantedAt = now;
-      session.rewardChallengeId = activeChallenge._id;
+      const completion = await ChallengeCompletion.findOne({
+        userId,
+        challengeId: activeChallenge._id,
+        completed: true,
+        rewardClaimed: false,
+      });
+
+      if (completion) {
+        await trackEvent(userId, ADS_CHALLENGE_EVENT);
+        session.rewardGrantedAt = now;
+        session.rewardChallengeId = activeChallenge._id;
+      }
     }
   }
 
@@ -139,7 +153,7 @@ const buildAdNetworkUrl = (providerKey, user) => {
 
 exports.getAdsWatchStatus = async (req, res) => {
   try {
-    const session = await AdsSession.findOne({ userId: req.user.id });
+    const session = await ensureWatchSession({ userId: req.user.id, countElapsed: false });
     res.json({
       success: true,
       session: formatAdsSession(session),
@@ -152,7 +166,7 @@ exports.getAdsWatchStatus = async (req, res) => {
 
 exports.startAdsWatchSession = async (req, res) => {
   try {
-    const session = await advanceWatchSession({ userId: req.user.id, countElapsed: false });
+    const session = await ensureWatchSession({ userId: req.user.id, countElapsed: false });
     res.json({
       success: true,
       session: formatAdsSession(session),
@@ -165,7 +179,7 @@ exports.startAdsWatchSession = async (req, res) => {
 
 exports.recordAdsWatchHeartbeat = async (req, res) => {
   try {
-    const session = await advanceWatchSession({ userId: req.user.id, countElapsed: true });
+    const session = await ensureWatchSession({ userId: req.user.id, countElapsed: true });
     res.json({
       success: true,
       session: formatAdsSession(session),
@@ -178,7 +192,7 @@ exports.recordAdsWatchHeartbeat = async (req, res) => {
 
 exports.endAdsWatchSession = async (req, res) => {
   try {
-    const session = await advanceWatchSession({ userId: req.user.id, countElapsed: true });
+    const session = await ensureWatchSession({ userId: req.user.id, countElapsed: true });
     res.json({
       success: true,
       session: formatAdsSession(session),
