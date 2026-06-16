@@ -433,7 +433,9 @@ export default function WalletPage() {
             </div>
             <div className="mt-2 text-2xl font-black text-white">{formatNumber(xpPoints)} XP Total</div>
             <div className="mt-1 text-sm text-slate-400">
-              {formatNumber(xpRedeemable)} XP is currently redeemable. 20,000 XP = {symbol}{formatNumber(xpPerBlockLocal)} {currency}. You can redeem cash once you have a full block available.
+              {xpRedeemable > 0
+                ? `${formatNumber(xpRedeemable)} XP is currently redeemable. 20,000 XP = ${symbol}${formatNumber(xpPerBlockLocal)} ${currency}. You can redeem cash once you have a full block available.`
+                : 'No XP is currently redeemable. Earn more XP to reach the redemption threshold.'}
             </div>
           </div>
           <div className="rounded-2xl border border-emerald-400/20 bg-slate-950/50 px-4 py-3 text-right">
@@ -681,10 +683,10 @@ export default function WalletPage() {
 
         <div>
           <div className={`text-sm font-semibold ${wallet.withdrawalOpen ? 'text-green-400' : 'text-blue-400'}`}>
-            {wallet.withdrawalOpen ? 'Payouts are processing today' : 'Friday payout system'}
+            {wallet.withdrawalOpen ? 'Withdrawals are open today' : 'Friday payout system'}
           </div>
           <div className="mt-0.5 text-xs text-slate-400">
-            {wallet.nextPayoutDate} {wallet.payoutNote ? `- ${wallet.payoutNote}` : ''}
+            {wallet.withdrawalOpen ? 'Available now' : `${wallet.nextPayoutDate}${wallet.payoutNote ? ` - ${wallet.payoutNote}` : ''}`}
           </div>
         </div>
       </div>

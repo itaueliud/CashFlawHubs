@@ -38,11 +38,6 @@ const COUNTRIES = [
   { flag: '🇲🇼', name: 'Malawi', payment: 'Tingg' },
 ];
 
-const TESTIMONIALS = [
-  { name: 'Mercy W.', location: 'Nairobi, Kenya', text: 'I earned KSh 4,500 in my first week just from surveys and tasks. The M-Pesa withdrawal was instant!', stars: 5 },
-  { name: 'David O.', location: 'Kampala, Uganda', text: 'Found a remote writing job through CashFlowHubs. Changed my life completely.', stars: 5 },
-  { name: 'Amina S.', location: 'Dar es Salaam, TZ', text: 'The referral system is amazing. I\'ve earned over $50 just by inviting friends.', stars: 5 },
-];
 
 export const metadata: Metadata = {
   title: 'Earn Money Online Across Africa - Surveys, Tasks & Remote Jobs',
@@ -217,30 +212,6 @@ export default function HomePage() {
                 <div className="text-left">
                   <div className="font-semibold">{country.name}</div>
                   <div className="text-xs text-green-400">{country.payment}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="px-4 py-20">
-        <div className="mx-auto max-w-4xl">
-          <h2 className="mb-12 text-center text-3xl font-bold">What Earners Say</h2>
-          <div className="grid gap-6 md:grid-cols-3">
-            {TESTIMONIALS.map((testimonial) => (
-              <div key={testimonial.name} className="card">
-                <div className="mb-3 flex gap-1">
-                  {Array(testimonial.stars)
-                    .fill(0)
-                    .map((_, index) => (
-                      <Star key={index} size={14} className="fill-yellow-400 text-yellow-400" />
-                    ))}
-                </div>
-                <p className="mb-4 text-sm text-slate-300">"{testimonial.text}"</p>
-                <div>
-                  <div className="text-sm font-semibold">{testimonial.name}</div>
-                  <div className="text-xs text-slate-500">{testimonial.location}</div>
                 </div>
               </div>
             ))}
