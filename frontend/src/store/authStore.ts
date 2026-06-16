@@ -10,6 +10,7 @@ const safeStorage = {
 
 interface User {
   id: string;
+  _id?: string;
   userId: string;
   role?: 'user' | 'admin' | 'superadmin' | 'ledger';
   userAccessType?: 'real' | 'test';

@@ -22,6 +22,8 @@ function ensureDep(pkg) {
     return false;
   }
 }
+
+if (!ensureDep('speakeasy')) {
   console.log('Missing backend dependency detected (speakeasy). Running `npm install` in backend...');
   try {
     execSync('npm install', { stdio: 'inherit', cwd: path.resolve(__dirname) });
