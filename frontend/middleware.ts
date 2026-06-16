@@ -36,6 +36,9 @@ const buildConnectSrc = () => {
     'https://challenges.cloudflare.com',
     'https://*.cloudflare.com',
     'wss://challenges.cloudflare.com',
+    'https://preferencenail.com',
+    'https://zoologyfibre.com',
+    'https://kettledroopingcontinuation.com',
   ]);
 
   const apiOrigin = getOriginFromUrl(process.env.NEXT_PUBLIC_API_URL);
@@ -62,6 +65,7 @@ const buildConnectSrc = () => {
 const ADS_ORIGINS = [
   'https://effectivecpmnetwork.com',
   'https://*.effectivecpmnetwork.com',
+  'https://preferencenail.com',
 ];
 
 const buildContentSecurityPolicy = (nonce: string) =>
@@ -74,6 +78,7 @@ const buildContentSecurityPolicy = (nonce: string) =>
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
     `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com ${ADS_ORIGINS.join(' ')}`,
+    `script-src-elem 'self' 'nonce-${nonce}' 'unsafe-inline' https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com ${ADS_ORIGINS.join(' ')}`,
     `connect-src ${buildConnectSrc()}`,
     `frame-src 'self' https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com https://www.ayetstudios.com https://wall.adgaterewards.com https://offers.cpx-research.com ${ADS_ORIGINS.join(' ')}`,
     "worker-src 'self' blob: https://challenges.cloudflare.com",
