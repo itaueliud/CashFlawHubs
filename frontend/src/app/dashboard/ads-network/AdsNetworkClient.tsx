@@ -40,29 +40,29 @@ type ScriptUrls = {
 
 const PLACEMENT_META: Record<PlacementKey, { title: string; accent: string; label: string }> = {
   adsterraPopunder: {
-    title: 'Adsterra Popunder',
+    title: 'Popunder',
     accent: 'from-amber-400/20 to-rose-400/10',
     label: 'Script',
   },
   adsterraSmartlink: {
-    title: 'Adsterra Smartlink',
+    title: 'Smartlink',
     accent: 'from-cyan-400/20 to-sky-400/10',
     label: 'Script',
   },
   adsterraSocialBar: {
-    title: 'Adsterra Social Bar',
+    title: 'Social Bar',
     accent: 'from-emerald-400/20 to-teal-400/10',
     label: 'Script',
   },
   monetagOnclick: {
-    title: 'Monetag OnClick',
+    title: 'OnClick',
     accent: 'from-fuchsia-400/20 to-pink-400/10',
-    label: 'Popunder',
+    label: 'Zone',
   },
   monetagInpage: {
-    title: 'Monetag In-Page',
+    title: 'In-Page',
     accent: 'from-violet-400/20 to-indigo-400/10',
-    label: 'In-Page Push',
+    label: 'Zone',
   },
 };
 
@@ -301,33 +301,33 @@ export default function AdsNetworkClient({ scriptUrls }: { scriptUrls: ScriptUrl
   const configs: Record<PlacementKey, ScriptConfig> = {
     adsterraPopunder: {
       kind: 'script',
-      title: 'Adsterra Popunder',
-      description: 'Loads the Adsterra popunder script on this route only.',
+      title: 'Popunder',
+      description: 'Loads the popunder script on this route only.',
       scriptSrc: scriptUrls.adsterraPopunderScriptSrc,
     },
     adsterraSmartlink: {
       kind: 'script',
-      title: 'Adsterra Smartlink',
-      description: 'Loads the Adsterra smartlink script on this route only.',
+      title: 'Smartlink',
+      description: 'Loads the smartlink script on this route only.',
       scriptSrc: scriptUrls.adsterraSmartlinkScriptSrc,
     },
     adsterraSocialBar: {
       kind: 'script',
-      title: 'Adsterra Social Bar',
-      description: 'Loads the Adsterra social bar script on this route only.',
+      title: 'Social Bar',
+      description: 'Loads the social bar script on this route only.',
       scriptSrc: scriptUrls.adsterraSocialBarScriptSrc,
     },
     monetagOnclick: {
       kind: 'zone',
-      title: 'Monetag OnClick',
-      description: 'Loads the Monetag OnClick zone on this route only.',
+      title: 'OnClick',
+      description: 'Loads the OnClick zone on this route only.',
       zoneId: scriptUrls.monetagOnclickZoneId,
       scriptSrc: scriptUrls.monetagOnclickScriptSrc,
     },
     monetagInpage: {
       kind: 'zone',
-      title: 'Monetag In-Page',
-      description: 'Loads the Monetag in-page zone on this route only.',
+      title: 'In-Page',
+      description: 'Loads the in-page zone on this route only.',
       zoneId: scriptUrls.monetagInpageZoneId,
       scriptSrc: scriptUrls.monetagInpageScriptSrc,
     },
@@ -368,7 +368,7 @@ export default function AdsNetworkClient({ scriptUrls }: { scriptUrls: ScriptUrl
           </div>
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-5">
+        <section className="grid gap-4 grid-cols-1 md:grid-cols-2">
           {placementKeys.map((placementKey) => (
             <PlacementCard key={placementKey} placementKey={placementKey} config={configs[placementKey]} />
           ))}
