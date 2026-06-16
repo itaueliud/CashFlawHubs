@@ -77,16 +77,9 @@ export const metadata: Metadata = {
     canonical: SITE_URL,
   },
   icons: {
-    icon: [
-      { url: '/logo-icon.svg', type: 'image/svg+xml' },
-      { url: '/favicon.ico', type: 'image/x-icon' },
-    ],
-    shortcut: '/logo-icon.svg',
-    apple: '/logo-icon.svg',
-  },
-  other: {
-    'impact-site-verification': 'f1b264b8-1709-4b2a-b6d5-f0ec34343c4f',
-    monetag: 'f805e56c8e2a41c32ced55e23cc0368f',
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/favicon.ico',
   },
   manifest: '/site.webmanifest',
   verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
@@ -107,6 +100,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta name="monetag" content="f805e56c8e2a41c32ced55e23cc0368f" />
+      </head>
       <body className={`${inter.className} bg-slate-950 text-white antialiased`}>
         <NonceProvider nonce={nonce}>
           <Providers>
