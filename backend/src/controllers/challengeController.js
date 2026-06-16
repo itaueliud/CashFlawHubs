@@ -8,10 +8,10 @@ const { trackEvent } = require('../services/eventTracker');
 const DAILY_CHALLENGE_TEMPLATES = [
   {
     title: 'Daily Login',
-    description: 'Log in today to keep your streak alive.',
+    description: 'Log in 3 times today (at least 4 hours apart) to complete this challenge.',
     type: 'login',
     eventType: 'login',
-    targetCount: 1,
+    targetCount: 3,
     rewardUSD: 0,
     xpReward: 10,
     isDaily: true,
@@ -24,7 +24,7 @@ const DAILY_CHALLENGE_TEMPLATES = [
     eventType: 'survey_complete',
     targetCount: 1,
     rewardUSD: 0,
-    xpReward: 50,
+    xpReward: 20,
     isDaily: true,
     resetDaily: true,
   },
@@ -35,7 +35,7 @@ const DAILY_CHALLENGE_TEMPLATES = [
     eventType: 'survey_complete_3',
     targetCount: 3,
     rewardUSD: 0,
-    xpReward: 120,
+    xpReward: 60,
     isDaily: true,
     resetDaily: true,
   },
@@ -46,7 +46,7 @@ const DAILY_CHALLENGE_TEMPLATES = [
     eventType: 'task_complete',
     targetCount: 1,
     rewardUSD: 0,
-    xpReward: 40,
+    xpReward: 30,
     isDaily: true,
     resetDaily: true,
   },
@@ -57,7 +57,7 @@ const DAILY_CHALLENGE_TEMPLATES = [
     eventType: 'task_complete_3',
     targetCount: 3,
     rewardUSD: 0,
-    xpReward: 90,
+    xpReward: 60,
     isDaily: true,
     resetDaily: true,
   },
@@ -90,7 +90,7 @@ const DAILY_CHALLENGE_TEMPLATES = [
     eventType: 'task_complete',
     targetCount: 4,
     rewardUSD: 0,
-    xpReward: 85,
+    xpReward: 65,
     isDaily: true,
     resetDaily: true,
   },
@@ -101,20 +101,23 @@ const DAILY_CHALLENGE_TEMPLATES = [
     eventType: 'task_complete',
     targetCount: 5,
     rewardUSD: 0,
-    xpReward: 140,
+    xpReward: 60,
     isDaily: true,
     resetDaily: true,
   },
+];
+
+const LIFETIME_CHALLENGE_TEMPLATES = [
   {
-    title: 'Consistency Bonus',
-    description: 'Complete at least one earning action today.',
-    type: 'mixed',
-    eventType: 'task_complete',
-    targetCount: 1,
+    title: 'Invite 10 Friends',
+    description: 'Invite 10 friends who register using your referral code.',
+    type: 'referral',
+    eventType: 'referral',
+    targetCount: 10,
     rewardUSD: 0,
-    xpReward: 25,
-    isDaily: true,
-    resetDaily: true,
+    xpReward: 150,
+    isDaily: false,
+    resetDaily: false,
   },
 ];
 
@@ -136,18 +139,25 @@ const ensureDailyChallenges = async () => {
 
   const tomorrow = getTomorrowUtcMidnight();
   const existingTitles = new Set(existing.map((item) => item.title));
-  const missingTemplates = DAILY_CHALLENGE_TEMPLATES.filter((template) => !existingTitles.has(template.title));
-  if (missingTemplates.length === 0) return;
+  const missingDailyTemplates = DAILY_CHALLENGE_TEMPLATES.filter((template) => !existingTitles.has(template.title));
+  if (missingDailyTemplates.length > 0) {
+    await Challenge.insertMany(
+      missingDailyTemplates.map((template) => ({
+        ...template,
+        isActive: true,
+        isDaily: true,
+        resetDaily: true,
+        expiresAt: tomorrow,
+      }))
+    );
+  }
 
-  await Challenge.insertMany(
-    missingTemplates.map((template) => ({
-      ...template,
-      isActive: true,
-      isDaily: true,
-      resetDaily: true,
-      expiresAt: tomorrow,
-    }))
-  );
+  for (const template of LIFETIME_CHALLENGE_TEMPLATES) {
+    const exists = await Challenge.findOne({ title: template.title, isDaily: false });
+    if (!exists) {
+      await Challenge.create({ ...template, isActive: true });
+    }
+  }
 };
 
 const normalizeResponseChallenge = (challenge, completion) => ({
@@ -194,25 +204,20 @@ exports.claimChallengeReward = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Challenge not found or expired' });
     }
 
-    const completion = await ChallengeCompletion.findOne({
-      userId: req.user.id,
-      challengeId: req.params.id,
-      completed: true,
-      rewardClaimed: false,
-    });
-
-    if (!completion) {
-      return res.status(400).json({ success: false, message: 'Challenge not completed or reward already claimed' });
-    }
-
     const claimedCompletion = await ChallengeCompletion.findOneAndUpdate(
-      { _id: completion._id, rewardClaimed: false },
+      {
+        userId: req.user.id,
+        challengeId: req.params.id,
+        completed: true,
+        rewardClaimed: false,
+        progress: { $gte: challenge.targetCount },
+      },
       { $set: { rewardClaimed: true, claimedAt: new Date() } },
       { new: true }
     );
 
     if (!claimedCompletion) {
-      return res.status(409).json({ success: false, message: 'Challenge reward already claimed' });
+      return res.status(400).json({ success: false, message: 'Challenge not completed or reward already claimed' });
     }
 
     const rewardUSD = challenge.resetDaily ? 0 : Number(challenge.rewardUSD || 0);

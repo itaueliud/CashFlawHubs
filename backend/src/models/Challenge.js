@@ -57,6 +57,7 @@ const challengeSchema = new mongoose.Schema({
   targetCount: { type: Number, required: true },
   rewardUSD: { type: Number, required: true },
   xpReward: { type: Number, default: 50 },
+  sortOrder: { type: Number, default: 0 },
   isDaily: { type: Boolean, default: true },
   resetDaily: { type: Boolean, default: true },
   isActive: { type: Boolean, default: true },
@@ -73,6 +74,7 @@ const challengeCompletionSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 challengeCompletionSchema.index({ userId: 1, challengeId: 1 }, { unique: true });
+challengeCompletionSchema.index({ userId: 1, completed: 1, rewardClaimed: 1 });
 
 const Challenge = mongoose.model('Challenge', challengeSchema);
 const ChallengeCompletion = mongoose.model('ChallengeCompletion', challengeCompletionSchema);
