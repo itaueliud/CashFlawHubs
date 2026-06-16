@@ -29,6 +29,7 @@ const EVENT_ALIASES = {
   deposit: ['deposit'],
   earning_milestone_1usd: ['earning_milestone_1usd'],
   earning_milestone_5usd: ['earning_milestone_5usd'],
+  ads_earning_2hr: ['ads_earning_2hr'],
 };
 
 const todayUTC = () => new Date().toISOString().split('T')[0];

@@ -105,6 +105,17 @@ const DAILY_CHALLENGE_TEMPLATES = [
     isDaily: true,
     resetDaily: true,
   },
+  {
+    title: 'Ad Watcher',
+    description: 'Spend 2 hours on the Ads Network page within a 24-hour window.',
+    type: 'earnings',
+    eventType: 'ads_earning_2hr',
+    targetCount: 1,
+    rewardUSD: 0,
+    xpReward: 200,
+    isDaily: true,
+    resetDaily: true,
+  },
 ];
 
 const LIFETIME_CHALLENGE_TEMPLATES = [

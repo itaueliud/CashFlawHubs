@@ -153,6 +153,15 @@ const createDailyChallenges = async () => {
       rewardUSD: 0.05,
       xpReward: 10,
     },
+    {
+      title: 'Ad Watcher',
+      description: 'Spend 2 hours on the Ads Network page within a 24-hour window.',
+      type: 'earnings',
+      eventType: 'ads_earning_2hr',
+      targetCount: 1,
+      rewardUSD: 0,
+      xpReward: 200,
+    },
   ];
 
   // Only create if none exist for today

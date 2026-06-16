@@ -1,12 +1,17 @@
 const crypto = require('crypto');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
-const { getRedis, isRedisReady } = require('../config/redis');
+const AdsSession = require('../models/AdsSession');
+const { Challenge } = require('../models/Challenge');
 const logger = require('../utils/logger');
 const { getCategoryProviders } = require('../config/categoryProviders');
+const { trackEvent } = require('../services/eventTracker');
 
 const AD_SESSION_TTL_SECONDS = 60 * 60 * 12;
 const REWARDED_AD_PROVIDER_KEYS = new Set(['adgate_ads', 'ayet_ads']);
+const ADS_WATCH_WINDOW_SECONDS = 60 * 60 * 24;
+const ADS_WATCH_THRESHOLD_SECONDS = 2 * 60 * 60;
+const ADS_CHALLENGE_EVENT = 'ads_earning_2hr';
 
 const resolveProviders = () => {
   const category = getCategoryProviders('ads_network');
@@ -53,6 +58,66 @@ const createAdSession = async ({ user, providerKey }) => {
   return payload;
 };
 
+const getWatchWindowExpiresAt = (startedAt) => new Date(new Date(startedAt).getTime() + ADS_WATCH_WINDOW_SECONDS * 1000);
+
+const formatAdsSession = (session, now = new Date()) => ({
+  active: Boolean(session),
+  windowStartedAt: session?.windowStartedAt || null,
+  windowExpiresAt: session?.windowExpiresAt || null,
+  lastHeartbeatAt: session?.lastHeartbeatAt || null,
+  accumulatedSeconds: Number(session?.accumulatedSeconds || 0),
+  rewardGrantedAt: session?.rewardGrantedAt || null,
+  rewardChallengeId: session?.rewardChallengeId || null,
+  thresholdSeconds: ADS_WATCH_THRESHOLD_SECONDS,
+  remainingSeconds: session?.windowExpiresAt ? Math.max(0, Math.ceil((new Date(session.windowExpiresAt).getTime() - now.getTime()) / 1000)) : ADS_WATCH_WINDOW_SECONDS,
+});
+
+const advanceWatchSession = async ({ userId, countElapsed = true }) => {
+  const now = new Date();
+  let session = await AdsSession.findOne({ userId });
+
+  if (!session || !session.windowStartedAt || !session.windowExpiresAt || new Date(session.windowExpiresAt) <= now) {
+    session = new AdsSession({
+      userId,
+      windowStartedAt: now,
+      windowExpiresAt: getWatchWindowExpiresAt(now),
+      lastHeartbeatAt: now,
+      accumulatedSeconds: 0,
+      rewardGrantedAt: null,
+      rewardChallengeId: null,
+    });
+  } else {
+    if (countElapsed) {
+      const lastHeartbeatAt = session.lastHeartbeatAt ? new Date(session.lastHeartbeatAt) : new Date(session.windowStartedAt || now);
+      const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - lastHeartbeatAt.getTime()) / 1000));
+      if (elapsedSeconds > 0) {
+        session.accumulatedSeconds = Number(session.accumulatedSeconds || 0) + elapsedSeconds;
+      }
+    }
+
+    session.lastHeartbeatAt = now;
+    session.windowExpiresAt = getWatchWindowExpiresAt(session.windowStartedAt || now);
+  }
+
+  if (session.accumulatedSeconds >= ADS_WATCH_THRESHOLD_SECONDS && !session.rewardGrantedAt) {
+    const activeChallenge = await Challenge.findOne({
+      isActive: true,
+      isDaily: true,
+      eventType: ADS_CHALLENGE_EVENT,
+      $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
+    }).sort({ createdAt: -1 });
+
+    if (activeChallenge) {
+      await trackEvent(userId, ADS_CHALLENGE_EVENT);
+      session.rewardGrantedAt = now;
+      session.rewardChallengeId = activeChallenge._id;
+    }
+  }
+
+  await session.save();
+  return session;
+};
+
 const buildAdNetworkUrl = (providerKey, user) => {
   if (providerKey === 'adgate_ads') {
     const pubId = process.env.ADGATE_PUBLISHER_ID;
@@ -70,6 +135,58 @@ const buildAdNetworkUrl = (providerKey, user) => {
   }
 
   return null;
+};
+
+exports.getAdsWatchStatus = async (req, res) => {
+  try {
+    const session = await AdsSession.findOne({ userId: req.user.id });
+    res.json({
+      success: true,
+      session: formatAdsSession(session),
+    });
+  } catch (error) {
+    logger.error(`getAdsWatchStatus error: ${error.message}`);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.startAdsWatchSession = async (req, res) => {
+  try {
+    const session = await advanceWatchSession({ userId: req.user.id, countElapsed: false });
+    res.json({
+      success: true,
+      session: formatAdsSession(session),
+    });
+  } catch (error) {
+    logger.error(`startAdsWatchSession error: ${error.message}`);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.recordAdsWatchHeartbeat = async (req, res) => {
+  try {
+    const session = await advanceWatchSession({ userId: req.user.id, countElapsed: true });
+    res.json({
+      success: true,
+      session: formatAdsSession(session),
+    });
+  } catch (error) {
+    logger.error(`recordAdsWatchHeartbeat error: ${error.message}`);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.endAdsWatchSession = async (req, res) => {
+  try {
+    const session = await advanceWatchSession({ userId: req.user.id, countElapsed: true });
+    res.json({
+      success: true,
+      session: formatAdsSession(session),
+    });
+  } catch (error) {
+    logger.error(`endAdsWatchSession error: ${error.message}`);
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 exports.getAdsNetworkProviders = async (req, res) => {

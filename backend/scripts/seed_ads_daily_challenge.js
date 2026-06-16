@@ -8,13 +8,13 @@ const args = new Set(process.argv.slice(2));
 const APPLY = args.has('--apply');
 
 const CHALLENGE = {
-  title: 'Ads Network Starter',
-  description: 'Open the Ads Network page once today.',
-  type: 'task',
-  eventType: 'task_complete',
+  title: 'Ad Watcher',
+  description: 'Spend a total of 2 hours on the Ads Network page within 24 hours to earn 200 XP.',
+  type: 'earnings',
+  eventType: 'ads_earning_2hr',
   targetCount: 1,
   rewardUSD: 0,
-  xpReward: 25,
+  xpReward: 200,
   sortOrder: 30,
   isDaily: true,
   resetDaily: true,
@@ -36,24 +36,30 @@ async function run() {
   console.log('Connected to MongoDB');
 
   const expiresAt = getTomorrowUtcMidnight();
-  const filter = { title: CHALLENGE.title, isDaily: true };
-  const update = {
-    $set: {
-      ...CHALLENGE,
-      isActive: true,
-      expiresAt,
-    },
-  };
-
   console.log(APPLY ? 'APPLY mode: the ads daily challenge will be upserted.' : 'Dry-run mode: no changes will be made. Use --apply to write.');
   console.log(`Challenge: ${CHALLENGE.title}`);
 
   try {
-    if (APPLY) {
-      const result = await Challenge.updateOne(filter, update, { upsert: true });
-      console.log(`Upsert result: matched=${result.matchedCount || result.n || 0}, modified=${result.modifiedCount || result.nModified || 0}, upserted=${result.upsertedId ? result.upsertedId._id : result.upsertedId || 'none'}`);
+    const existing = await Challenge.findOne({ eventType: CHALLENGE.eventType, isDaily: true });
+    if (existing) {
+      console.log('ℹ️  Challenge already exists — no changes made.');
+      console.log('   Title:', existing.title);
+      console.log('   ID:   ', existing._id);
+      return;
     }
-    console.log('Done.');
+
+    if (APPLY) {
+      const challenge = await Challenge.create({
+        ...CHALLENGE,
+        isActive: true,
+        expiresAt,
+      });
+      console.log('🎉 Challenge created successfully!');
+      console.log('   ID:   ', challenge._id);
+      console.log('   Title:', challenge.title);
+    } else {
+      console.log('Dry-run complete. Use --apply to create the challenge.');
+    }
   } catch (error) {
     console.error(`Failed to seed ads daily challenge: ${error.message}`);
     process.exitCode = 1;

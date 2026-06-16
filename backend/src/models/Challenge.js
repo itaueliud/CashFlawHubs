@@ -49,6 +49,7 @@ const challengeSchema = new mongoose.Schema({
       'deposit',
       'earning_milestone_1usd',
       'earning_milestone_5usd',
+      'ads_earning_2hr',
     ],
     default: function defaultEventType() {
       return this.type || 'mixed';
