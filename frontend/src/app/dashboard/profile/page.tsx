@@ -413,13 +413,14 @@ const getAchievements = (user: any) => [
 export default function ProfilePage() {
   const { t } = useTranslation();
   const { user, refreshUser, hasHydrated } = useAuthStore();
+  const userId = user?.id || user?._id || user?.userId || null;
   const {
     data: referralDashboard,
     isLoading: referralLoading,
   } = useQuery({
-    queryKey: ['referral-dashboard', user?.id],
+    queryKey: ['referral-dashboard', userId],
     queryFn: () => api.get('/referrals/dashboard').then((r) => r.data),
-    enabled: hasHydrated && !!user?.id,
+    enabled: hasHydrated && !!user,
     staleTime: 0,
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,

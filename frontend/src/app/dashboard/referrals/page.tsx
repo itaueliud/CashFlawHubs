@@ -9,10 +9,11 @@ import { useAuthStore } from '@/store/authStore';
 
 export default function ReferralsPage() {
   const { user, hasHydrated } = useAuthStore();
+  const userId = user?.id || user?._id || user?.userId || null;
   const { data, isLoading } = useQuery({
-    queryKey: ['referral-dashboard', user?.id],
+    queryKey: ['referral-dashboard', userId],
     queryFn: () => api.get('/referrals/dashboard').then(r => r.data),
-    enabled: hasHydrated && !!user?.id,
+    enabled: hasHydrated && !!user,
     staleTime: 0,
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,

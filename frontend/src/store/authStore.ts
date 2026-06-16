@@ -68,6 +68,15 @@ interface AuthState {
   refreshUser: () => Promise<void>;
 }
 
+const normalizeUser = (user: any) => {
+  if (!user) return null;
+  return {
+    ...user,
+    id: user.id || user._id || user.userId || null,
+    balanceUSD: typeof user.balanceUSD === 'number' ? user.balanceUSD : 0,
+  };
+};
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -103,9 +112,10 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const { token, user } = payload;
-          set({ token, user, isLoading: false });
+          const normalizedUser = normalizeUser(user);
+          set({ token, user: normalizedUser, isLoading: false });
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          return user;
+          return normalizedUser;
         } catch (err) {
           set({ isLoading: false });
           throw err;
@@ -121,7 +131,8 @@ export const useAuthStore = create<AuthState>()(
       refreshUser: async () => {
         try {
           const res = await api.get('/auth/me', { headers: { 'x-background-refresh': 'true' } });
-          set({ user: { ...res.data.user, balanceUSD: res.data.wallet?.balanceUSD || 0 } });
+          const normalizedUser = normalizeUser({ ...res.data.user, balanceUSD: res.data.wallet?.balanceUSD || 0 });
+          set({ user: normalizedUser });
         } catch (err: any) {
           // Don't clear session on background refresh failures. Only redirect if there's truly no user state.
           if (err?.response?.status === 401) {
@@ -139,6 +150,9 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : safeStorage)),
       partialize: (state) => ({ token: state.token, user: state.user }),
       onRehydrateStorage: () => (state) => {
+        if (state?.user) {
+          state.setUser(normalizeUser(state.user));
+        }
         const token = state?.token;
         if (token) {
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
