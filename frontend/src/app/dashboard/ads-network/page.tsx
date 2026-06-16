@@ -15,9 +15,10 @@ export default function AdsNetworkPage() {
   return (
     <AdsNetworkClient
       scriptUrls={{
-        popunder: resolveEnv('NEXT_PUBLIC_ADSTERRA_POPUNDER_URL', 'VITE_ADSTERRA_POPUNDER_URL'),
-        smartlink: resolveEnv('NEXT_PUBLIC_ADSTERRA_SMARTLINK_URL', 'VITE_ADSTERRA_SMARTLINK_URL'),
-        socialBar: resolveEnv('NEXT_PUBLIC_ADSTERRA_SOCIAL_BAR_URL', 'VITE_ADSTERRA_SOCIAL_BAR_URL'),
+        popunderZoneId: resolveEnv('NEXT_PUBLIC_ADS_POPUNDER_ZONE_ID'),
+        popunderScriptSrc: resolveEnv('NEXT_PUBLIC_ADS_POPUNDER_SCRIPT_SRC'),
+        inpageZoneId: resolveEnv('NEXT_PUBLIC_ADS_INPAGE_ZONE_ID'),
+        inpageScriptSrc: resolveEnv('NEXT_PUBLIC_ADS_INPAGE_SCRIPT_SRC'),
       }}
     />
   );

@@ -5,15 +5,35 @@ import { AlertTriangle, CheckCircle2, Radio, Sparkles } from 'lucide-react';
 import api from '@/lib/api';
 
 type ScriptStatus = 'missing' | 'loading' | 'ready' | 'error';
-type PlacementKey = 'popunder' | 'smartlink' | 'socialBar';
+type PlacementKey = 'popunder' | 'inpage';
 type WatchState = 'idle' | 'tracking' | 'rewarded' | 'error';
 
-type ScriptUrls = Record<PlacementKey, string>;
+type ScriptConfig = {
+  kind: 'zone';
+  title: string;
+  description: string;
+  zoneId?: string;
+  scriptSrc?: string;
+};
 
-const PLACEMENT_META: Record<PlacementKey, { title: string; accent: string }> = {
-  popunder: { title: 'Popunder', accent: 'from-amber-400/20 to-rose-400/10' },
-  smartlink: { title: 'Smartlink', accent: 'from-cyan-400/20 to-sky-400/10' },
-  socialBar: { title: 'Social Bar', accent: 'from-emerald-400/20 to-teal-400/10' },
+type ScriptUrls = {
+  popunderZoneId: string;
+  popunderScriptSrc: string;
+  inpageZoneId: string;
+  inpageScriptSrc: string;
+};
+
+const PLACEMENT_META: Record<PlacementKey, { title: string; accent: string; label: string }> = {
+  popunder: {
+    title: 'OnClick',
+    accent: 'from-amber-400/20 to-rose-400/10',
+    label: 'Popunder',
+  },
+  inpage: {
+    title: 'Push 1',
+    accent: 'from-cyan-400/20 to-sky-400/10',
+    label: 'In-Page Push',
+  },
 };
 
 const WATCH_START_PATH = '/ads-network/watch/start';
@@ -30,13 +50,20 @@ function isSafeScriptUrl(value: string | undefined): value is string {
   }
 }
 
-function useRouteScopedScript(src: string | undefined, id: string): ScriptStatus {
-  const [status, setStatus] = useState<ScriptStatus>(() => (isSafeScriptUrl(src) ? 'loading' : 'missing'));
+function useRouteScopedScript(config: ScriptConfig, id: string): ScriptStatus {
+  const [status, setStatus] = useState<ScriptStatus>(() => {
+    return config.zoneId && isSafeScriptUrl(config.scriptSrc) ? 'loading' : 'missing';
+  });
 
   useEffect(() => {
     let mounted = true;
 
-    if (!isSafeScriptUrl(src)) {
+    const scriptSrc = config.scriptSrc;
+    const zoneId = config.zoneId;
+
+    const isConfigured = Boolean(zoneId && isSafeScriptUrl(scriptSrc));
+
+    if (!isConfigured || !scriptSrc) {
       setStatus('missing');
       return;
     }
@@ -51,8 +78,13 @@ function useRouteScopedScript(src: string | undefined, id: string): ScriptStatus
     script.id = id;
     script.async = true;
     script.defer = true;
-    script.src = src;
+    script.src = scriptSrc;
     script.referrerPolicy = 'strict-origin-when-cross-origin';
+    script.setAttribute('data-cfasync', 'false');
+
+    if (zoneId) {
+      script.dataset.zone = zoneId;
+    }
 
     const handleLoad = () => {
       if (mounted) setStatus('ready');
@@ -65,7 +97,7 @@ function useRouteScopedScript(src: string | undefined, id: string): ScriptStatus
     setStatus('loading');
     script.addEventListener('load', handleLoad);
     script.addEventListener('error', handleError);
-    document.body.appendChild(script);
+    (document.body || document.documentElement).appendChild(script);
 
     return () => {
       mounted = false;
@@ -73,7 +105,7 @@ function useRouteScopedScript(src: string | undefined, id: string): ScriptStatus
       script.removeEventListener('error', handleError);
       script.remove();
     };
-  }, [id, src]);
+  }, [config.kind, config.scriptSrc, config.zoneId, id]);
 
   return status;
 }
@@ -190,9 +222,15 @@ function useAdsWatchSession() {
   return watchState;
 }
 
-function PlacementCard({ placementKey, scriptUrl }: { placementKey: PlacementKey; scriptUrl: string }) {
+function PlacementCard({
+  placementKey,
+  config,
+}: {
+  placementKey: PlacementKey;
+  config: ScriptConfig;
+}) {
   const meta = PLACEMENT_META[placementKey];
-  const status = useRouteScopedScript(scriptUrl, `cashflowhubs-ads-${placementKey}`);
+  const status = useRouteScopedScript(config, `cashflowhubs-ads-${placementKey}`);
 
   return (
     <article className={`rounded-2xl border border-slate-800 bg-gradient-to-br ${meta.accent} p-5 shadow-lg shadow-slate-950/30`}>
@@ -215,7 +253,7 @@ function PlacementCard({ placementKey, scriptUrl }: { placementKey: PlacementKey
           </div>
         </div>
         <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-400">
-          <span>Placement</span>
+          <span>{meta.label}</span>
           <span className="font-semibold text-slate-200">
             {status === 'loading' ? 'Loading' : status === 'ready' ? 'Active' : status === 'error' ? 'Error' : 'Idle'}
           </span>
@@ -228,7 +266,27 @@ function PlacementCard({ placementKey, scriptUrl }: { placementKey: PlacementKey
 export default function AdsNetworkClient({ scriptUrls }: { scriptUrls: ScriptUrls }) {
   const placementKeys = Object.keys(PLACEMENT_META) as PlacementKey[];
   const watchState = useAdsWatchSession();
-  const configuredCount = placementKeys.filter((placementKey) => isSafeScriptUrl(scriptUrls[placementKey])).length;
+  const configs: Record<PlacementKey, ScriptConfig> = {
+    popunder: {
+      kind: 'zone',
+      title: 'OnClick',
+      description: 'Loads the OnClick popunder zone on this route only.',
+      zoneId: scriptUrls.popunderZoneId,
+      scriptSrc: scriptUrls.popunderScriptSrc,
+    },
+    inpage: {
+      kind: 'zone',
+      title: 'In-Page Push',
+      description: 'Loads the in-page push zone on this route only.',
+      zoneId: scriptUrls.inpageZoneId,
+      scriptSrc: scriptUrls.inpageScriptSrc,
+    },
+  };
+
+  const configuredCount = placementKeys.filter((placementKey) => {
+    const config = configs[placementKey];
+    return Boolean(config.zoneId && isSafeScriptUrl(config.scriptSrc));
+  }).length;
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-[#08111d] px-4 py-6 text-slate-100 sm:px-6 lg:px-8">
@@ -237,7 +295,7 @@ export default function AdsNetworkClient({ scriptUrls }: { scriptUrls: ScriptUrl
           <div className="flex items-center justify-between gap-4">
             <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">
               <Sparkles className="h-3.5 w-3.5" />
-              Ads Network
+              Ads Module
             </div>
             <div className="rounded-full border border-slate-700 bg-slate-950/70 px-3 py-1 text-xs font-semibold text-slate-200">
               {watchState === 'tracking' ? 'Live' : watchState === 'rewarded' ? 'Complete' : watchState === 'error' ? 'Error' : 'Idle'}
@@ -247,7 +305,7 @@ export default function AdsNetworkClient({ scriptUrls }: { scriptUrls: ScriptUrl
           <div className="mt-5 grid gap-3 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-300 sm:max-w-[380px]">
             <div className="flex items-center justify-between gap-3">
               <span>Active placements</span>
-              <span className="font-bold text-white">{configuredCount}/3</span>
+              <span className="font-bold text-white">{configuredCount}/{placementKeys.length}</span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-slate-800">
               <div
@@ -260,7 +318,7 @@ export default function AdsNetworkClient({ scriptUrls }: { scriptUrls: ScriptUrl
 
         <section className="grid gap-4 lg:grid-cols-3">
           {placementKeys.map((placementKey) => (
-            <PlacementCard key={placementKey} placementKey={placementKey} scriptUrl={scriptUrls[placementKey]} />
+            <PlacementCard key={placementKey} placementKey={placementKey} config={configs[placementKey]} />
           ))}
         </section>
       </div>

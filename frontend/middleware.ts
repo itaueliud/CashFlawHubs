@@ -37,6 +37,8 @@ const buildConnectSrc = () => {
     'https://*.cloudflare.com',
     'wss://challenges.cloudflare.com',
     'https://preferencenail.com',
+    'https://al5sm.com',
+    'https://nap5k.com',
     'https://zoologyfibre.com',
     'https://kettledroopingcontinuation.com',
   ]);
@@ -66,6 +68,8 @@ const ADS_ORIGINS = [
   'https://effectivecpmnetwork.com',
   'https://*.effectivecpmnetwork.com',
   'https://preferencenail.com',
+  'https://al5sm.com',
+  'https://nap5k.com',
 ];
 
 const buildContentSecurityPolicy = (nonce: string) =>
