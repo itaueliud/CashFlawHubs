@@ -9,6 +9,7 @@ import { Shield } from 'lucide-react';
 
 export default function LedgerProfilePage() {
   const { user, refreshUser } = useAuthStore();
+  const PENDING_2FA_SECRET_KEY = 'ledger-pending-2fa-secret';
   const [saving, setSaving] = useState(false);
   const [updatingPassword, setUpdatingPassword] = useState(false);
   const [profile, setProfile] = useState({ name: '', bio: '', avatar: '' });
@@ -85,6 +86,9 @@ export default function LedgerProfilePage() {
       setTwoFALoading(true);
       const { data } = await api.post('/2fa/setup');
       setSetupData(data);
+      if (data?.secret && typeof window !== 'undefined') {
+        window.localStorage.setItem(PENDING_2FA_SECRET_KEY, String(data.secret));
+      }
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to start setup');
     } finally {
@@ -95,10 +99,14 @@ export default function LedgerProfilePage() {
   const verifySetup = async () => {
     try {
       setTwoFALoading(true);
-      await api.post('/2fa/verify-setup', { token: twoFAToken });
+      const pendingSecret = typeof window !== 'undefined' ? window.localStorage.getItem(PENDING_2FA_SECRET_KEY) : null;
+      await api.post('/2fa/verify-setup', { token: twoFAToken, secret: pendingSecret || setupData?.secret });
       toast.success('2FA enabled');
       setSetupData(null);
       setTwoFAToken('');
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(PENDING_2FA_SECRET_KEY);
+      }
       // Reload 2FA status
       const { data } = await api.get('/2fa/status');
       setTwoFAStatus(data);
@@ -116,6 +124,9 @@ export default function LedgerProfilePage() {
       toast.success('2FA disabled');
       setDisableToken('');
       setDisablePassword('');
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(PENDING_2FA_SECRET_KEY);
+      }
       // Reload 2FA status
       const { data } = await api.get('/2fa/status');
       setTwoFAStatus(data);

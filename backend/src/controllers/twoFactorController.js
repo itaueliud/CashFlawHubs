@@ -41,22 +41,24 @@ exports.setup2FA = async (req, res) => {
 
 exports.verifySetup2FA = async (req, res) => {
   try {
-    const { token } = req.body;
+    const { token, secret } = req.body;
     if (!token) return res.status(400).json({ success: false, message: 'Token is required' });
 
     const user = await User.findById(req.user.id).select('+twoFactorSecret +twoFactorBackupCodes');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-    if (!user.twoFactorSecret) return res.status(400).json({ success: false, message: 'Run setup first' });
+    const setupSecret = String(user.twoFactorSecret || secret || '').trim();
+    if (!setupSecret) return res.status(400).json({ success: false, message: 'Run setup first' });
     if (user.twoFactorEnabled) return res.status(400).json({ success: false, message: '2FA already active' });
 
     const valid = speakeasy.totp.verify({
-      secret: user.twoFactorSecret,
+      secret: setupSecret,
       encoding: 'base32',
       token: String(token).replace(/\s/g, ''),
       window: TWO_FACTOR_TOTP_WINDOW,
     });
     if (!valid) return res.status(400).json({ success: false, message: 'Invalid code. Check your authenticator app.' });
 
+    user.twoFactorSecret = setupSecret;
     user.twoFactorEnabled = true;
     user.twoFactorEnabledAt = new Date();
     await user.save();
