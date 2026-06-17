@@ -23,6 +23,7 @@ const { sendVerificationEmail } = require('../services/emailService');
 const CODE_TTL_SECONDS = 300;
 const EMAIL_VERIFY_TTL_SECONDS = 24 * 60 * 60;
 const TWO_FACTOR_LOGIN_TTL_SECONDS = 10 * 60;
+const TWO_FACTOR_TOTP_WINDOW = Number(process.env.TWO_FACTOR_TOTP_WINDOW || 2);
 const fallbackStore = new Map();
 
 const signToken = (userId, portal = '') =>
@@ -101,7 +102,7 @@ const verifyTwoFactorTokenForUser = async (userRecord, token) => {
     secret,
     encoding: 'base32',
     token: cleanToken,
-    window: 1,
+    window: TWO_FACTOR_TOTP_WINDOW,
   });
   if (totpValid) return { valid: true };
 

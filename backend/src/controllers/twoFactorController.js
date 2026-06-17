@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 
 const APP_NAME = process.env.APP_NAME || 'CashFlawHubs';
+const TWO_FACTOR_TOTP_WINDOW = Number(process.env.TWO_FACTOR_TOTP_WINDOW || 2);
 
 exports.setup2FA = async (req, res) => {
   try {
@@ -48,7 +49,12 @@ exports.verifySetup2FA = async (req, res) => {
     if (!user.twoFactorSecret) return res.status(400).json({ success: false, message: 'Run setup first' });
     if (user.twoFactorEnabled) return res.status(400).json({ success: false, message: '2FA already active' });
 
-    const valid = speakeasy.totp.verify({ secret: user.twoFactorSecret, encoding: 'base32', token: String(token).replace(/\s/g, ''), window: 1 });
+    const valid = speakeasy.totp.verify({
+      secret: user.twoFactorSecret,
+      encoding: 'base32',
+      token: String(token).replace(/\s/g, ''),
+      window: TWO_FACTOR_TOTP_WINDOW,
+    });
     if (!valid) return res.status(400).json({ success: false, message: 'Invalid code. Check your authenticator app.' });
 
     user.twoFactorEnabled = true;
@@ -73,7 +79,12 @@ exports.disable2FA = async (req, res) => {
     const passwordValid = await user.comparePassword(String(password));
     if (!passwordValid) return res.status(401).json({ success: false, message: 'Incorrect password' });
 
-    const tokenValid = speakeasy.totp.verify({ secret: user.twoFactorSecret, encoding: 'base32', token: String(token).replace(/\s/g, ''), window: 1 });
+    const tokenValid = speakeasy.totp.verify({
+      secret: user.twoFactorSecret,
+      encoding: 'base32',
+      token: String(token).replace(/\s/g, ''),
+      window: TWO_FACTOR_TOTP_WINDOW,
+    });
     if (!tokenValid) return res.status(400).json({ success: false, message: 'Invalid authenticator code' });
 
     user.twoFactorSecret = null;
@@ -109,7 +120,12 @@ exports.verify2FALogin = async (req, res) => {
 
     const cleanToken = String(token).replace(/\s/g, '');
 
-    const totpValid = speakeasy.totp.verify({ secret: user.twoFactorSecret, encoding: 'base32', token: cleanToken, window: 1 });
+    const totpValid = speakeasy.totp.verify({
+      secret: user.twoFactorSecret,
+      encoding: 'base32',
+      token: cleanToken,
+      window: TWO_FACTOR_TOTP_WINDOW,
+    });
     if (totpValid) return res.json({ success: true, message: '2FA verified' });
 
     const hashedAttempt = crypto.createHash('sha256').update(cleanToken.toUpperCase()).digest('hex');
