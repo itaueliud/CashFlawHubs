@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const Wallet = require('../models/Wallet');
 const { getRedis } = require('../config/redis');
+const PortalAudit = require('../models/PortalAudit');
 const logger = require('../utils/logger');
 const {
   sendSMS,
@@ -21,10 +22,11 @@ const { sendVerificationEmail } = require('../services/emailService');
 
 const CODE_TTL_SECONDS = 300;
 const EMAIL_VERIFY_TTL_SECONDS = 24 * 60 * 60;
+const TWO_FACTOR_LOGIN_TTL_SECONDS = 10 * 60;
 const fallbackStore = new Map();
 
-const signToken = (userId) =>
-  jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE || '7d' });
+const signToken = (userId, portal = '') =>
+  jwt.sign({ id: userId, portal: String(portal || '').toLowerCase().trim() }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE || '7d' });
 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -66,6 +68,51 @@ const clearCode = async (namespace, key) => {
   } catch {
     fallbackStore.delete(storeKey);
   }
+};
+
+const setLoginChallenge = async (challengeId, payload, ttlSeconds = TWO_FACTOR_LOGIN_TTL_SECONDS) => {
+  await setCode('2fa-login', challengeId, JSON.stringify(payload), ttlSeconds);
+};
+
+const getLoginChallenge = async (challengeId) => {
+  const raw = await getCode('2fa-login', challengeId);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+
+const clearLoginChallenge = async (challengeId) => {
+  await clearCode('2fa-login', challengeId);
+};
+
+const verifyTwoFactorTokenForUser = async (userRecord, token) => {
+  const cleanToken = String(token || '').replace(/\s/g, '');
+  if (!cleanToken) return { valid: false, reason: 'Token is required' };
+
+  const secret = String(userRecord?.twoFactorSecret || '').trim();
+  if (!secret) return { valid: false, reason: '2FA not enabled' };
+
+  const speakeasy = require('speakeasy');
+  const crypto = require('crypto');
+  const totpValid = speakeasy.totp.verify({
+    secret,
+    encoding: 'base32',
+    token: cleanToken,
+    window: 1,
+  });
+  if (totpValid) return { valid: true };
+
+  const hashedAttempt = crypto.createHash('sha256').update(cleanToken.toUpperCase()).digest('hex');
+  const backupCodes = Array.isArray(userRecord?.twoFactorBackupCodes) ? userRecord.twoFactorBackupCodes : [];
+  const backupIndex = backupCodes.indexOf(hashedAttempt);
+  if (backupIndex !== -1) {
+    return { valid: true, usedBackupCode: true, backupIndex };
+  }
+
+  return { valid: false, reason: 'Invalid code' };
 };
 
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -573,6 +620,11 @@ exports.register = async (req, res) => {
 
     await Wallet.create({ userId: user._id });
 
+    if (referrer) {
+      const { updateChallengeProgress } = require('./challengeController');
+      await updateChallengeProgress(referrer._id, 'referral');
+    }
+
     const token = signToken(user._id);
     setAuthCookie(res, token);
     logger.info(`New user registered: ${user.userId} from ${country}`);
@@ -618,7 +670,22 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
-    const { identifier, phone, email, password, browser_language, user_language, timezone, device_fingerprint } = req.body;
+    const {
+      identifier,
+      phone,
+      email,
+      password,
+      browser_language,
+      user_language,
+      timezone,
+      device_fingerprint,
+      portal,
+      twoFactorToken,
+      twoFactorChallengeId,
+    } = req.body;
+    // `portal` is intentionally allowed to be empty string for the user portal
+    const portalValue = String(portal || '').toLowerCase().trim(); // '' | 'admin' | 'ledger' | 'superadmin'
+    const normalizedPortal = portalValue || 'user';
     const rawIdentifier = identifier || email || phone;
     if (!rawIdentifier || !password) {
       return res.status(400).json({ success: false, message: 'Email or phone and password required' });
@@ -669,7 +736,114 @@ exports.login = async (req, res) => {
         streak: currentUser.streak ? currentUser.streak + 1 : 1,
       })) || user;
 
-      const token = signToken(refreshedUser.id);
+      // ─── PORTAL ENFORCEMENT (dev fallback) ──────────────────────────────────
+      // Define which roles belong to which portal
+      const PORTAL_ROLES = {
+        admin:      ['admin'],
+        ledger:     ['ledger'],
+        superadmin: ['superadmin'],
+        '':         ['user'], // empty = user portal
+      };
+
+      const userRoleDev = String(refreshedUser.role || 'user').toLowerCase();
+
+      if (portalValue) {
+        // Staff portal: only the matching role is allowed
+        const allowedRoles = PORTAL_ROLES[portalValue] || [];
+        if (!allowedRoles.includes(userRoleDev)) {
+          // Redact identifier for logs
+          const idForLog = refreshedUser.email || refreshedUser.phone || refreshedUser.userId || refreshedUser.id;
+          const redacted = String(idForLog || '').replace(/.(?=.{2})/g, '*');
+          const sec = getSecurityContext(req);
+          logger.warn(`Portal mismatch login attempt (dev): portal=${portalValue} userRole=${userRoleDev} identifier=${redacted} ip=${sec.ipAddress}`);
+          try {
+            await PortalAudit.create({
+              type: 'portal_mismatch',
+              portalAttempted: portalValue,
+              userRole: userRoleDev,
+              identifierRedacted: redacted,
+              ipAddress: sec.ipAddress,
+              userAgent: String(req.headers['user-agent'] || ''),
+            });
+          } catch (e) {
+            logger.warn(`Failed to record portal audit (dev): ${e.message}`);
+          }
+          return res.status(403).json({
+            success: false,
+            message: 'Access denied. You do not have permission to access this portal.',
+          });
+        }
+      } else {
+        // User portal: staff roles must NOT log in here
+        const staffRoles = ['admin', 'superadmin', 'ledger'];
+        if (staffRoles.includes(userRoleDev)) {
+          const idForLog = refreshedUser.email || refreshedUser.phone || refreshedUser.userId || refreshedUser.id;
+          const redacted = String(idForLog || '').replace(/.(?=.{2})/g, '*');
+          const sec = getSecurityContext(req);
+          logger.warn(`Staff login blocked on user portal (dev): role=${userRoleDev} identifier=${redacted} ip=${sec.ipAddress}`);
+          try {
+            await PortalAudit.create({
+              type: 'portal_mismatch',
+              portalAttempted: 'user',
+              userRole: userRoleDev,
+              identifierRedacted: redacted,
+              ipAddress: sec.ipAddress,
+              userAgent: String(req.headers['user-agent'] || ''),
+            });
+          } catch (e) {
+            logger.warn(`Failed to record portal audit (dev): ${e.message}`);
+          }
+          return res.status(403).json({
+            success: false,
+            message: 'Staff accounts must log in through the dedicated staff portal.',
+          });
+        }
+      }
+
+      if (refreshedUser.twoFactorEnabled) {
+        const challengePayload = twoFactorChallengeId ? await getLoginChallenge(twoFactorChallengeId) : null;
+        if (!twoFactorToken || !twoFactorChallengeId) {
+          const challengeId = crypto.randomUUID();
+          await setLoginChallenge(challengeId, {
+            userId: String(refreshedUser.id || refreshedUser._id || ''),
+            portal: portalValue || '',
+          });
+          return res.json({
+            success: true,
+            requires2FA: true,
+            challengeId,
+            userId: refreshedUser.id,
+            message: 'Enter your 6-digit authenticator code',
+          });
+        }
+
+        if (!challengePayload || String(challengePayload.userId) !== String(refreshedUser.id || refreshedUser._id || '')) {
+          return res.status(401).json({ success: false, message: '2FA challenge expired. Please log in again.' });
+        }
+
+        const verificationTarget = refreshedUser.twoFactorSecret ? refreshedUser : await devAuthStore.findById(refreshedUser.id);
+        const verification = await verifyTwoFactorTokenForUser(verificationTarget, twoFactorToken);
+        if (!verification.valid) {
+          return res.status(401).json({ success: false, message: verification.reason || 'Invalid code' });
+        }
+
+        if (verification.usedBackupCode && Array.isArray(refreshedUser.twoFactorBackupCodes)) {
+          refreshedUser.twoFactorBackupCodes.splice(verification.backupIndex, 1);
+          if (typeof refreshedUser.save === 'function') {
+            await refreshedUser.save();
+          } else if (refreshedUser.id) {
+            devAuthStore.updateUser(refreshedUser.id, (currentUser) => {
+              const backupCodes = Array.isArray(currentUser.twoFactorBackupCodes) ? [...currentUser.twoFactorBackupCodes] : [];
+              backupCodes.splice(verification.backupIndex, 1);
+              return { ...currentUser, twoFactorBackupCodes: backupCodes };
+            });
+          }
+        }
+
+        await clearLoginChallenge(twoFactorChallengeId);
+      }
+
+      const token = signToken(refreshedUser.id, portalValue || '');
       setAuthCookie(res, token);
       return res.json({
         success: true,
@@ -702,8 +876,70 @@ exports.login = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
+    // ─── PORTAL ENFORCEMENT ───────────────────────────────────────────────────
+    // Define which roles belong to which portal
+    const PORTAL_ROLES = {
+      admin:      ['admin'],
+      ledger:     ['ledger'],
+      superadmin: ['superadmin'],
+      '':         ['user'], // empty = user portal
+    };
+
+    const userRole = String(user.role || 'user').toLowerCase();
+
+    if (portalValue) {
+      const allowedRoles = PORTAL_ROLES[portalValue] || [];
+      if (!allowedRoles.includes(userRole)) {
+        const idForLog = user.email || user.phone || user.userId || user._id;
+        const redacted = String(idForLog || '').replace(/.(?=.{2})/g, '*');
+        const sec = getSecurityContext(req);
+        logger.warn(`Portal mismatch login attempt: portal=${portalValue} userRole=${userRole} identifier=${redacted} ip=${sec.ipAddress}`);
+        try {
+          await PortalAudit.create({
+            type: 'portal_mismatch',
+            portalAttempted: portalValue,
+            userRole,
+            identifierRedacted: redacted,
+            ipAddress: sec.ipAddress,
+            userAgent: String(req.headers['user-agent'] || ''),
+          });
+        } catch (e) {
+          logger.warn(`Failed to record portal audit: ${e.message}`);
+        }
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. You do not have permission to access this portal.',
+        });
+      }
+    } else {
+      const staffRoles = ['admin', 'superadmin', 'ledger'];
+      if (staffRoles.includes(userRole)) {
+        const idForLog = user.email || user.phone || user.userId || user._id;
+        const redacted = String(idForLog || '').replace(/.(?=.{2})/g, '*');
+        const sec = getSecurityContext(req);
+        logger.warn(`Staff login blocked on user portal: role=${userRole} identifier=${redacted} ip=${sec.ipAddress}`);
+        try {
+          await PortalAudit.create({
+            type: 'portal_mismatch',
+            portalAttempted: 'user',
+            userRole,
+            identifierRedacted: redacted,
+            ipAddress: sec.ipAddress,
+            userAgent: String(req.headers['user-agent'] || ''),
+          });
+        } catch (e) {
+          logger.warn(`Failed to record portal audit: ${e.message}`);
+        }
+        return res.status(403).json({
+          success: false,
+          message: 'Staff accounts must log in through the dedicated staff portal.',
+        });
+      }
+    }
+
     user.failedLoginAttempts = 0;
     user.lockUntil = null;
+    user.lastLoginAt = new Date();
     user.updateStreak();
     const securityContext = getSecurityContext(req, { browser_language, user_language, timezone, device_fingerprint });
     user.browserLanguage = securityContext.browserLanguage || user.browserLanguage;
@@ -718,13 +954,62 @@ exports.login = async (req, res) => {
     }].slice(-30);
     await user.save();
 
+    const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+    const now = new Date();
+    const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const loginHistory = Array.isArray(user.loginHistory) ? [...user.loginHistory] : [];
+    const todayLogins = loginHistory.filter((l) => new Date(l.timestamp) >= startOfDay);
+    const lastCounted = todayLogins.filter((l) => l.countedForChallenge).slice(-1)[0];
+    const canCount = !lastCounted || (now - new Date(lastCounted.timestamp)) >= FOUR_HOURS_MS;
+    if (canCount) {
+      loginHistory.push({ timestamp: now, countedForChallenge: true });
+      await User.findByIdAndUpdate(user._id, { $set: { loginHistory } });
+      const { updateChallengeProgress } = require('./challengeController');
+      await updateChallengeProgress(user._id, 'login');
+    }
+
     await trackEvent(user._id, 'login');
     if (user.streak === 3) await trackEvent(user._id, 'daily_login_streak_3');
     if (user.streak === 7) await trackEvent(user._id, 'daily_login_streak_7');
     if (user.streak === 14) await trackEvent(user._id, 'login_streak_14');
     if (user.streak === 30) await trackEvent(user._id, 'login_streak_30');
 
-    const token = signToken(user._id);
+    if (user.twoFactorEnabled) {
+      const challengePayload = twoFactorChallengeId ? await getLoginChallenge(twoFactorChallengeId) : null;
+      if (!twoFactorToken || !twoFactorChallengeId) {
+        const challengeId = crypto.randomUUID();
+        await setLoginChallenge(challengeId, {
+          userId: String(user._id),
+          portal: portalValue || '',
+        });
+        return res.json({
+          success: true,
+          requires2FA: true,
+          challengeId,
+          userId: user._id.toString(),
+          message: 'Enter your 6-digit authenticator code',
+        });
+      }
+
+      if (!challengePayload || String(challengePayload.userId) !== String(user._id)) {
+        return res.status(401).json({ success: false, message: '2FA challenge expired. Please log in again.' });
+      }
+
+      const userWith2FA = await User.findById(user._id).select('+twoFactorSecret +twoFactorBackupCodes');
+      const verification = await verifyTwoFactorTokenForUser(userWith2FA, twoFactorToken);
+      if (!verification.valid) {
+        return res.status(401).json({ success: false, message: verification.reason || 'Invalid code' });
+      }
+
+      if (verification.usedBackupCode) {
+        userWith2FA.twoFactorBackupCodes.splice(verification.backupIndex, 1);
+        await userWith2FA.save();
+      }
+
+      await clearLoginChallenge(twoFactorChallengeId);
+    }
+
+    const token = signToken(user._id, portalValue || '');
     setAuthCookie(res, token);
     const wallet = await Wallet.findOne({ userId: user._id });
 
@@ -770,6 +1055,31 @@ exports.login = async (req, res) => {
 };
 
 exports.logout = async (req, res) => {
+  try {
+    // Attempt to blacklist current token (if present) so it cannot be reused
+    let token = req.cookies?.token || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.split(' ')[1] : null);
+    if (token) {
+      try {
+        const decoded = jwt.decode(token) || {};
+        const exp = Number(decoded.exp || 0);
+        const ttl = Math.max(0, Math.floor(exp - Date.now() / 1000));
+        if (ttl > 0) {
+          const redis = getRedis();
+          try {
+            await redis.setex(`blacklist:token:${token}`, ttl, '1');
+          } catch (e) {
+            // best-effort, do not fail logout because redis is down
+            logger.warn(`Failed to write token blacklist entry: ${e.message}`);
+          }
+        }
+      } catch (e) {
+        logger.warn(`Failed to decode token for blacklist: ${e.message}`);
+      }
+    }
+  } catch (e) {
+    logger.warn(`Logout blacklist error: ${e.message}`);
+  }
+
   clearAuthCookie(res);
   return res.json({ success: true, message: 'Logged out successfully' });
 };
@@ -798,6 +1108,8 @@ exports.getMe = async (req, res) => {
       success: true,
       user: {
         ...user.toObject(),
+        id: user._id,
+        _id: user._id,
         activationStatus: isUserActivated(user),
         activationStatusRaw: user.activationStatus,
       },
@@ -865,7 +1177,12 @@ exports.verifyEmailToken = async (req, res) => {
       emailVerificationExpiry: { $gt: Date.now() },
     }).select('+emailVerificationToken +emailVerificationExpiry');
 
-    if (!user) return res.status(400).json({ success: false, message: 'Invalid or expired token' });
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'This verification link has already been used or has expired. If your email is still unverified, please request a new verification link from your profile settings.',
+      });
+    }
 
     user.emailVerified = true;
     user.emailVerificationToken = undefined;
