@@ -43,7 +43,7 @@ export default function ModuleEmbedClient({
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [iframeError, setIframeError] = useState(false);
   const [frameVersion, setFrameVersion] = useState(0);
-  const isUnlocked = Boolean(user?.activationStatus || user?.isActive);
+  const isUnlocked = Boolean(user?.activationStatus);
 
   useEffect(() => {
     setMounted(true);
