@@ -255,6 +255,7 @@ function TwoFactorModal({ user, onClose, onSaved }: { user: any; onClose: () => 
   const [disablePassword, setDisablePassword] = useState('');
   const [disableToken, setDisableToken] = useState('');
   const [loading, setLoading] = useState(false);
+  const pendingSecretKey = 'pending-2fa-secret';
 
   useEffect(() => { let mounted = true; (async () => { try { const { data } = await api.get('/2fa/status'); if (mounted) setStatus(data); } catch (e) { /* ignore */ } })(); return () => { mounted = false; }; }, []);
 
@@ -263,6 +264,9 @@ function TwoFactorModal({ user, onClose, onSaved }: { user: any; onClose: () => 
       setLoading(true);
       const { data } = await api.post('/2fa/setup');
       setSetupData(data);
+      if (data?.secret && typeof window !== 'undefined') {
+        window.localStorage.setItem(pendingSecretKey, String(data.secret));
+      }
     } catch (err: any) { toast.error(err?.response?.data?.message || 'Failed to start setup'); }
     finally { setLoading(false); }
   };
@@ -270,8 +274,12 @@ function TwoFactorModal({ user, onClose, onSaved }: { user: any; onClose: () => 
   const verifySetup = async () => {
     try {
       setLoading(true);
-      await api.post('/2fa/verify-setup', { token });
+      const secret = typeof window !== 'undefined' ? window.localStorage.getItem(pendingSecretKey) : null;
+      await api.post('/2fa/verify-setup', { token, secret: secret || setupData?.secret });
       toast.success('2FA enabled');
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(pendingSecretKey);
+      }
       onSaved && onSaved();
       onClose();
     } catch (err: any) { toast.error(err?.response?.data?.message || 'Verification failed'); }
@@ -283,6 +291,9 @@ function TwoFactorModal({ user, onClose, onSaved }: { user: any; onClose: () => 
       setLoading(true);
       await api.post('/2fa/disable', { token: t, password });
       toast.success('2FA disabled');
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(pendingSecretKey);
+      }
       onSaved && onSaved();
       onClose();
     } catch (err: any) { toast.error(err?.response?.data?.message || 'Disable failed'); }
