@@ -40,7 +40,7 @@ export default function OfferwallsPage() {
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [iframeError, setIframeError] = useState(false);
   const [frameVersion, setFrameVersion] = useState(0);
-  const isOfferwallsUnlocked = Boolean(user?.activationStatus || user?.isActive);
+  const isOfferwallsUnlocked = Boolean(user?.activationStatus);
 
   const offerwallSrc =
     resolveEmbedSource('NEXT_PUBLIC_CPALEAD_OFFERWALL_URL', 'VITE_CPALEAD_OFFERWALL_URL') ||
