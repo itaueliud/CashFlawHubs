@@ -729,12 +729,10 @@ exports.login = async (req, res) => {
         return res.status(401).json({ success: false, message: 'Invalid credentials' });
       }
 
-      const refreshedUser = devAuthStore.updateUser(user.id, (currentUser) => ({
+      let refreshedUser = devAuthStore.updateUser(user.id, (currentUser) => ({
         ...currentUser,
         failedLoginAttempts: 0,
         lockUntil: null,
-        lastActiveDate: new Date().toISOString(),
-        streak: currentUser.streak ? currentUser.streak + 1 : 1,
       })) || user;
 
       // ─── PORTAL ENFORCEMENT (dev fallback) ──────────────────────────────────
@@ -844,6 +842,47 @@ exports.login = async (req, res) => {
         await clearLoginChallenge(twoFactorChallengeId);
       }
 
+      const now = new Date();
+      const securityContext = getSecurityContext(req, { browser_language, user_language, timezone, device_fingerprint });
+      const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+      const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      const loginHistory = Array.isArray(refreshedUser.loginHistory) ? [...refreshedUser.loginHistory] : [];
+      const todayLogins = loginHistory.filter((l) => new Date(l.timestamp) >= startOfDay);
+      const lastCounted = todayLogins.filter((l) => l.countedForChallenge).slice(-1)[0];
+      const canCount = !lastCounted || (now - new Date(lastCounted.timestamp)) >= FOUR_HOURS_MS;
+
+      refreshedUser = devAuthStore.updateUser(refreshedUser.id, (currentUser) => {
+        const currentLoginHistory = Array.isArray(currentUser.loginHistory) ? [...currentUser.loginHistory] : [];
+        const updatedUser = {
+          ...currentUser,
+          lastActiveDate: now.toISOString(),
+          streak: currentUser.streak ? currentUser.streak + 1 : 1,
+          browserLanguage: securityContext.browserLanguage || currentUser.browserLanguage,
+          lastAcceptLanguage: securityContext.acceptLanguage,
+          timezone: securityContext.timezone || currentUser.timezone,
+          userLanguage: currentUser.userLanguage || securityContext.userLanguage,
+          securityEvents: [...(currentUser.securityEvents || []), {
+            ...securityContext,
+            eventType: 'login',
+          }].slice(-30),
+        };
+
+        if (canCount) {
+          currentLoginHistory.push({ timestamp: now.toISOString(), countedForChallenge: true });
+          updatedUser.loginHistory = currentLoginHistory;
+        }
+
+        return updatedUser;
+      }) || refreshedUser;
+
+      if (canCount) {
+        await trackEvent(refreshedUser.id, 'login');
+      }
+      if (refreshedUser.streak === 3) await trackEvent(refreshedUser.id, 'daily_login_streak_3');
+      if (refreshedUser.streak === 7) await trackEvent(refreshedUser.id, 'daily_login_streak_7');
+      if (refreshedUser.streak === 14) await trackEvent(refreshedUser.id, 'login_streak_14');
+      if (refreshedUser.streak === 30) await trackEvent(refreshedUser.id, 'login_streak_30');
+
       const token = signToken(refreshedUser.id, portalValue || '');
       setAuthCookie(res, token);
       return res.json({
@@ -938,43 +977,6 @@ exports.login = async (req, res) => {
       }
     }
 
-    user.failedLoginAttempts = 0;
-    user.lockUntil = null;
-    user.lastLoginAt = new Date();
-    user.updateStreak();
-    const securityContext = getSecurityContext(req, { browser_language, user_language, timezone, device_fingerprint });
-    user.browserLanguage = securityContext.browserLanguage || user.browserLanguage;
-    user.lastAcceptLanguage = securityContext.acceptLanguage;
-    user.timezone = securityContext.timezone || user.timezone;
-    if (!user.userLanguage || !String(user.userLanguage).trim()) {
-      user.userLanguage = securityContext.userLanguage;
-    }
-    user.securityEvents = [...(user.securityEvents || []), {
-      ...securityContext,
-      eventType: 'login',
-    }].slice(-30);
-    await user.save();
-
-    const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
-    const now = new Date();
-    const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const loginHistory = Array.isArray(user.loginHistory) ? [...user.loginHistory] : [];
-    const todayLogins = loginHistory.filter((l) => new Date(l.timestamp) >= startOfDay);
-    const lastCounted = todayLogins.filter((l) => l.countedForChallenge).slice(-1)[0];
-    const canCount = !lastCounted || (now - new Date(lastCounted.timestamp)) >= FOUR_HOURS_MS;
-    if (canCount) {
-      loginHistory.push({ timestamp: now, countedForChallenge: true });
-      await User.findByIdAndUpdate(user._id, { $set: { loginHistory } });
-      const { updateChallengeProgress } = require('./challengeController');
-      await updateChallengeProgress(user._id, 'login');
-    }
-
-    await trackEvent(user._id, 'login');
-    if (user.streak === 3) await trackEvent(user._id, 'daily_login_streak_3');
-    if (user.streak === 7) await trackEvent(user._id, 'daily_login_streak_7');
-    if (user.streak === 14) await trackEvent(user._id, 'login_streak_14');
-    if (user.streak === 30) await trackEvent(user._id, 'login_streak_30');
-
     if (user.twoFactorEnabled) {
       const challengePayload = twoFactorChallengeId ? await getLoginChallenge(twoFactorChallengeId) : null;
       if (!twoFactorToken || !twoFactorChallengeId) {
@@ -1009,6 +1011,41 @@ exports.login = async (req, res) => {
 
       await clearLoginChallenge(twoFactorChallengeId);
     }
+
+    user.failedLoginAttempts = 0;
+    user.lockUntil = null;
+    user.lastLoginAt = new Date();
+    user.updateStreak();
+    const securityContext = getSecurityContext(req, { browser_language, user_language, timezone, device_fingerprint });
+    user.browserLanguage = securityContext.browserLanguage || user.browserLanguage;
+    user.lastAcceptLanguage = securityContext.acceptLanguage;
+    user.timezone = securityContext.timezone || user.timezone;
+    if (!user.userLanguage || !String(user.userLanguage).trim()) {
+      user.userLanguage = securityContext.userLanguage;
+    }
+    user.securityEvents = [...(user.securityEvents || []), {
+      ...securityContext,
+      eventType: 'login',
+    }].slice(-30);
+
+    const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+    const now = new Date();
+    const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const loginHistory = Array.isArray(user.loginHistory) ? [...user.loginHistory] : [];
+    const todayLogins = loginHistory.filter((l) => new Date(l.timestamp) >= startOfDay);
+    const lastCounted = todayLogins.filter((l) => l.countedForChallenge).slice(-1)[0];
+    const canCount = !lastCounted || (now - new Date(lastCounted.timestamp)) >= FOUR_HOURS_MS;
+    if (canCount) {
+      loginHistory.push({ timestamp: now, countedForChallenge: true });
+      user.loginHistory = loginHistory;
+      await trackEvent(user._id, 'login');
+    }
+
+    await user.save();
+    if (user.streak === 3) await trackEvent(user._id, 'daily_login_streak_3');
+    if (user.streak === 7) await trackEvent(user._id, 'daily_login_streak_7');
+    if (user.streak === 14) await trackEvent(user._id, 'login_streak_14');
+    if (user.streak === 30) await trackEvent(user._id, 'login_streak_30');
 
     const token = signToken(user._id, portalValue || '');
     setAuthCookie(res, token);

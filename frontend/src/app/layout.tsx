@@ -8,9 +8,15 @@ import { NonceProvider } from '@/components/security/NonceProvider';
 import { OrganizationSchema } from '@/components/seo/OrganizationSchema';
 import { WebsiteSchema } from '@/components/seo/WebsiteSchema';
 import { Toaster } from 'react-hot-toast';
+import Script from 'next/script';
 import { SITE_NAME, SITE_URL } from '@/lib/seo';
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' });
+
+const adScripts = [
+  process.env.NEXT_PUBLIC_ADSTERRA_POPUNDER_URL,
+  process.env.NEXT_PUBLIC_MONETAG_POPUNDER_URL,
+].filter((src): src is string => Boolean(src && src.trim()));
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -108,6 +114,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Providers>
             <OrganizationSchema />
             <WebsiteSchema />
+            {adScripts.map((src) => (
+              <Script key={src} src={src} strategy="afterInteractive" />
+            ))}
             {children}
             <PublicFloatingCTA />
             <Toaster

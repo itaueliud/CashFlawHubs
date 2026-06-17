@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { collectEmbedOrigins } from '@/lib/embeds';
 
 const TARGET_ROUTE_BY_ROLE: Record<string, string> = {
   admin: '/dashboard/admin-console',
@@ -67,9 +68,42 @@ const buildConnectSrc = () => {
 const ADS_ORIGINS = [
   'https://effectivecpmnetwork.com',
   'https://*.effectivecpmnetwork.com',
+  'https://monetag.com',
+  'https://*.monetag.com',
+  'https://www.monetag.com',
   'https://preferencenail.com',
   'https://al5sm.com',
   'https://nap5k.com',
+];
+
+const EMBED_ORIGINS = [
+  'https://www.cdnflair.com',
+  ...collectEmbedOrigins(
+    'NEXT_PUBLIC_FILE_LOCKER_IFRAME',
+    'NEXT_PUBLIC_FILE_LOCKER_IFRAME_SRC',
+    'NEXT_PUBLIC_FILE_LOCKER_URL',
+    'NEXT_PUBLIC_FILE_LOCKER_SRC',
+    'NEXT_PUBLIC_FILELOCKER_URL',
+    'NEXT_PUBLIC_FILELOCKER_SRC',
+    'VITE_FILE_LOCKER_IFRAME',
+    'VITE_FILE_LOCKER_URL',
+    'NEXT_PUBLIC_LINK_LOCKER_IFRAME',
+    'NEXT_PUBLIC_LINK_LOCKER_IFRAME_SRC',
+    'NEXT_PUBLIC_LINK_LOCKER_URL',
+    'NEXT_PUBLIC_LINK_LOCKER_SRC',
+    'NEXT_PUBLIC_LINKLOCKER_URL',
+    'NEXT_PUBLIC_LINKLOCKER_SRC',
+    'VITE_LINK_LOCKER_IFRAME',
+    'VITE_LINK_LOCKER_URL',
+    'NEXT_PUBLIC_OFFERS_IFRAME',
+    'NEXT_PUBLIC_OFFERS_IFRAME_SRC',
+    'NEXT_PUBLIC_OFFERS_URL',
+    'NEXT_PUBLIC_OFFERS_SRC',
+    'NEXT_PUBLIC_OFFERS_LINK',
+    'NEXT_PUBLIC_OFFERS_EMBED',
+    'VITE_OFFERS_IFRAME',
+    'VITE_OFFERS_URL'
+  ),
 ];
 
 const buildContentSecurityPolicy = (nonce: string) =>
@@ -84,9 +118,9 @@ const buildContentSecurityPolicy = (nonce: string) =>
     `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com ${ADS_ORIGINS.join(' ')}`,
     `script-src-elem 'self' 'nonce-${nonce}' 'unsafe-inline' https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com ${ADS_ORIGINS.join(' ')}`,
     `connect-src ${buildConnectSrc()}`,
-    `frame-src 'self' https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com https://www.ayetstudios.com https://wall.adgaterewards.com https://offers.cpx-research.com ${ADS_ORIGINS.join(' ')}`,
+    `frame-src 'self' https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com https://www.ayetstudios.com https://wall.adgaterewards.com https://offers.cpx-research.com https://timewall.io ${EMBED_ORIGINS.join(' ')} ${ADS_ORIGINS.join(' ')}`,
     "worker-src 'self' blob: https://challenges.cloudflare.com",
-    `child-src 'self' blob: https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com https://www.ayetstudios.com https://wall.adgaterewards.com https://offers.cpx-research.com ${ADS_ORIGINS.join(' ')}`,
+    `child-src 'self' blob: https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com https://www.ayetstudios.com https://wall.adgaterewards.com https://offers.cpx-research.com https://timewall.io ${EMBED_ORIGINS.join(' ')} ${ADS_ORIGINS.join(' ')}`,
   ].join('; ');
 
 const attachSecurityHeaders = (response: NextResponse, nonce: string) => {

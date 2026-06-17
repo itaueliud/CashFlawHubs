@@ -82,9 +82,6 @@ function isSafeScriptUrl(value: string | undefined): value is string {
 
 function useRouteScopedScript(config: ScriptConfig, id: string): ScriptStatus {
   const [status, setStatus] = useState<ScriptStatus>(() => {
-    if (config.kind === 'zone') {
-      return config.zoneId && isSafeScriptUrl(config.scriptSrc) ? 'loading' : 'missing';
-    }
     return isSafeScriptUrl(config.scriptSrc) ? 'loading' : 'missing';
   });
 
@@ -93,7 +90,7 @@ function useRouteScopedScript(config: ScriptConfig, id: string): ScriptStatus {
 
     const scriptSrc = config.scriptSrc;
     const zoneId = config.kind === 'zone' ? config.zoneId : undefined;
-    const isConfigured = config.kind === 'zone' ? Boolean(zoneId && isSafeScriptUrl(scriptSrc)) : isSafeScriptUrl(scriptSrc);
+    const isConfigured = isSafeScriptUrl(scriptSrc);
 
     if (!isConfigured || !scriptSrc) {
       setStatus('missing');
@@ -335,9 +332,7 @@ export default function AdsNetworkClient({ scriptUrls }: { scriptUrls: ScriptUrl
 
   const configuredCount = placementKeys.filter((placementKey) => {
     const config = configs[placementKey];
-    return config.kind === 'zone'
-      ? Boolean(config.zoneId && isSafeScriptUrl(config.scriptSrc))
-      : isSafeScriptUrl(config.scriptSrc);
+    return isSafeScriptUrl(config.scriptSrc);
   }).length;
 
   return (

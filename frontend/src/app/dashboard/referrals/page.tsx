@@ -1,14 +1,19 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Copy, Users, DollarSign, Trophy, MessageCircle, Send } from 'lucide-react';
+import { Copy, Users, DollarSign, Trophy, MessageCircle, Send, Loader2, RefreshCw, Lock, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { resolveEmbedSource } from '@/lib/embeds';
 
 export default function ReferralsPage() {
   const { user, hasHydrated } = useAuthStore();
+  const [affiliateLoaded, setAffiliateLoaded] = useState(false);
+  const [affiliateVersion, setAffiliateVersion] = useState(0);
+  const [showFileLocker, setShowFileLocker] = useState(false);
+  const [fileLockerLoaded, setFileLockerLoaded] = useState(false);
   const userId = user?.id || user?._id || user?.userId || null;
   const { data, isLoading } = useQuery({
     queryKey: ['referral-dashboard', userId],
@@ -23,6 +28,8 @@ export default function ReferralsPage() {
     queryKey: ['leaderboard'],
     queryFn: () => api.get('/referrals/leaderboard').then(r => r.data.leaderboard),
   });
+  const affiliateSrc = user?.id ? `https://timewall.io/o/e4eb8297dcfcb0e7?userID=${encodeURIComponent(user.id)}` : null;
+  const fileLockerSrc = resolveEmbedSource('NEXT_PUBLIC_CPALEAD_FILE_LOCKER_URL', 'VITE_CPALEAD_FILE_LOCKER_URL');
   const invited = data?.invited || data?.recentInvited || [];
   const referred = data?.referred || data?.recentReferred || [];
   const totalInvited = data?.invitedCount ?? data?.totalInvited ?? 0;
@@ -97,12 +104,130 @@ export default function ReferralsPage() {
           <h3 className="font-bold mb-3 flex items-center gap-2"><Trophy size={16} className="text-yellow-400" /> Top Referrers</h3>
           <div className="space-y-2">
             {leaderboard.slice(0, 10).map((u: any, i: number) => (
-              <div key={u._id} className="flex items-center gap-3 py-2 border-b border-slate-700 last:border-0">
+              <div key={`${u.name || 'referrer'}-${u.country || 'xx'}-${u.level || '0'}-${i}`} className="flex items-center gap-3 py-2 border-b border-slate-700 last:border-0">
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${i===0?'bg-yellow-400 text-black':i===1?'bg-slate-400 text-black':i===2?'bg-orange-400 text-black':'bg-slate-700 text-slate-300'}`}>{i+1}</div>
                 <div className="flex-1 text-sm font-medium">{u.name}</div>
                 <div className="text-xs text-green-400">{u.totalReferrals} refs</div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      <div className="border-t border-slate-700 pt-4">
+        <h2 className="text-lg font-bold mt-2">Extra Earning Opportunities</h2>
+        <p className="mt-1 text-sm text-slate-400">Complete partner offers and earn additional USD rewards on top of your referral bonuses.</p>
+      </div>
+
+      <div className="card overflow-hidden border-emerald-500/20 bg-slate-900/70 p-0">
+        <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+          <div>
+            <div className="text-sm font-semibold text-slate-200">Timewall Affiliate Network</div>
+            <div className="text-xs text-slate-500">Earn more from partner offers.</div>
+          </div>
+          <button
+            onClick={() => {
+              setAffiliateLoaded(false);
+              setAffiliateVersion((value) => value + 1);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 transition hover:text-slate-200"
+          >
+            <RefreshCw size={12} /> Refresh
+          </button>
+        </div>
+
+        <div className="relative min-h-[600px] w-full">
+          {!affiliateSrc ? (
+            <div className="flex h-[600px] items-center justify-center text-sm text-slate-400">
+              Timewall is unavailable right now.
+            </div>
+          ) : (
+            <>
+              {!affiliateLoaded && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/80">
+                  <Loader2 size={24} className="animate-spin text-emerald-400" />
+                </div>
+              )}
+              <iframe
+                src={affiliateSrc}
+                key={`${affiliateSrc}-${affiliateVersion}`}
+                width="100%"
+                height="600px"
+                frameBorder="0"
+                title="Timewall Affiliate Network"
+                onLoad={() => setAffiliateLoaded(true)}
+                className="block h-[600px] w-full"
+                sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-top-navigation"
+              />
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="card border border-violet-500/20 bg-gradient-to-br from-violet-500/10 to-slate-900">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold">Unlock Free Guide</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Open the File Locker below for an optional bonus unlock step that sits under the referral flow.
+            </p>
+          </div>
+          <span className="badge-blue">Bonus</span>
+        </div>
+        <button
+          onClick={() => setShowFileLocker(true)}
+          className="btn-primary mt-4 w-full inline-flex items-center justify-center gap-2"
+        >
+          <Lock size={14} /> Unlock Free Guide
+        </button>
+      </div>
+
+      {showFileLocker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-700 bg-[#111827] shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-700 px-4 py-3">
+              <div>
+                <h3 className="text-lg font-bold">File Locker</h3>
+                <p className="mt-1 text-xs text-slate-400">Complete the unlock step to access the bonus guide.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowFileLocker(false);
+                  setFileLockerLoaded(false);
+                }}
+                className="rounded-lg border border-slate-700 p-2 text-slate-400 transition hover:text-white"
+                aria-label="Close file locker"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="relative min-h-[550px] bg-slate-950">
+              {!fileLockerSrc ? (
+                <div className="flex h-[550px] items-center justify-center px-6 text-center text-sm text-slate-400">
+                  File Locker is unavailable right now.
+                </div>
+              ) : (
+                <>
+                  {!fileLockerLoaded && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/80">
+                      <Loader2 size={24} className="animate-spin text-violet-400" />
+                    </div>
+                  )}
+                  <iframe
+                    src={fileLockerSrc}
+                    width="100%"
+                    height="550px"
+                    frameBorder="0"
+                    title="File Locker"
+                    onLoad={() => setFileLockerLoaded(true)}
+                    className="block h-[550px] w-full"
+                    sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-top-navigation"
+                    referrerPolicy="no-referrer"
+                  />
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

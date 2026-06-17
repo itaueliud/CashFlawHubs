@@ -35,7 +35,7 @@ export default function DashboardPage() {
   const { user, refreshUser } = useAuthStore();
   const isRealUser = user?.role === 'user' && (user?.userAccessType || 'real') === 'real';
   // surveys removed (unblurred), cash-tasks removed (working), surveys unblurred
-  const blockedForRealUser = new Set(['/dashboard/tasks', '/dashboard/offerwalls']);
+  const blockedForRealUser = new Set(['/dashboard/tasks']);
 
   const { data: walletData } = useQuery({
     queryKey: ['wallet'],

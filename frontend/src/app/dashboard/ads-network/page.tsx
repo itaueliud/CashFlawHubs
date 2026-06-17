@@ -28,9 +28,15 @@ export default function AdsNetworkPage() {
           'VITE_ADSTERRA_SOCIAL_BAR_URL'
         ),
         monetagOnclickZoneId: resolveEnv('NEXT_PUBLIC_ADS_POPUNDER_ZONE_ID'),
-        monetagOnclickScriptSrc: resolveEnv('NEXT_PUBLIC_ADS_POPUNDER_SCRIPT_SRC'),
+        monetagOnclickScriptSrc: resolveEnv(
+          'NEXT_PUBLIC_MONETAG_POPUNDER_URL',
+          'NEXT_PUBLIC_ADS_POPUNDER_SCRIPT_SRC'
+        ),
         monetagInpageZoneId: resolveEnv('NEXT_PUBLIC_ADS_INPAGE_ZONE_ID'),
-        monetagInpageScriptSrc: resolveEnv('NEXT_PUBLIC_ADS_INPAGE_SCRIPT_SRC'),
+        monetagInpageScriptSrc: resolveEnv(
+          'NEXT_PUBLIC_MONETAG_INPAGE_URL',
+          'NEXT_PUBLIC_ADS_INPAGE_SCRIPT_SRC'
+        ),
       }}
     />
   );
