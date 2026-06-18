@@ -1,6 +1,10 @@
 const crypto = require('crypto');
 
 const DEFAULT_LOCALE = 'en';
+const FALLBACK_OFFERWALL_URLS = {
+  cpa: 'https://www.cdnflair.com/wall/dJ6T',
+  timewall: 'https://timewall.io/o/440de2b21c4ecb1c',
+};
 
 const OFFERWALL_PROVIDER_CONFIGS = {
   cpa: {
@@ -115,7 +119,10 @@ const getOfferwallUrlTemplate = (providerKey) => {
   if (!config) return '';
 
   if (providerKey === 'cpa' || providerKey === 'timewall') {
-    return firstConfiguredValue(...config.urlEnvKeys.map((key) => process.env[key])) || '';
+    return firstConfiguredValue(
+      ...config.urlEnvKeys.map((key) => process.env[key]),
+      FALLBACK_OFFERWALL_URLS[providerKey]
+    ) || '';
   }
 
   if (providerKey === 'ayetstudios') {
