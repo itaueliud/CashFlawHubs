@@ -184,25 +184,68 @@ router.put('/support/tickets/:id', protect, staffOnly, async (req, res) => {
 });
 
 router.get('/audit/logs', protect, staffOnly, async (req, res) => {
-  const { module = 'all', actorId = '', limit = 100 } = req.query;
+  const {
+    module = 'all',
+    action = 'all',
+    actorId = '',
+    search = '',
+    page = 1,
+    limit = 100,
+    dateFrom = '',
+    dateTo = '',
+  } = req.query;
+
+  const safePage = Math.max(Number(page) || 1, 1);
+  const safeLimit = Math.min(Math.max(Number(limit) || 100, 1), 500);
   const query = {};
+
   if (module !== 'all') query.module = module;
+  if (action !== 'all') query.action = action;
   if (actorId) query.actorId = actorId;
+  if (dateFrom || dateTo) {
+    query.createdAt = {};
+    if (dateFrom) query.createdAt.$gte = new Date(dateFrom);
+    if (dateTo) query.createdAt.$lte = new Date(dateTo);
+  }
+  if (search) {
+    query.$or = [
+      { module: { $regex: search, $options: 'i' } },
+      { action: { $regex: search, $options: 'i' } },
+      { targetType: { $regex: search, $options: 'i' } },
+      { targetId: { $regex: search, $options: 'i' } },
+    ];
+  }
 
-  const logs = await AuditLog.find(query)
-    .populate('actorId', 'name email role userId')
-    .sort({ createdAt: -1 })
-    .limit(Math.min(Number(limit) || 100, 500));
+  // Keep transaction audit records out of this view for now; they will move to ledger later.
+  if (query.module) {
+    query.$and = [...(query.$and || []), { module: query.module }, { module: { $ne: 'transactions' } }];
+    delete query.module;
+  } else {
+    query.module = { $ne: 'transactions' };
+  }
 
-  res.json({ success: true, logs });
+  const [logs, total] = await Promise.all([
+    AuditLog.find(query)
+      .populate('actorId', 'name email role userId')
+      .sort({ createdAt: -1 })
+      .skip((safePage - 1) * safeLimit)
+      .limit(safeLimit),
+    AuditLog.countDocuments(query),
+  ]);
+
+  res.json({
+    success: true,
+    logs,
+    pagination: { total, page: safePage, limit: safeLimit },
+  });
 });
 
-router.get('/config/toggles', protect, ledgerOrSuperadminOnly, async (req, res) => {
+router.get('/config/toggles', protect, adminOnly, async (req, res) => {
   const settings = await SystemConfig.find({}).sort({ key: 1 });
   res.json({ success: true, settings });
 });
 
-router.put('/config/toggles/:key', protect, ledgerOrSuperadminOnly, async (req, res) => {
+router.put('/config/toggles/:key', protect, adminOnly, async (req, res) => {
   const { value, description = '' } = req.body;
   const { key } = req.params;
 

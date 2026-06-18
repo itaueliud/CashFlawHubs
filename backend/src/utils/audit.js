@@ -3,8 +3,8 @@ const AuditLog = require('../models/AuditLog');
 const logAudit = async ({ req, actor, module, action, targetType = null, targetId = null, metadata = {} }) => {
   try {
     await AuditLog.create({
-      actorId: actor._id || actor.id,
-      actorRole: actor.role || 'unknown',
+      actorId: actor?._id || actor?.id || null,
+      actorRole: actor?.role || 'anonymous',
       module,
       action,
       targetType,

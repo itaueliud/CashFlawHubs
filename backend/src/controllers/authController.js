@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const crypto = require('crypto');
 const User = require('../models/User');
 const Wallet = require('../models/Wallet');
+const AuditLog = require('../models/AuditLog');
 const { getRedis } = require('../config/redis');
 const PortalAudit = require('../models/PortalAudit');
 const logger = require('../utils/logger');
@@ -30,6 +31,24 @@ const signToken = (userId, portal = '') =>
   jwt.sign({ id: userId, portal: String(portal || '').toLowerCase().trim() }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE || '7d' });
 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+const recordAuthAudit = async ({ req, actor = null, action, targetId = null, metadata = {}, targetType = 'login_attempt' }) => {
+  try {
+    await AuditLog.create({
+      actorId: actor?._id || actor?.id || null,
+      actorRole: actor?.role || 'anonymous',
+      module: 'auth',
+      action,
+      targetType,
+      targetId: targetId ? String(targetId) : null,
+      metadata,
+      ipAddress: req.ip || null,
+      userAgent: req.headers['user-agent'] || null,
+    });
+  } catch (error) {
+    logger.warn(`Failed to record auth audit event: ${error.message}`);
+  }
+};
 
 const getStoreKey = (namespace, key) => `${namespace}:${String(key).toLowerCase()}`;
 
@@ -693,6 +712,7 @@ exports.login = async (req, res) => {
     }
 
     const trimmedIdentifier = String(rawIdentifier).trim();
+    const redactedIdentifier = trimmedIdentifier.replace(/.(?=.{2})/g, '*');
     const normalizePhoneForLookup = (p) => {
       const digits = p.replace(/[^\d]/g, '');
       return { $in: [p, `+${digits}`, digits] };
@@ -706,13 +726,46 @@ exports.login = async (req, res) => {
       const user = isValidEmail(trimmedIdentifier)
         ? devAuthStore.findByEmail(trimmedIdentifier)
         : devAuthStore.findByPhone(trimmedIdentifier);
-      if (!user) return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      if (!user) {
+        await recordAuthAudit({
+          req,
+          action: 'login_failed',
+          metadata: {
+            identifier: redactedIdentifier,
+            portal: normalizedPortal,
+            reason: 'invalid_credentials',
+          },
+        });
+        return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      }
 
       if (!user.isActive || user.isBanned) {
+        await recordAuthAudit({
+          req,
+          actor: user,
+          action: 'login_failed',
+          targetId: user.id,
+          metadata: {
+            identifier: redactedIdentifier,
+            portal: normalizedPortal,
+            reason: user.isBanned ? 'account_banned' : 'account_inactive',
+          },
+        });
         return res.status(403).json({ success: false, message: 'Account suspended. Contact support.' });
       }
 
       if (user.lockUntil && new Date(user.lockUntil) > new Date()) {
+        await recordAuthAudit({
+          req,
+          actor: user,
+          action: 'login_failed',
+          targetId: user.id,
+          metadata: {
+            identifier: redactedIdentifier,
+            portal: normalizedPortal,
+            reason: 'account_locked',
+          },
+        });
         return res.status(429).json({ success: false, message: 'Account temporarily locked. Try again later.' });
       }
 
@@ -725,6 +778,18 @@ exports.login = async (req, res) => {
             failedLoginAttempts,
             lockUntil: failedLoginAttempts >= 5 ? new Date(Date.now() + 30 * 60 * 1000).toISOString() : null,
           };
+        });
+        await recordAuthAudit({
+          req,
+          actor: user,
+          action: 'login_failed',
+          targetId: user.id,
+          metadata: {
+            identifier: redactedIdentifier,
+            portal: normalizedPortal,
+            reason: 'invalid_credentials',
+            failedLoginAttempts: (user.failedLoginAttempts || 0) + 1,
+          },
         });
         return res.status(401).json({ success: false, message: 'Invalid credentials' });
       }
@@ -754,6 +819,19 @@ exports.login = async (req, res) => {
           const idForLog = refreshedUser.email || refreshedUser.phone || refreshedUser.userId || refreshedUser.id;
           const redacted = String(idForLog || '').replace(/.(?=.{2})/g, '*');
           const sec = getSecurityContext(req);
+          await recordAuthAudit({
+            req,
+            actor: refreshedUser,
+            action: 'login_failed',
+            targetId: refreshedUser.id,
+            metadata: {
+              identifier: redacted,
+              portal: normalizedPortal,
+              reason: 'portal_mismatch',
+              attemptedPortal: portalValue,
+              userRole: userRoleDev,
+            },
+          });
           logger.warn(`Portal mismatch login attempt (dev): portal=${portalValue} userRole=${userRoleDev} identifier=${redacted} ip=${sec.ipAddress}`);
           try {
             await PortalAudit.create({
@@ -779,6 +857,18 @@ exports.login = async (req, res) => {
           const idForLog = refreshedUser.email || refreshedUser.phone || refreshedUser.userId || refreshedUser.id;
           const redacted = String(idForLog || '').replace(/.(?=.{2})/g, '*');
           const sec = getSecurityContext(req);
+          await recordAuthAudit({
+            req,
+            actor: refreshedUser,
+            action: 'login_failed',
+            targetId: refreshedUser.id,
+            metadata: {
+              identifier: redacted,
+              portal: 'user',
+              reason: 'staff_portal_required',
+              userRole: userRoleDev,
+            },
+          });
           logger.warn(`Staff login blocked on user portal (dev): role=${userRoleDev} identifier=${redacted} ip=${sec.ipAddress}`);
           try {
             await PortalAudit.create({
@@ -817,12 +907,34 @@ exports.login = async (req, res) => {
         }
 
         if (!challengePayload || String(challengePayload.userId) !== String(refreshedUser.id || refreshedUser._id || '')) {
+          await recordAuthAudit({
+            req,
+            actor: refreshedUser,
+            action: 'login_failed',
+            targetId: refreshedUser.id,
+            metadata: {
+              identifier: redactedIdentifier,
+              portal: normalizedPortal,
+              reason: 'two_factor_challenge_expired',
+            },
+          });
           return res.status(401).json({ success: false, message: '2FA challenge expired. Please log in again.' });
         }
 
         const verificationTarget = refreshedUser.twoFactorSecret ? refreshedUser : await devAuthStore.findById(refreshedUser.id);
         const verification = await verifyTwoFactorTokenForUser(verificationTarget, twoFactorToken);
         if (!verification.valid) {
+          await recordAuthAudit({
+            req,
+            actor: refreshedUser,
+            action: 'login_failed',
+            targetId: refreshedUser.id,
+            metadata: {
+              identifier: redactedIdentifier,
+              portal: normalizedPortal,
+              reason: 'two_factor_failed',
+            },
+          });
           return res.status(401).json({ success: false, message: verification.reason || 'Invalid code' });
         }
 
@@ -883,6 +995,19 @@ exports.login = async (req, res) => {
       if (refreshedUser.streak === 14) await trackEvent(refreshedUser.id, 'login_streak_14');
       if (refreshedUser.streak === 30) await trackEvent(refreshedUser.id, 'login_streak_30');
 
+      await recordAuthAudit({
+        req,
+        actor: refreshedUser,
+        action: 'login_success',
+        targetId: refreshedUser.id,
+        metadata: {
+          portal: normalizedPortal,
+          deviceFingerprint: securityContext.deviceFingerprint || null,
+          browserLanguage: securityContext.browserLanguage || null,
+          timezone: securityContext.timezone || null,
+        },
+      });
+
       const token = signToken(refreshedUser.id, portalValue || '');
       setAuthCookie(res, token);
       return res.json({
@@ -898,21 +1023,70 @@ exports.login = async (req, res) => {
     }
 
     const user = await User.findOne(query).select('+passwordHash');
-    if (!user) return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    if (!user) {
+      await recordAuthAudit({
+        req,
+        action: 'login_failed',
+        metadata: {
+          identifier: redactedIdentifier,
+          portal: normalizedPortal,
+          reason: 'invalid_credentials',
+        },
+      });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
 
-    if (user.isBanned) return res.status(403).json({ success: false, message: 'Account suspended. Contact support.' });
+    if (user.isBanned) {
+      await recordAuthAudit({
+        req,
+        actor: user,
+        action: 'login_failed',
+        targetId: user._id,
+        metadata: {
+          identifier: redactedIdentifier,
+          portal: normalizedPortal,
+          reason: 'account_banned',
+        },
+      });
+      return res.status(403).json({ success: false, message: 'Account suspended. Contact support.' });
+    }
 
     if (user.lockUntil && user.lockUntil > Date.now()) {
+      await recordAuthAudit({
+        req,
+        actor: user,
+        action: 'login_failed',
+        targetId: user._id,
+        metadata: {
+          identifier: redactedIdentifier,
+          portal: normalizedPortal,
+          reason: 'account_locked',
+        },
+      });
       return res.status(429).json({ success: false, message: 'Account temporarily locked. Try again later.' });
     }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      user.failedLoginAttempts += 1;
-      if (user.failedLoginAttempts >= 5) {
+      const nextFailedAttempts = (user.failedLoginAttempts || 0) + 1;
+      user.failedLoginAttempts = nextFailedAttempts;
+      if (nextFailedAttempts >= 5) {
         user.lockUntil = new Date(Date.now() + 30 * 60 * 1000);
       }
       await user.save();
+      await recordAuthAudit({
+        req,
+        actor: user,
+        action: 'login_failed',
+        targetId: user._id,
+        metadata: {
+          identifier: redactedIdentifier,
+          portal: normalizedPortal,
+          reason: 'invalid_credentials',
+          failedLoginAttempts: nextFailedAttempts,
+          locked: nextFailedAttempts >= 5,
+        },
+      });
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
@@ -933,6 +1107,19 @@ exports.login = async (req, res) => {
         const idForLog = user.email || user.phone || user.userId || user._id;
         const redacted = String(idForLog || '').replace(/.(?=.{2})/g, '*');
         const sec = getSecurityContext(req);
+        await recordAuthAudit({
+          req,
+          actor: user,
+          action: 'login_failed',
+          targetId: user._id,
+          metadata: {
+            identifier: redacted,
+            portal: normalizedPortal,
+            reason: 'portal_mismatch',
+            attemptedPortal: portalValue,
+            userRole,
+          },
+        });
         logger.warn(`Portal mismatch login attempt: portal=${portalValue} userRole=${userRole} identifier=${redacted} ip=${sec.ipAddress}`);
         try {
           await PortalAudit.create({
@@ -957,6 +1144,18 @@ exports.login = async (req, res) => {
         const idForLog = user.email || user.phone || user.userId || user._id;
         const redacted = String(idForLog || '').replace(/.(?=.{2})/g, '*');
         const sec = getSecurityContext(req);
+        await recordAuthAudit({
+          req,
+          actor: user,
+          action: 'login_failed',
+          targetId: user._id,
+          metadata: {
+            identifier: redacted,
+            portal: 'user',
+            reason: 'staff_portal_required',
+            userRole,
+          },
+        });
         logger.warn(`Staff login blocked on user portal: role=${userRole} identifier=${redacted} ip=${sec.ipAddress}`);
         try {
           await PortalAudit.create({
@@ -995,12 +1194,34 @@ exports.login = async (req, res) => {
       }
 
       if (!challengePayload || String(challengePayload.userId) !== String(user._id)) {
+        await recordAuthAudit({
+          req,
+          actor: user,
+          action: 'login_failed',
+          targetId: user._id,
+          metadata: {
+            identifier: redactedIdentifier,
+            portal: normalizedPortal,
+            reason: 'two_factor_challenge_expired',
+          },
+        });
         return res.status(401).json({ success: false, message: '2FA challenge expired. Please log in again.' });
       }
 
       const userWith2FA = await User.findById(user._id).select('+twoFactorSecret +twoFactorBackupCodes');
       const verification = await verifyTwoFactorTokenForUser(userWith2FA, twoFactorToken);
       if (!verification.valid) {
+        await recordAuthAudit({
+          req,
+          actor: user,
+          action: 'login_failed',
+          targetId: user._id,
+          metadata: {
+            identifier: redactedIdentifier,
+            portal: normalizedPortal,
+            reason: 'two_factor_failed',
+          },
+        });
         return res.status(401).json({ success: false, message: verification.reason || 'Invalid code' });
       }
 
@@ -1046,6 +1267,19 @@ exports.login = async (req, res) => {
     if (user.streak === 7) await trackEvent(user._id, 'daily_login_streak_7');
     if (user.streak === 14) await trackEvent(user._id, 'login_streak_14');
     if (user.streak === 30) await trackEvent(user._id, 'login_streak_30');
+
+    await recordAuthAudit({
+      req,
+      actor: user,
+      action: 'login_success',
+      targetId: user._id,
+      metadata: {
+        portal: normalizedPortal,
+        deviceFingerprint: securityContext.deviceFingerprint || null,
+        browserLanguage: securityContext.browserLanguage || null,
+        timezone: securityContext.timezone || null,
+      },
+    });
 
     const token = signToken(user._id, portalValue || '');
     setAuthCookie(res, token);

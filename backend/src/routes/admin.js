@@ -1322,7 +1322,6 @@ router.put('/users/:id/reset-password', protect, requireAdmin, async (req, res) 
 });
 
 router.put('/users/:id/access-type', protect, requireAdmin, async (req, res) => {
-
   const accessType = String(req.body?.userAccessType || '').trim().toLowerCase();
   if (!['real', 'test'].includes(accessType)) {
     return res.status(400).json({ success: false, message: 'userAccessType must be real or test' });
@@ -1336,12 +1335,27 @@ router.put('/users/:id/access-type', protect, requireAdmin, async (req, res) => 
     return res.status(403).json({ success: false, message: 'Not allowed to manage this account' });
   }
 
+  const previousAccessType = target.userAccessType || 'real';
   target.userAccessType = accessType;
   if (req.user.role === 'admin' && target.role === 'user') {
     target.managedBy = req.user.id;
     target.managedAt = new Date();
   }
   await target.save();
+
+  const { logAudit } = require('../utils/audit');
+  await logAudit({
+    req,
+    actor: req.user,
+    module: 'users',
+    action: 'access_type_updated',
+    targetType: 'user',
+    targetId: target._id,
+    metadata: {
+      userAccessType: accessType,
+      previousAccessType,
+    },
+  });
 
   res.json({ success: true, user: target, message: `User marked as ${accessType} user` });
 });

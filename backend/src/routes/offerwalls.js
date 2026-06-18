@@ -5,7 +5,7 @@ const { protect, requireActivation } = require('../middleware/auth');
 
 router.get('/ayetstudios', protect, requireActivation, getAyetStudiosWall);
 router.get('/adgate', protect, requireActivation, getAdGateWall);
-router.get('/launch/:providerKey', protect, requireActivation, launchOfferwall);
+router.get('/launch/:providerKey', protect, launchOfferwall);
 router.get('/history', protect, requireActivation, getOfferwallHistory);
 router.get('/ayetstudios/callback', ayetStudiosCallback);
 router.get('/adgate/callback', adGateCallback);

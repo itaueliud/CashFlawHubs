@@ -130,10 +130,6 @@ exports.launchOfferwall = async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    if (!user.activationStatus) {
-      return res.status(403).json({ success: false, message: 'Activation required' });
-    }
-
     const { providerKey } = req.params;
     if (!OFFERWALL_PROVIDER_KEYS.has(providerKey)) {
       return res.status(400).json({ success: false, message: 'Invalid offerwall provider' });
