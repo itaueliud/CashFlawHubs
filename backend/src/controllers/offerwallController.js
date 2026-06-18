@@ -1,13 +1,17 @@
-const crypto = require('crypto');
 const User = require('../models/User');
 const Wallet = require('../models/Wallet');
 const Transaction = require('../models/Transaction');
 const { getRedis, isRedisReady } = require('../config/redis');
 const logger = require('../utils/logger');
 const { trackEvent, checkEarningMilestones } = require('../services/eventTracker');
+const crypto = require('crypto');
+const {
+  OFFERWALL_PROVIDER_KEYS,
+  getOfferwallContext,
+  getOfferwallProvider,
+} = require('../utils/offerwallLaunch');
 
 const OFFERWALL_SESSION_TTL_SECONDS = 60 * 60 * 12;
-const OFFERWALL_PROVIDER_KEYS = new Set(['ayetstudios', 'adgate']);
 
 const OFFER_REWARD_CAP_USD = 50;
 
@@ -75,66 +79,6 @@ const createOfferwallSession = async ({ user, providerKey }) => {
   return payload;
 };
 
-const mapOfferwallProvider = (providerKey, user) => {
-  if (providerKey === 'ayetstudios') {
-    const pubId = process.env.AYETSTUDIOS_PUB_ID;
-    const apiKey = process.env.AYETSTUDIOS_API_KEY;
-    if (!pubId || !apiKey) {
-      return {
-        key: 'ayetstudios',
-        name: 'Ayet Studios',
-        description: 'Rewarded offerwall inventory from Ayet Studios.',
-        integrationType: 'api',
-        access: 'signed_wall',
-        badge: 'Live',
-        url: null,
-        live: false,
-      };
-    }
-
-    const hash = crypto.createHash('sha256').update(`${pubId}${user.userId}${apiKey}`).digest('hex');
-    return {
-      key: 'ayetstudios',
-      name: 'Ayet Studios',
-      description: 'Rewarded offerwall inventory from Ayet Studios.',
-      integrationType: 'api',
-      access: 'signed_wall',
-      badge: 'Live',
-      url: `https://www.ayetstudios.com/offers/web_offerwall/${pubId}?external_identifier=${user.userId}&placement=rewarded_offerwall&sign=${hash}`,
-      live: true,
-    };
-  }
-
-  if (providerKey === 'adgate') {
-    const pubId = process.env.ADGATE_PUBLISHER_ID;
-    if (!pubId) {
-      return {
-        key: 'adgate',
-        name: 'AdGate Rewards',
-        description: 'Rewarded installs and offerwall inventory from AdGate.',
-        integrationType: 'api',
-        access: 'internal_wall',
-        badge: 'Live',
-        url: null,
-        live: false,
-      };
-    }
-
-    return {
-      key: 'adgate',
-      name: 'AdGate Rewards',
-      description: 'Rewarded installs and offerwall inventory from AdGate.',
-      integrationType: 'api',
-      access: 'internal_wall',
-      badge: 'Live',
-      url: `https://wall.adgaterewards.com/${pubId}/${user.userId}`,
-      live: true,
-    };
-  }
-
-  return null;
-};
-
 // @GET /api/offerwalls/ayetstudios
 exports.getAyetStudiosWall = async (req, res) => {
   try {
@@ -149,11 +93,7 @@ exports.getAyetStudiosWall = async (req, res) => {
     const placement = 'rewarded_offerwall';
 
     // Ayет Studios secure hash: sha256(pub_id + user_id + api_key)
-    const hash = crypto
-      .createHash('sha256')
-      .update(`${pubId}${userId}${apiKey}`)
-      .digest('hex');
-
+    const hash = crypto.createHash('sha256').update(`${pubId}${userId}${apiKey}`).digest('hex');
     const wallUrl = `https://www.ayetstudios.com/offers/web_offerwall/${pubId}?external_identifier=${userId}&placement=${placement}&sign=${hash}`;
 
     res.json({ success: true, wallUrl });
@@ -199,12 +139,13 @@ exports.launchOfferwall = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid offerwall provider' });
     }
 
-    const provider = mapOfferwallProvider(providerKey, user);
+    const session = await createOfferwallSession({ user, providerKey });
+    const context = getOfferwallContext({ req, user, sessionId: session.sessionId });
+    const provider = getOfferwallProvider(providerKey, context);
+
     if (!provider?.url) {
       return res.status(503).json({ success: false, message: 'Provider is not configured yet' });
     }
-
-    const session = await createOfferwallSession({ user, providerKey });
 
     res.json({
       success: true,
@@ -229,7 +170,7 @@ exports.getOfferwallHistory = async (req, res) => {
     const query = {
       userId: req.user.id,
       type: 'offer',
-      'metadata.provider': { $in: ['adgate', 'ayetstudios'] },
+      'metadata.provider': { $in: ['adgate', 'ayetstudios', 'cpa', 'timewall'] },
     };
 
     const [transactions, total] = await Promise.all([

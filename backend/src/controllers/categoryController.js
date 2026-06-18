@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const logger = require('../utils/logger');
 const { getCategoryProviderCatalog, getCategoryProviders } = require('../config/categoryProviders');
+const { buildOfferwallLaunchUrl, getOfferwallContext } = require('../utils/offerwallLaunch');
 
 const buildSurveyWallUrl = (providerKey, user) => {
   if (providerKey === 'cpx') {
@@ -36,13 +37,20 @@ const buildOfferwallUrl = (providerKey, user) => {
     return `https://wall.adgaterewards.com/${process.env.ADGATE_PUBLISHER_ID}/${user.userId}`;
   }
 
+  if (providerKey === 'cpa' || providerKey === 'timewall') {
+    const context = getOfferwallContext({ user });
+    return buildOfferwallLaunchUrl(providerKey, context);
+  }
+
   return null;
 };
 
 const buildResolvedUrl = (categoryKey, providerKey, user) => {
   if (!user) return null;
   if (categoryKey === 'surveys') return buildSurveyWallUrl(providerKey, user);
-  if (categoryKey === 'offerwalls') return buildOfferwallUrl(providerKey, user);
+  if (categoryKey === 'offerwalls') {
+    return buildOfferwallUrl(providerKey, user);
+  }
   if (categoryKey === 'ads_network' && providerKey === 'adgate_ads') return buildOfferwallUrl('adgate', user);
   if (categoryKey === 'ads_network' && providerKey === 'ayet_ads') return buildOfferwallUrl('ayetstudios', user);
   return null;

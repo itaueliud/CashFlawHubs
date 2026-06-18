@@ -279,17 +279,17 @@ const CATEGORY_PROVIDERS = {
     description: 'Offerwall APIs and iframe/web wall integrations.',
     providers: [
       {
-        key: 'ayetstudios',
-        name: 'Ayet Studios',
-        description: 'Install games, complete offers, and earn rewards.',
+        key: 'cpa',
+        name: 'CPAlead',
+        description: 'Install apps, complete offers, and earn rewards.',
         integrationType: 'api',
         access: 'signed_wall',
         badge: 'Live',
       },
       {
-        key: 'adgate',
-        name: 'AdGate Rewards',
-        description: 'App installs, signups, and promotional offers.',
+        key: 'timewall',
+        name: 'Timewall',
+        description: 'Rewarded offers and task inventory with localized launches.',
         integrationType: 'api',
         access: 'signed_wall',
         badge: 'Live',

@@ -23,6 +23,7 @@ interface User {
   country: string;
   referralCode: string;
   activationStatus: boolean;
+  isActive?: boolean;
   level: number;
   xpPoints: number;
   streak: number;
@@ -40,6 +41,7 @@ interface User {
   paymentProvider?: string;
   userLanguage?: string;
   browserLanguage?: string;
+  timezone?: string;
   paymentRouting?: {
     deposits: string[];
     withdrawals: string[];

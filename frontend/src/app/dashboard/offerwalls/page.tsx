@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
-import { resolveEmbedSource } from '@/lib/embeds';
 import { Loader2, Lock, Gift, RefreshCw, ExternalLink, Clock, CheckCircle2, XCircle, ListFilter, LayoutGrid } from 'lucide-react';
 
 type RewardTx = {
@@ -16,6 +15,12 @@ type RewardTx = {
 };
 
 type OfferTab = 'wall' | 'offers' | 'timewall';
+
+type OfferwallLaunchResponse = {
+  success: boolean;
+  wallUrl?: string;
+  message?: string;
+};
 
 function StatusBadge({ status }: { status?: string }) {
   const normalized = String(status || '').toLowerCase();
@@ -42,38 +47,43 @@ export default function OfferwallsPage() {
   const [frameVersion, setFrameVersion] = useState(0);
   const isOfferwallsUnlocked = Boolean(user?.activationStatus);
 
-  const PLACEHOLDER_EMBED_SOURCES = new Set([
-    'https://www.cdnflair.com/wall/dJ6T',
-    'https://timewall.io/o/440de2b21c4ecb1c',
-  ]);
+  const locale = String(user?.userLanguage || user?.browserLanguage || 'en').trim().toLowerCase().slice(0, 5) || 'en';
 
-  const normalizeEnvEmbed = (...keys: string[]) => {
-    const rawValue = resolveEmbedSource(...keys);
-    return rawValue && !PLACEHOLDER_EMBED_SOURCES.has(rawValue) ? rawValue : '';
-  };
+  // Fetch signed CPAlead offerwall URL from backend
+  const {
+    data: cpaData,
+    refetch: refetchCpa,
+  } = useQuery<OfferwallLaunchResponse>({
+    queryKey: ['offerwall-launch', 'cpa', user?.id, locale],
+    queryFn: () => api.get<OfferwallLaunchResponse>('/offerwalls/launch/cpa').then((response) => response.data),
+    enabled: hasHydrated && !!user?.id && isOfferwallsUnlocked,
+    retry: false,
+    staleTime: 1000 * 60 * 5,
+  });
 
-  const envOfferwallSrc = normalizeEnvEmbed('NEXT_PUBLIC_CPALEAD_OFFERWALL_URL', 'VITE_CPALEAD_OFFERWALL_URL');
-  const envBrowseOffersSrc = normalizeEnvEmbed(
-    'NEXT_PUBLIC_CPALEAD_NATIVE_OFFERS_URL',
-    'NEXT_PUBLIC_CPALEAD_OFFERS_URL',
-    'VITE_CPALEAD_NATIVE_OFFERS_URL',
-    'VITE_CPALEAD_OFFERS_URL',
-    'NEXT_PUBLIC_CPALEAD_OFFERWALL_URL',
-    'VITE_CPALEAD_OFFERWALL_URL'
-  );
-  const timewallSrc = resolveEmbedSource('NEXT_PUBLIC_TIMEWALL_OFFERWALLS_URL', 'VITE_TIMEWALL_OFFERWALLS_URL') || 'https://timewall.io/o/440de2b21c4ecb1c';
+  // Fetch signed Timewall offerwall URL from backend
+  const {
+    data: timewallData,
+    refetch: refetchTimewall,
+  } = useQuery<OfferwallLaunchResponse>({
+    queryKey: ['offerwall-launch', 'timewall', user?.id, locale],
+    queryFn: () => api.get<OfferwallLaunchResponse>('/offerwalls/launch/timewall').then((response) => response.data),
+    enabled: hasHydrated && !!user?.id && isOfferwallsUnlocked,
+    retry: false,
+    staleTime: 1000 * 60 * 5,
+  });
 
-  const offerwallSrc = envOfferwallSrc || 'https://www.cdnflair.com/wall/dJ6T';
-  const browseOffersSrc = envBrowseOffersSrc || offerwallSrc;
+  const cpaSrc = cpaData?.wallUrl || '';
+  const timewallSrc = timewallData?.wallUrl || '';
+  const offerwallSrc = cpaSrc;
+  const browseOffersSrc = cpaSrc;
   const currentSrc = activeTab === 'wall' ? offerwallSrc : activeTab === 'offers' ? browseOffersSrc : timewallSrc;
-  const currentTitle = activeTab === 'wall' ? 'CPAlead Offerwall' : activeTab === 'offers' ? 'Browse Offers' : 'Timewall Offerwall';
+  const currentTitle = activeTab === 'wall' ? 'CPAlead Offerwall' : activeTab === 'offers' ? 'CPAlead Offers' : 'Timewall Offerwall';
   const currentDescription =
     activeTab === 'wall'
-      ? 'Main CPAlead wall for rewarded tasks and conversions.'
+      ? 'Personalized CPAlead offerwall with user and locale tracking.'
       : activeTab === 'offers'
-        ? browseOffersSrc === offerwallSrc
-          ? 'Browse Offers uses the same provider feed until a dedicated native-offers URL is set.'
-          : 'Native partner offers feed shown inside the same dashboard module.'
+        ? 'CPAlead partner offers and app installs.'
         : 'Timewall rewarded offers shown in the same dashboard space.';
 
   useEffect(() => {
@@ -86,7 +96,7 @@ export default function OfferwallsPage() {
   }, [currentSrc, activeTab]);
 
   const { data: rewardsData, isLoading: rewardsLoading } = useQuery({
-    queryKey: ['timewall-offer-rewards', user?.id],
+    queryKey: ['offerwall-rewards', user?.id],
     queryFn: () => api.get<{ transactions: RewardTx[] }>('/wallet/transactions?type=offer&limit=10').then((response) => response.data),
     enabled: hasHydrated && !!user?.id && isOfferwallsUnlocked,
     refetchInterval: 60_000,
@@ -178,14 +188,16 @@ export default function OfferwallsPage() {
             <div className="text-xs text-slate-500">{currentDescription}</div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {renderTab('wall', <LayoutGrid size={14} />, 'CPAlead Offerwall', 'Main rewarded offerwall content')}
-            {renderTab('offers', <ListFilter size={14} />, 'Browse Offers', 'Native CPAlead offers feed')}
+            {renderTab('wall', <LayoutGrid size={14} />, 'CPAlead Offerwall', 'Main rewarded CPAlead content')}
+            {renderTab('offers', <ListFilter size={14} />, 'CPAlead Offers', 'Native CPAlead offers feed')}
             {renderTab('timewall', <Gift size={14} />, 'Timewall', 'Timewall rewards feed')}
             <button
               onClick={() => {
                 setIframeLoaded(false);
                 setIframeError(false);
                 setFrameVersion((value) => value + 1);
+                void refetchCpa();
+                void refetchTimewall();
               }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 transition hover:text-slate-200"
             >
