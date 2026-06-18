@@ -1,16 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const { protect, staffOnly, ledgerOrSuperadminOnly } = require('../middleware/auth');
+const { protect, adminOnly, staffOnly, ledgerOrSuperadminOnly } = require('../middleware/auth');
 const requireAdmin = require('../middleware/requireAdmin');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const Challenge = require('../models/Challenge').Challenge;
+const Referral = require('../models/Referral');
 const { COUNTRIES } = require('../config/countries');
 const { HYBRID_PAYMENT_STACK, PROVIDER_STATUS } = require('../config/paymentStack');
 const Wallet = require('../models/Wallet');
+const BroadcastCampaign = require('../models/BroadcastCampaign');
+const Notification = require('../models/Notification');
 const mongoose = require('mongoose');
 const { getRedis, isRedisReady } = require('../config/redis');
 const logger = require('../utils/logger');
+const { createNotification } = require('../services/notificationCenter');
+const { sendCampaign, resolveAudience } = require('../services/broadcastProcessor');
 
 const truthy = (value) => Boolean(value && String(value).trim());
 const getLedgerSplitPercent = () => {
@@ -21,6 +26,7 @@ const getLedgerSplitPercent = () => {
 
 const getAdminSharePercent = () => 100 - getLedgerSplitPercent();
 const normalizeSearch = (value = '') => String(value).trim();
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const canManageTarget = (actor, target) => {
   if (!actor || !target) return false;
   if (actor.role === 'superadmin') return true;
@@ -74,21 +80,249 @@ const aggregateLedger = async (range) => {
   const payoutQueueTotalUSD = payoutQueue.reduce((sum, tx) => sum + Number(tx.amountUSD || 0), 0);
 
   const totalUSD = summary?.totalUSD || 0;
-  const superadminSharePercent = getLedgerSplitPercent();
-  const adminSharePercent = getAdminSharePercent();
 
   return {
     range,
     totalUSD,
     totalLocal: summary?.totalLocal || 0,
     count: summary?.count || 0,
-    superadminSharePercent,
-    adminSharePercent,
-    superadminShareUSD: Number((totalUSD * superadminSharePercent / 100).toFixed(4)),
-    adminShareUSD: Number((totalUSD * adminSharePercent / 100).toFixed(4)),
     transactions,
     payoutQueue,
     payoutQueueTotalUSD,
+  };
+};
+
+const getUserMatchQuery = (term = '') => {
+  const normalized = normalizeSearch(term);
+  if (!normalized) return null;
+  const regex = new RegExp(escapeRegex(normalized), 'i');
+  return {
+    $or: [
+      { name: regex },
+      { email: regex },
+      { phone: regex },
+      { userId: regex },
+      { referralCode: regex },
+    ],
+  };
+};
+
+const buildReferralNode = async (user, depth, maxDepth, visited = new Set()) => {
+  const nodeId = String(user._id);
+  if (visited.has(nodeId)) {
+    return null;
+  }
+
+  visited.add(nodeId);
+  const directReferrals = await User.find({ referredBy: user.referralCode })
+    .select('name email phone country role activationStatus referralCode referredBy createdAt userId')
+    .sort({ createdAt: 1 })
+    .limit(200);
+
+  const directIds = directReferrals.map((ref) => ref._id);
+  const directReferralRewards = directIds.length > 0
+    ? await Referral.aggregate([
+        { $match: { referrerUserId: user._id, newUserId: { $in: directIds } } },
+        { $group: { _id: null, totalUSD: { $sum: '$rewardAmountUSD' }, count: { $sum: 1 } } },
+      ])
+    : [];
+  const branchEarningsUSD = Number(directReferralRewards[0]?.totalUSD || 0);
+
+  const children = depth < maxDepth
+    ? (await Promise.all(directReferrals.map((child) => buildReferralNode(child, depth + 1, maxDepth, new Set(visited)))))
+        .filter(Boolean)
+    : [];
+
+  const descendants = children.reduce((sum, child) => sum + 1 + Number(child.descendantCount || 0), 0);
+  const activeDescendants = directReferrals.filter((ref) => ref.activationStatus).length
+    + children.reduce((sum, child) => sum + Number(child.activeDescendantCount || 0), 0);
+
+  return {
+    user: {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      userId: user.userId,
+      referralCode: user.referralCode,
+      country: user.country,
+      activationStatus: user.activationStatus,
+      role: user.role,
+      createdAt: user.createdAt,
+    },
+    level: depth,
+    branchEarningsUSD,
+    directCount: directReferrals.length,
+    activeDirectCount: directReferrals.filter((ref) => ref.activationStatus).length,
+    descendantCount: descendants,
+    activeDescendantCount: activeDescendants,
+    children,
+  };
+};
+
+const buildReferralTree = async (user, maxDepth = 3) => {
+  const wallet = await Wallet.findOne({ userId: user._id }).select('referralEarnings pendingBalance totalEarned');
+  const uplines = [];
+  let current = user;
+  for (let level = 1; level <= 3; level += 1) {
+    if (!current.referredBy) break;
+    const parent = await User.findOne({ referralCode: current.referredBy })
+      .select('name email phone country role activationStatus referralCode referredBy createdAt userId');
+    if (!parent) break;
+    uplines.push(parent);
+    current = parent;
+  }
+
+  const root = await buildReferralNode(user, 0, maxDepth, new Set());
+  return {
+    user: {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      userId: user.userId,
+      referralCode: user.referralCode,
+      referredBy: user.referredBy,
+      country: user.country,
+      activationStatus: user.activationStatus,
+      role: user.role,
+      createdAt: user.createdAt,
+    },
+    wallet: {
+      referralEarnings: wallet?.referralEarnings || 0,
+      pendingBalance: wallet?.pendingBalance || 0,
+      totalEarned: wallet?.totalEarned || 0,
+    },
+    uplines,
+    tree: root ? [root] : [],
+  };
+};
+
+const getFraudLevel = (score) => {
+  if (score >= 80) return 'high';
+  if (score >= 45) return 'medium';
+  return 'low';
+};
+
+const buildFraudOverview = async () => {
+  const [duplicatePhones, duplicateIps, duplicateFingerprints, recentWithdrawals, chargebacks, recentEarnings] = await Promise.all([
+    User.aggregate([
+      { $match: { phone: { $type: 'string', $ne: '' } } },
+      { $group: { _id: '$phone', count: { $sum: 1 }, users: { $push: '$_id' } } },
+      { $match: { count: { $gt: 1 } } },
+    ]),
+    User.aggregate([
+      { $match: { 'registrationContext.ipAddress': { $type: 'string', $ne: '' } } },
+      { $group: { _id: '$registrationContext.ipAddress', count: { $sum: 1 }, users: { $push: '$_id' } } },
+      { $match: { count: { $gt: 1 } } },
+    ]),
+    User.aggregate([
+      { $unwind: { path: '$securityEvents', preserveNullAndEmptyArrays: false } },
+      { $match: { 'securityEvents.deviceFingerprint': { $type: 'string', $ne: '' } } },
+      { $group: { _id: '$securityEvents.deviceFingerprint', count: { $sum: 1 }, users: { $addToSet: '$_id' }, ips: { $addToSet: '$securityEvents.ipAddress' } } },
+      { $match: { count: { $gt: 1 } } },
+    ]),
+    Transaction.aggregate([
+      { $match: { type: 'withdrawal', createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } } },
+      { $group: { _id: '$userId', count: { $sum: 1 }, earliest: { $min: '$createdAt' } } },
+      { $match: { count: { $gte: 2 } } },
+    ]),
+    Transaction.find({ status: 'reversed', 'metadata.type': 'chargeback' })
+      .populate('userId', 'name email phone country userId referralCode registrationContext createdAt fraudRiskScore fraudRiskLevel fraudReviewStatus fraudRiskReasons')
+      .sort({ createdAt: -1 })
+      .limit(100),
+    Transaction.aggregate([
+      { $match: { status: 'successful', createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } } },
+      { $group: { _id: '$userId', amountUSD: { $sum: '$amountUSD' }, count: { $sum: 1 }, lastAt: { $max: '$createdAt' } } },
+      { $match: { amountUSD: { $gte: 100 } } },
+    ]),
+  ]);
+
+  const scoreMap = new Map();
+  const reasonMap = new Map();
+  const addScore = (userId, score, reason) => {
+    const key = String(userId);
+    scoreMap.set(key, Math.min(100, (scoreMap.get(key) || 0) + score));
+    const reasons = reasonMap.get(key) || [];
+    reasons.push(reason);
+    reasonMap.set(key, reasons);
+  };
+
+  for (const row of duplicatePhones) {
+    row.users.forEach((userId) => addScore(userId, 30, `Shares phone with ${row.count - 1} other account(s)`));
+  }
+  for (const row of duplicateIps) {
+    row.users.forEach((userId) => addScore(userId, 20, `Shares registration IP with ${row.count - 1} other account(s)`));
+  }
+  for (const row of duplicateFingerprints) {
+    row.users.forEach((userId) => addScore(userId, 35, `Shares device fingerprint with ${row.count - 1} other account(s)`));
+  }
+  for (const row of recentWithdrawals) {
+    addScore(row._id, 25, `Multiple withdrawal requests in the last 24 hours (${row.count})`);
+  }
+  for (const row of recentEarnings) {
+    addScore(row._id, 20, `High earnings volume in the last 24 hours ($${Number(row.amountUSD || 0).toFixed(2)})`);
+  }
+
+  const flaggedUsers = await User.find({
+    _id: { $in: Array.from(scoreMap.keys()) },
+  })
+    .select('name email phone country userId referralCode role activationStatus isBanned createdAt registrationContext fraudRiskScore fraudRiskLevel fraudReviewStatus fraudRiskReasons fraudReviewedAt')
+    .sort({ createdAt: -1 });
+
+  const flagged = flaggedUsers.map((user) => {
+    const score = Math.min(100, scoreMap.get(String(user._id)) || 0);
+    const reasons = reasonMap.get(String(user._id)) || [];
+    return {
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        country: user.country,
+        userId: user.userId,
+        referralCode: user.referralCode,
+        activationStatus: user.activationStatus,
+        isBanned: user.isBanned,
+        createdAt: user.createdAt,
+        registrationIp: user.registrationContext?.ipAddress || '',
+        deviceFingerprint: user.registrationContext?.deviceFingerprint || '',
+      },
+      riskScore: Math.max(score, Number(user.fraudRiskScore || 0)),
+      riskLevel: getFraudLevel(Math.max(score, Number(user.fraudRiskScore || 0))),
+      reasons: Array.from(new Set([...(user.fraudRiskReasons || []), ...reasons])),
+      reviewStatus: user.fraudReviewStatus || 'cleared',
+      reviewAt: user.fraudReviewedAt || null,
+    };
+  }).sort((a, b) => b.riskScore - a.riskScore);
+
+  const chargebackRows = chargebacks.map((tx) => ({
+    _id: tx._id,
+    user: tx.userId,
+    amountUSD: tx.amountUSD,
+    createdAt: tx.createdAt,
+    providerTransactionId: tx.providerTransactionId,
+    metadata: tx.metadata,
+  }));
+
+  return {
+    flagged,
+    duplicatePhones: duplicatePhones.length,
+    duplicateIps: duplicateIps.length,
+    duplicateIpDetails: duplicateIps.slice(0, 25).map((row) => ({
+      ipAddress: row._id,
+      count: row.count,
+      userIds: row.users,
+    })),
+    duplicateFingerprints: duplicateFingerprints.length,
+    duplicateFingerprintDetails: duplicateFingerprints.slice(0, 25).map((row) => ({
+      fingerprint: row._id,
+      count: row.count,
+      userIds: row.users,
+      ips: row.ips,
+    })),
+    recentWithdrawalClusters: recentWithdrawals.length,
+    chargebacks: chargebackRows,
   };
 };
 
@@ -132,6 +366,20 @@ const providerConfigs = {
     ],
     recommended: [],
   },
+  pawapay: {
+    label: 'PawaPay',
+    environment: process.env.PAWAPAY_BASE_URL ? 'configured' : 'missing',
+    required: [
+      ['apiKey', process.env.PAWAPAY_API_KEY],
+      ['merchantId', process.env.PAWAPAY_MERCHANT_ID],
+      ['baseUrl', process.env.PAWAPAY_BASE_URL],
+    ],
+    recommended: [
+      ['collectionUrl', process.env.PAWAPAY_COLLECTION_URL],
+      ['payoutUrl', process.env.PAWAPAY_PAYOUT_URL],
+      ['callbackUrl', process.env.PAWAPAY_CALLBACK_URL],
+    ],
+  },
   mtn_momo: {
     label: 'MTN MoMo',
     environment: process.env.MTN_MOMO_TARGET_ENVIRONMENT || 'sandbox',
@@ -172,17 +420,687 @@ const providerConfigs = {
 };
 
 router.get('/stats', protect, requireAdmin, async (req, res) => {
-  const [totalUsers, activeUsers, totalTransactions] = await Promise.all([
-    User.countDocuments(),
-    User.countDocuments({ activationStatus: true }),
-    Transaction.countDocuments({ status: 'successful' }),
-  ]);
-  res.json({ success: true, stats: { totalUsers, activeUsers, totalTransactions } });
+  try {
+    const [totalUsers, activeUsers, totalTransactions, pendingKyc, bannedUsers, recentLogins] = await Promise.all([
+      User.countDocuments(),
+      User.countDocuments({ activationStatus: true }),
+      Transaction.countDocuments({ status: 'successful' }),
+      User.countDocuments({ identityVerificationStatus: { $in: ['pending', 'submitted'] } }),
+      User.countDocuments({ isBanned: true }),
+      User.countDocuments({ lastLoginAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } }),
+    ]);
+    
+    const { Challenge } = require('../models/Challenge');
+    const activeChallenges = await Challenge.countDocuments({ isActive: true, expiresAt: { $gt: new Date() } });
+    
+    res.json({
+      success: true,
+      stats: {
+        totalUsers,
+        activeUsers,
+        totalTransactions,
+        pendingKyc,
+        bannedUsers,
+        recentLogins,
+        activeChallenges,
+        userGrowthTrend: Math.round((activeUsers / Math.max(totalUsers, 1)) * 100),
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.get('/referrals/search', protect, requireAdmin, async (req, res) => {
+  try {
+    const query = getUserMatchQuery(req.query.query || req.query.search || '');
+    if (!query) {
+      return res.json({ success: true, users: [] });
+    }
+
+    const users = await User.find(query)
+      .select('name email phone userId referralCode country activationStatus role createdAt')
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
+
+    res.json({ success: true, users });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/referrals/tree/:userId', protect, requireAdmin, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).select('name email phone userId referralCode referredBy country activationStatus role createdAt');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const tree = await buildReferralTree(user, 3);
+    res.json({
+      success: true,
+      ...tree,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Fraud Detection - flagged accounts
+router.get('/fraud/flagged', protect, staffOnly, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const Transaction = require('../models/Transaction');
+    const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    // 1. Withdrew within 30 mins of activating
+    const fastWithdrawals = await Transaction.find({ type: 'withdrawal', status: 'successful' }).populate('userId', 'name email phone country createdAt activationStatus');
+    const fastWithdrawUsers = fastWithdrawals
+      .filter(tx => {
+        const user = tx.userId;
+        if (!user?.createdAt) return false;
+        return (new Date(tx.createdAt) - new Date(user.createdAt)) <= (30 * 60 * 1000);
+      })
+      .map(tx => ({
+        user: tx.userId, reason: 'Withdrew within 30min of activation',
+        riskScore: 90, txId: tx._id, amount: tx.amountUSD
+      }));
+
+    // 2. Duplicate phone numbers
+    const dupPhones = await User.aggregate([
+      { $group: { _id: '$phone', count: { $sum: 1 }, users: { $push: '$_id' } } },
+      { $match: { count: { $gt: 1 } } }
+    ]);
+    const dupPhoneUsers = [];
+    for (const g of dupPhones) {
+      const users = await User.find({ _id: { $in: g.users } }).select('name email phone country createdAt');
+      users.forEach(u => dupPhoneUsers.push({
+        user: u, reason: `Duplicate phone shared with ${g.count - 1} other account(s)`,
+        riskScore: 75
+      }));
+    }
+
+    // 3. Offerwall spikes - completed > 20 offers in 24h
+    const offerSpikes = await Transaction.aggregate([
+      { $match: { type: 'offer', createdAt: { $gte: oneDayAgo } } },
+      { $group: { _id: '$userId', count: { $sum: 1 } } },
+      { $match: { count: { $gt: 20 } } }
+    ]);
+    const spikeUsers = [];
+    for (const s of offerSpikes) {
+      const u = await User.findById(s._id).select('name email phone country');
+      if (u) spikeUsers.push({
+        user: u, reason: `Completed ${s.count} offers in 24h (spike)`, riskScore: 80
+      });
+    }
+
+    // 4. Referral earnings with no self-earning
+    const referralOnly = await User.aggregate([
+      { $match: { activationStatus: true } },
+      {
+        $lookup: {
+          from: 'wallets', localField: '_id', foreignField: 'userId', as: 'wallet'
+        }
+      },
+      { $unwind: '$wallet' },
+      {
+        $match: {
+          'wallet.referralEarnings': { $gt: 0 },
+          'wallet.surveyEarnings': 0,
+          'wallet.taskEarnings': 0,
+          'wallet.offerEarnings': 0,
+        }
+      },
+      { $limit: 50 }
+    ]);
+    const refOnlyUsers = referralOnly.map(u => ({
+      user: { _id: u._id, name: u.name, email: u.email, phone: u.phone, country: u.country },
+      reason: 'Has referral earnings but zero self-earned activity',
+      riskScore: 60
+    }));
+
+    const allFlags = [...fastWithdrawUsers, ...dupPhoneUsers, ...spikeUsers, ...refOnlyUsers];
+    const seen = new Set();
+    const unique = allFlags.filter(f => {
+      const id = String(f.user?._id);
+      if (seen.has(id)) return false;
+      seen.add(id); return true;
+    }).sort((a, b) => b.riskScore - a.riskScore);
+
+    res.json({ success: true, flagged: unique, total: unique.length });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Revenue analytics
+router.get('/analytics/revenue', protect, ledgerOrSuperadminOnly, async (req, res) => {
+  try {
+    const Transaction = require('../models/Transaction');
+    const days = req.query.range === '7d' ? 7 : req.query.range === '90d' ? 90 : 30;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const [daily, bySource, byCountry, withdrawalTotal] = await Promise.all([
+      Transaction.aggregate([
+        { $match: { type: { $in: ['activation','job_posting','token_purchase'] }, status: 'successful', createdAt: { $gte: since } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, totalUSD: { $sum: '$amountUSD' }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ]),
+      Transaction.aggregate([
+        { $match: { type: { $in: ['activation','job_posting','token_purchase'] }, status: 'successful', createdAt: { $gte: since } } },
+        { $group: { _id: '$type', totalUSD: { $sum: '$amountUSD' }, count: { $sum: 1 } } }
+      ]),
+      Transaction.aggregate([
+        { $match: { type: { $in: ['activation','job_posting','token_purchase'] }, status: 'successful', createdAt: { $gte: since } } },
+        { $group: { _id: '$country', totalUSD: { $sum: '$amountUSD' }, count: { $sum: 1 } } },
+        { $sort: { totalUSD: -1 } }, { $limit: 10 }
+      ]),
+      Transaction.aggregate([
+        { $match: { type: 'withdrawal', status: 'successful', createdAt: { $gte: since } } },
+        { $group: { _id: null, totalUSD: { $sum: '$amountUSD' } } }
+      ])
+    ]);
+
+    const totalRevenue = bySource.reduce((s, r) => s + r.totalUSD, 0);
+    const totalWithdrawn = withdrawalTotal[0]?.totalUSD || 0;
+
+    res.json({
+      success: true,
+      daily,
+      bySource,
+      byCountry,
+      totalRevenue,
+      totalWithdrawn,
+      ratio: totalRevenue > 0 ? ((totalWithdrawn / totalRevenue) * 100).toFixed(1) : 0
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Withdrawal approval queue
+router.get('/withdrawals/pending-approval', protect, ledgerOrSuperadminOnly, async (req, res) => {
+  try {
+    const Transaction = require('../models/Transaction');
+    const THRESHOLD_USD = parseFloat(process.env.WITHDRAWAL_APPROVAL_THRESHOLD_USD || '50');
+    const pending = await Transaction.find({
+      type: 'withdrawal',
+      status: 'pending',
+      amountUSD: { $gte: THRESHOLD_USD }
+    }).populate('userId', 'name email phone country').sort({ createdAt: -1 });
+    res.json({ success: true, withdrawals: pending, threshold: THRESHOLD_USD });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+router.post('/withdrawals/:id/approve', protect, ledgerOrSuperadminOnly, async (req, res) => {
+  try {
+    const Transaction = require('../models/Transaction');
+    const { logAudit } = require('../utils/audit');
+    const tx = await Transaction.findById(req.params.id);
+    if (!tx) return res.status(404).json({ success: false, message: 'Transaction not found' });
+    if (tx.status !== 'pending') return res.status(400).json({ success: false, message: 'Not pending' });
+    tx.metadata = { ...tx.metadata, approvedBy: req.user._id, approvedAt: new Date() };
+    await tx.save();
+    await logAudit({ req, actor: req.user, module: 'withdrawals', action: 'approve_withdrawal', targetType: 'transaction', targetId: tx._id, metadata: { amountUSD: tx.amountUSD } });
+    res.json({ success: true, message: 'Withdrawal approved' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+router.post('/withdrawals/:id/reject', protect, ledgerOrSuperadminOnly, async (req, res) => {
+  try {
+    const Transaction = require('../models/Transaction');
+    const Wallet = require('../models/Wallet');
+    const { logAudit } = require('../utils/audit');
+    const { reason } = req.body;
+    if (!reason) return res.status(400).json({ success: false, message: 'Reason required' });
+    const tx = await Transaction.findById(req.params.id);
+    if (!tx || tx.status !== 'pending') return res.status(400).json({ success: false, message: 'Not pending' });
+    tx.status = 'failed';
+    tx.failureReason = reason;
+    await tx.save();
+    const wallet = await Wallet.findOne({ userId: tx.userId });
+    if (wallet) { wallet.balanceUSD += tx.amountUSD; await wallet.save(); }
+    await logAudit({ req, actor: req.user, module: 'withdrawals', action: 'reject_withdrawal', targetType: 'transaction', targetId: tx._id, metadata: { amountUSD: tx.amountUSD, reason } });
+    res.json({ success: true, message: 'Withdrawal rejected and wallet refunded' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// KYC queue
+router.get('/kyc/queue', protect, requireAdmin, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const {
+      search = '',
+      country = '',
+      page = 1,
+      limit = 25,
+    } = req.query;
+
+    const safePage = Math.max(Number(page) || 1, 1);
+    const safeLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
+    const query = { identityVerificationStatus: 'pending' };
+
+    const normalizedSearch = String(search || '').trim();
+    if (normalizedSearch) {
+      const regex = new RegExp(escapeRegex(normalizedSearch), 'i');
+      query.$or = [
+        { name: regex },
+        { email: regex },
+        { phone: regex },
+        { userId: regex },
+        { referralCode: regex },
+      ];
+    }
+
+    if (country) {
+      query.country = String(country).trim();
+    }
+
+    const [users, total] = await Promise.all([
+      User.find(query)
+        .select('name email phone country userId createdAt identityVerificationStatus kycDocuments balanceUSD referralCode fraudRiskScore fraudRiskLevel registrationContext')
+        .sort({ createdAt: 1 })
+        .skip((safePage - 1) * safeLimit)
+        .limit(safeLimit),
+      User.countDocuments(query),
+    ]);
+
+    res.json({
+      success: true,
+      queue: users,
+      count: total,
+      pagination: { total, page: safePage, limit: safeLimit },
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// User activity timeline
+router.get('/users/:id/timeline', protect, requireAdmin, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const Transaction = require('../models/Transaction');
+    const AuditLog = require('../models/AuditLog');
+    const { Challenge, ChallengeCompletion } = require('../models/Challenge');
+
+    const [user, transactions, auditEvents] = await Promise.all([
+      User.findById(req.params.id).select('name email phone createdAt activationStatus identityVerificationStatus twoFactorEnabled twoFactorEnabledAt phoneVerified emailVerified loginHistory'),
+      Transaction.find({ userId: req.params.id }).sort({ createdAt: -1 }).limit(100),
+      AuditLog.find({ targetId: String(req.params.id) }).sort({ createdAt: -1 }).limit(50)
+    ]);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const timeline = [
+      { date: user.createdAt, type: 'account', label: 'Account created', icon: 'user' },
+      ...(user.phoneVerified ? [{ date: user.createdAt, type: 'verify', label: 'Phone verified', icon: 'phone' }] : []),
+      ...(user.twoFactorEnabledAt ? [{ date: user.twoFactorEnabledAt, type: 'security', label: '2FA enabled', icon: 'shield' }] : []),
+      ...transactions.map(tx => ({
+        date: tx.createdAt, type: 'transaction',
+        label: `${tx.type} — $${Number(tx.amountUSD || 0).toFixed(2)} (${tx.status})`,
+        icon: tx.direction === 'credit' ? 'arrow-down' : 'arrow-up',
+        meta: { status: tx.status, provider: tx.provider, currency: tx.currency }
+      })),
+      ...auditEvents.map(e => ({
+        date: e.createdAt, type: 'admin_action',
+        label: `Admin action: ${e.action} by ${e.actorRole}`,
+        icon: 'shield-alert', meta: e.metadata
+      })),
+    ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    res.json({ success: true, user, timeline });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Wallet correction
+router.post('/wallets/:userId/correct', protect, ledgerOrSuperadminOnly, async (req, res) => {
+  try {
+    const Wallet = require('../models/Wallet');
+    const Transaction = require('../models/Transaction');
+    const { logAudit } = require('../utils/audit');
+    const { direction, amountUSD, reason, reference } = req.body;
+    if (!direction || !amountUSD || !reason || !reference) {
+      return res.status(400).json({ success: false, message: 'direction, amountUSD, reason, reference all required' });
+    }
+    const wallet = await Wallet.findOne({ userId: req.params.userId });
+    if (!wallet) return res.status(404).json({ success: false, message: 'Wallet not found' });
+
+    const before = wallet.balanceUSD;
+    if (direction === 'credit') wallet.balanceUSD += Number(amountUSD);
+    else {
+      if (wallet.balanceUSD < Number(amountUSD)) return res.status(400).json({ success: false, message: 'Insufficient wallet balance' });
+      wallet.balanceUSD -= Number(amountUSD);
+    }
+    await wallet.save();
+
+    await Transaction.create({
+      userId: wallet.userId,
+      type: 'wallet_correction',
+      status: 'successful',
+      direction: direction === 'credit' ? 'credit' : 'debit',
+      amountUSD: Number(amountUSD),
+      currency: 'USD',
+      country: wallet.country || 'USD',
+      provider: 'internal',
+      metadata: { reason, reference, before, after: wallet.balanceUSD, adjustedBy: req.user._id }
+    });
+
+    await logAudit({ req, actor: req.user, module: 'wallets', action: 'wallet_correction', targetType: 'wallet', targetId: wallet._id, metadata: { direction, amountUSD, reason, reference } });
+
+    res.json({ success: true, message: 'Wallet corrected', before, after: wallet.balanceUSD });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Bulk user actions
+router.post('/users/bulk', protect, ledgerOrSuperadminOnly, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const { logAudit } = require('../utils/audit');
+    const { action, userIds, reason, accessType } = req.body;
+    if (!action || !Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'action and userIds required' });
+    }
+    if (action === 'ban') {
+      await User.updateMany({ _id: { $in: userIds } }, { $set: { isBanned: true, banReason: reason || 'Bulk ban' } });
+    } else if (action === 'unban') {
+      await User.updateMany({ _id: { $in: userIds } }, { $set: { isBanned: false, banReason: null } });
+    } else if (action === 'set-access-type') {
+      await User.updateMany({ _id: { $in: userIds } }, { $set: { accessType: accessType || 'real' } });
+    } else {
+      return res.status(400).json({ success: false, message: 'Unknown action' });
+    }
+    await logAudit({ req, actor: req.user, module: 'users', action: `bulk_${action}`, targetType: 'users', targetId: userIds.join(','), metadata: { count: userIds.length, reason } });
+    res.json({ success: true, message: `Bulk ${action} applied to ${userIds.length} users` });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Notification broadcast
+router.post('/notifications/broadcast', protect, requireAdmin, async (req, res) => {
+  try {
+    const { logAudit } = require('../utils/audit');
+    const {
+      title,
+      message,
+      htmlMessage = '',
+      channel = 'in_app',
+      segment = 'all',
+      countries = [],
+      country = '',
+      minBalance = null,
+      activatedOnly = false,
+      userIds = [],
+      userSearch = '',
+      sendAt = null,
+      metadata = {},
+    } = req.body || {};
+
+    if (!title || !message) return res.status(400).json({ success: false, message: 'title and message required' });
+
+    const scheduledFor = sendAt ? new Date(sendAt) : null;
+    if (scheduledFor && Number.isNaN(scheduledFor.getTime())) {
+      return res.status(400).json({ success: false, message: 'Invalid sendAt date' });
+    }
+
+    const campaign = await BroadcastCampaign.create({
+      title,
+      message,
+      htmlMessage,
+      channel: ['in_app', 'email', 'both'].includes(String(channel)) ? String(channel) : 'in_app',
+      target: {
+        scope: String(segment || 'all'),
+        countries: Array.isArray(countries) && countries.length > 0 ? countries : (country ? [country] : []),
+        minBalance: minBalance !== null && minBalance !== '' ? Number(minBalance) : null,
+        activatedOnly: Boolean(activatedOnly),
+        userIds: Array.isArray(userIds) ? userIds : [],
+        userSearch: String(userSearch || ''),
+      },
+      scheduledFor,
+      status: scheduledFor && scheduledFor > new Date() ? 'scheduled' : 'draft',
+      createdBy: req.user._id,
+      metadata,
+    });
+
+    if (!scheduledFor || scheduledFor <= new Date()) {
+      await sendCampaign(campaign._id);
+    } else {
+      campaign.status = 'scheduled';
+      await campaign.save();
+    }
+
+    await logAudit({
+      req,
+      actor: req.user,
+      module: 'notifications',
+      action: campaign.status === 'sent' ? 'broadcast_sent' : 'broadcast_scheduled',
+      targetType: 'broadcast_campaign',
+      targetId: String(campaign._id),
+      metadata: { title, channel, segment, scheduledFor: scheduledFor || null },
+    });
+
+    res.json({
+      success: true,
+      message: campaign.status === 'sent'
+        ? `Broadcast sent`
+        : `Broadcast scheduled for ${scheduledFor.toISOString()}`,
+      campaign,
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+router.get('/fraud/overview', protect, adminOnly, async (req, res) => {
+  try {
+    const overview = await buildFraudOverview();
+    res.json({ success: true, ...overview });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/fraud/:userId/clear', protect, adminOnly, async (req, res) => {
+  try {
+    const { reason = '' } = req.body || {};
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    user.fraudRiskScore = 0;
+    user.fraudRiskLevel = 'low';
+    user.fraudRiskReasons = reason ? [String(reason)] : [];
+    user.fraudReviewStatus = 'cleared';
+    user.fraudReviewedAt = new Date();
+    await user.save();
+
+    const { logAudit } = require('../utils/audit');
+    await logAudit({
+      req,
+      actor: req.user,
+      module: 'fraud',
+      action: 'fraud_cleared',
+      targetType: 'user',
+      targetId: user._id,
+      metadata: { reason },
+    });
+
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/fraud/:userId/ban', protect, adminOnly, async (req, res) => {
+  try {
+    const { reason = 'Fraud risk detected' } = req.body || {};
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    user.isBanned = true;
+    user.banReason = reason;
+    user.fraudReviewStatus = 'banned';
+    user.fraudReviewedAt = new Date();
+    await user.save();
+
+    const { logAudit } = require('../utils/audit');
+    await logAudit({
+      req,
+      actor: req.user,
+      module: 'fraud',
+      action: 'fraud_banned',
+      targetType: 'user',
+      targetId: user._id,
+      metadata: { reason },
+    });
+
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/notifications/targeted', protect, requireAdmin, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const { logAudit } = require('../utils/audit');
+    const {
+      recipients = [],
+      title,
+      message,
+      metadata = {},
+      notificationType = 'system',
+      channel = 'in_app',
+    } = req.body || {};
+
+    if (!title || !message) {
+      return res.status(400).json({ success: false, message: 'title and message required' });
+    }
+
+    const rawRecipients = Array.isArray(recipients)
+      ? recipients
+      : String(recipients || '')
+          .split(/[\n,]+/)
+          .map((value) => value.trim())
+          .filter(Boolean);
+
+    const tokens = [...new Set(rawRecipients)];
+    if (tokens.length === 0) {
+      return res.status(400).json({ success: false, message: 'At least one recipient is required' });
+    }
+
+    const lowerTokens = tokens.map((value) => value.toLowerCase());
+    const users = await User.find({
+      $or: [
+        { _id: { $in: tokens } },
+        { email: { $in: lowerTokens } },
+        { phone: { $in: tokens } },
+        { userId: { $in: tokens } },
+      ],
+    }).select('_id email phone userId');
+
+    const uniqueUsers = Array.from(new Map(users.map((user) => [String(user._id), user])).values());
+    if (uniqueUsers.length === 0) {
+      return res.status(404).json({ success: false, message: 'No matching users found for the provided recipients' });
+    }
+
+    const results = await Promise.allSettled(
+      uniqueUsers.map((user) =>
+        createNotification({
+          userId: user._id,
+          type: 'system',
+          title,
+          message,
+          channel: ['in_app', 'email', 'sms'].includes(String(channel)) ? String(channel) : 'in_app',
+          metadata: {
+            ...metadata,
+            scope: 'targeted',
+            kind: String(notificationType || 'system'),
+            createdBy: req.user._id,
+          },
+        })
+      )
+    );
+
+    const sent = results.filter((item) => item.status === 'fulfilled' && item.value).length;
+    await logAudit({
+      req,
+      actor: req.user,
+      module: 'notifications',
+      action: 'targeted_send',
+      targetType: 'users',
+      targetId: uniqueUsers.map((user) => String(user._id)).join(','),
+      metadata: { title, count: sent, notificationType: String(notificationType || 'system'), channel: String(channel || 'in_app') },
+    });
+
+    res.json({ success: true, message: `Notification sent to ${sent} users`, count: sent });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+router.get('/notifications/broadcast/preview', protect, requireAdmin, async (req, res) => {
+  try {
+    const { segment, country, countries = [], minBalance, activatedOnly, userIds = [], userSearch = '' } = req.query;
+    const resolved = await resolveAudience({
+      target: {
+        scope: String(segment || 'all'),
+        countries: Array.isArray(countries) ? countries : String(country || '').split(',').filter(Boolean),
+        minBalance: minBalance !== undefined && minBalance !== null && minBalance !== '' ? Number(minBalance) : null,
+        activatedOnly: String(activatedOnly) === 'true',
+        userIds: Array.isArray(userIds) ? userIds : String(userIds || '').split(',').filter(Boolean),
+        userSearch,
+      },
+    });
+    const sample = resolved.slice(0, 5).map((user) => ({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      country: user.country,
+      balanceUSD: user.balanceUSD,
+    }));
+    res.json({ success: true, count: resolved.length, sample });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+router.get('/notifications/broadcasts/history', protect, requireAdmin, async (req, res) => {
+  try {
+    const campaigns = await BroadcastCampaign.find({})
+      .populate('createdBy', 'name email role userId')
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    const normalized = await Promise.all(campaigns.map(async (campaign) => {
+      const readCount = await Notification.countDocuments({
+        'metadata.broadcastId': campaign._id,
+        readAt: { $ne: null },
+      });
+      return {
+        ...campaign,
+        readCount,
+        openRate: campaign.stats?.sent ? Number(((readCount / campaign.stats.sent) * 100).toFixed(1)) : 0,
+      };
+    }));
+
+    res.json({ success: true, campaigns: normalized });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
 });
 
 router.get('/users', protect, requireAdmin, async (req, res) => {
   try {
-    const { page = 1, limit = 50, search = '', role = '', banned = '' } = req.query;
+    const { page = 1, limit = 50, search = '', role = '', banned = '', verified = '' } = req.query;
     const safePage = Math.max(Number(page) || 1, 1);
     const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
     const query = {};
@@ -198,6 +1116,8 @@ router.get('/users', protect, requireAdmin, async (req, res) => {
 
     if (String(banned) === 'true') query.isBanned = true;
     if (String(banned) === 'false') query.isBanned = false;
+    if (String(verified) === 'true') query.activationStatus = true;
+    if (String(verified) === 'false') query.activationStatus = false;
 
     const term = normalizeSearch(search);
     if (term) {
@@ -219,7 +1139,7 @@ router.get('/users', protect, requireAdmin, async (req, res) => {
         .sort({ createdAt: -1 })
         .skip((safePage - 1) * safeLimit)
         .limit(safeLimit)
-        .select('name email phone country role activationStatus isBanned userId userAccessType createdAt managedBy')
+        .select('name email phone country role activationStatus isBanned userId userAccessType createdAt managedBy balanceUSD referralCode fraudRiskScore fraudRiskLevel')
         .lean(),
       User.countDocuments(query),
     ]);
@@ -280,6 +1200,28 @@ router.put('/users/:id/assign', protect, requireAdmin, async (req, res) => {
   );
 
   res.json({ success: true, user });
+});
+
+// Admin KYC approval/rejection
+router.patch('/users/:userId/kyc', protect, requireAdmin, async (req, res) => {
+  try {
+    const { status, rejectionReason } = req.body;
+    if (!['verified', 'rejected'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Status must be verified or rejected' });
+    }
+
+    const updates = { identityVerificationStatus: status };
+    if (status === 'verified') updates.activationStatus = true;
+
+    const user = await User.findByIdAndUpdate(req.params.userId, updates, { new: true });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    // TODO: notify user via email/SMS about result
+
+    res.json({ success: true, message: `KYC ${status}`, user });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 router.get('/admins', protect, ledgerOrSuperadminOnly, async (req, res) => {
@@ -404,6 +1346,119 @@ router.put('/users/:id/access-type', protect, requireAdmin, async (req, res) => 
   res.json({ success: true, user: target, message: `User marked as ${accessType} user` });
 });
 
+router.post('/users/:id/activate', protect, requireAdmin, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const target = await User.findById(req.params.id).session(session);
+    if (!target) {
+      await session.abortTransaction();
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (!canManageTarget(req.user, target)) {
+      await session.abortTransaction();
+      return res.status(403).json({ success: false, message: 'Not allowed to manage this account' });
+    }
+
+    if (target.activationStatus) {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: 'User already activated' });
+    }
+
+    target.activationStatus = true;
+    if (!target.isActive) target.isActive = true;
+    await target.save({ session });
+
+    const transaction = await Transaction.create(
+      [{
+        userId: target._id,
+        type: 'activation',
+        amountLocal: 0,
+        amountUSD: 0,
+        currency: target.country || 'USD',
+        country: target.country || 'USD',
+        provider: 'internal',
+        providerTransactionId: `admin-activation-${target._id}-${Date.now()}`,
+        status: 'successful',
+        direction: 'credit',
+        processedAt: new Date(),
+        metadata: {
+          activatedBy: req.user._id.toString(),
+          activatedByRole: req.user.role,
+          activationMethod: 'admin_manual',
+        },
+      }],
+      { session }
+    );
+
+    if (target.referredBy) {
+      const referrer = await User.findOne({ referralCode: target.referredBy }).session(session);
+      if (referrer) {
+        const referralRewardUSD = 1.54;
+        const referralRewardLocal = referralRewardUSD;
+        const currency = target.country || 'USD';
+
+        await Wallet.findOneAndUpdate(
+          { userId: referrer._id },
+          {
+            $inc: {
+              pendingBalance: referralRewardUSD,
+              referralEarnings: referralRewardUSD,
+              totalEarned: referralRewardUSD,
+            },
+          },
+          { session, new: true, upsert: true, setDefaultsOnInsert: true }
+        );
+
+        await Transaction.create(
+          [{
+            userId: referrer._id,
+            type: 'referral_reward',
+            amountLocal: referralRewardLocal,
+            amountUSD: referralRewardUSD,
+            currency,
+            country: target.country || 'USD',
+            provider: 'internal',
+            direction: 'credit',
+            status: 'pending',
+            metadata: {
+              sourceUserId: target._id.toString(),
+              sourceUserCode: target.userId,
+              payoutSchedule: 'friday',
+              activationMethod: 'admin_manual',
+            },
+          }],
+          { session }
+        );
+
+        await User.findByIdAndUpdate(
+          referrer._id,
+          { $inc: { totalReferrals: 1, xpPoints: 100 } },
+          { session }
+        );
+
+        const { updateChallengeProgress } = require('../controllers/challengeController');
+        await updateChallengeProgress(referrer._id, 'referral');
+        const updatedReferrer = await User.findById(referrer._id).session(session).select('totalReferrals');
+        if ((updatedReferrer?.totalReferrals || 0) >= 2) {
+          await updateChallengeProgress(referrer._id, 'referral_3');
+        }
+      }
+    }
+
+    await session.commitTransaction();
+    res.json({ success: true, message: 'User activated successfully', user: target, transaction: transaction[0] });
+  } catch (error) {
+    await session.abortTransaction();
+    logger.error(`Admin activate user failed: ${error.message}`, { userId: req.user._id.toString(), targetUserId: req.params.id });
+    res.status(500).json({ success: false, message: 'Failed to activate user', error: error.message });
+  } finally {
+    await session.endSession();
+  }
+});
+
 router.put('/admins/:id/reset-password', protect, ledgerOrSuperadminOnly, async (req, res) => {
   const { newPassword } = req.body;
   if (!newPassword || String(newPassword).length < 8) {
@@ -426,7 +1481,128 @@ router.put('/admins/:id/reset-password', protect, ledgerOrSuperadminOnly, async 
 router.get('/ledger', protect, ledgerOrSuperadminOnly, async (req, res) => {
   const { range = '30d' } = req.query;
   const ledger = await aggregateLedger(range);
-  res.json({ success: true, ledger, policy: { superadminSharePercent: ledger.superadminSharePercent, adminSharePercent: ledger.adminSharePercent } });
+  res.json({ success: true, ledger });
+});
+
+router.post('/ledger/manual-payment', protect, ledgerOrSuperadminOnly, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const {
+      userIdentifier,
+      amountUSD,
+      amountLocal,
+      currency,
+      country,
+      providerReference,
+      paymentMethod,
+      note,
+    } = req.body || {};
+
+    if (!userIdentifier || amountUSD == null || !providerReference || !paymentMethod) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: 'userIdentifier, amountUSD, providerReference and paymentMethod are required',
+      });
+    }
+
+    const amount = Number(amountUSD);
+    if (Number.isNaN(amount) || amount <= 0) {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: 'amountUSD must be a positive number' });
+    }
+
+    const normalizedIdentifier = String(userIdentifier).trim();
+    const user = await User.findOne({
+      $or: [
+        { email: normalizedIdentifier.toLowerCase() },
+        { userId: normalizedIdentifier },
+      ],
+    }).session(session);
+
+    if (!user) {
+      await session.abortTransaction();
+      return res.status(404).json({ success: false, message: `No user found for: ${normalizedIdentifier}` });
+    }
+
+    const reference = String(providerReference).trim();
+    const duplicate = await Transaction.findOne({ providerTransactionId: reference }).session(session);
+    if (duplicate) {
+      await session.abortTransaction();
+      return res.status(409).json({
+        success: false,
+        message: `Reference ${reference} already exists in the system`,
+      });
+    }
+
+    const wallet = await Wallet.findOneAndUpdate(
+      { userId: user._id },
+      {
+        $inc: {
+          balanceUSD: amount,
+          totalDeposited: amount,
+          totalEarned: amount,
+        },
+      },
+      { session, new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    const transaction = await Transaction.create(
+      [{
+        userId: user._id,
+        type: 'manual_payment',
+        status: 'successful',
+        direction: 'credit',
+        provider: 'manual',
+        amountUSD: amount,
+        amountLocal: Number(amountLocal) || amount,
+        currency: currency || 'USD',
+        country: country || user.country,
+        providerTransactionId: reference,
+        payoutStatus: 'executed',
+        payoutExecutedAt: new Date(),
+        payoutExecutedBy: req.user._id,
+        processedAt: new Date(),
+        metadata: {
+          paymentMethod,
+          note: note || '',
+          recordedBy: req.user.userId || req.user.email,
+          recordedByRole: req.user.role,
+          walletSnapshot: {
+            balanceBefore: Number(wallet.balanceUSD || 0) - amount,
+            balanceAfter: Number(wallet.balanceUSD || 0),
+          },
+        },
+      }],
+      { session }
+    );
+
+    await session.commitTransaction();
+
+    return res.json({
+      success: true,
+      message: `Manual payment of $${amount.toFixed(2)} recorded for ${user.email || user.userId}`,
+      transaction: {
+        id: transaction[0]._id,
+        reference,
+        amount,
+        user: {
+          id: user.userId,
+          email: user.email,
+          name: user.name,
+        },
+        newBalance: wallet.balanceUSD,
+      },
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    logger.error(`manual-payment error: ${error.message}`);
+    return res.status(500).json({ success: false, message: error.message });
+  } finally {
+    session.endSession();
+  }
 });
 
 // GET /api/admin/ledger/b2c-health
@@ -964,9 +2140,7 @@ router.post('/execute-payout', protect, ledgerOrSuperadminOnly, async (req, res)
         totalTransactions: ledger.count,
         totalAmount: ledger.totalUSD,
         superadminAmount,
-        superadminSharePercent,
         adminAmount,
-        adminSharePercent,
         adminsCount: admins.length,
         amountPerAdmin,
         executedAt: new Date(),
