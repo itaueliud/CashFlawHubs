@@ -16,6 +16,8 @@ const { syncJobs } = require('./controllers/jobController');
 const { startJobScheduler } = require('./services/jobScheduler');
 const { startQueueWorker } = require('./services/queueWorker');
 const { initSocket } = require('./services/socketService');
+const { processDueBroadcasts } = require('./services/broadcastProcessor');
+const captureIp = require('./middleware/captureIp');
 
 // Route imports
 const authRoutes = require('./routes/auth');
@@ -40,6 +42,13 @@ const adsNetworkRoutes = require('./routes/adsNetwork');
 const adminAdvancedRoutes = require('./routes/adminAdvanced');
 const chatRoutes = require('./routes/chat');
 const cpxRoutes = require('./routes/cpxRoutes');
+const timewallRoutes = require('./routes/timewall');
+const adminFraudRoutes = require('./routes/adminFraud');
+const ledgerAuthRoutes = require('./routes/ledgerAuth');
+const ledgerPayoutsRoutes = require('./routes/ledgerPayouts');
+const ledgerAuditLogsRoutes = require('./routes/ledgerAuditLogs');
+const ledgerActivationsRoutes = require('./routes/ledgerActivations');
+const ledgerDashboardRoutes = require('./routes/ledgerDashboard');
 const mongoose = require('mongoose');
 const { startCpxVerificationWorker } = require('./workers/cpxVerificationWorker');
 
@@ -178,6 +187,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use(compression());
 app.use('/uploads', express.static('uploads'));
 
+// IP capture middleware on authenticated requests
+app.use(captureIp);
+
 // Logging
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('combined', { stream: { write: msg => logger.info(msg.trim()) } }));
@@ -212,6 +224,13 @@ app.use('/api/ads-network', adsNetworkRoutes);
 app.use('/api/admin-advanced', adminAdvancedRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/cpx', cpxRoutes);
+app.use('/api/timewall', timewallRoutes);
+app.use('/api/admin-fraud', adminFraudRoutes);
+app.use('/api/ledger/auth', ledgerAuthRoutes);
+app.use('/api/ledger/payouts', ledgerPayoutsRoutes);
+app.use('/api/ledger/audit-logs', ledgerAuditLogsRoutes);
+app.use('/api/ledger/activations', ledgerActivationsRoutes);
+app.use('/api/ledger/dashboard', ledgerDashboardRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -249,6 +268,14 @@ server.listen(PORT, () => {
 
   startJobScheduler();
   startQueueWorker();
+  setInterval(() => {
+    void processDueBroadcasts().catch((error) => {
+      logger.error(`Broadcast processor failed: ${error.message}`);
+    });
+  }, 60 * 1000);
+  void processDueBroadcasts().catch((error) => {
+    logger.error(`Initial broadcast processor run failed: ${error.message}`);
+  });
   void syncJobs().catch((error) => {
     logger.error(`Initial job sync failed: ${error.message}`);
   });

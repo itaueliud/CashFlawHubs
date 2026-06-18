@@ -5,6 +5,7 @@ const mtnMomo = require('./paymentAdapters/mtnMomoAdapter');
 const telebirr = require('./paymentAdapters/telebirrAdapter');
 const tanzaniaWallet = require('./paymentAdapters/tanzaniaWalletAdapter');
 const daraja = require('./paymentAdapters/darajaAdapter');
+const pawapay = require('./paymentAdapters/pawapayAdapter');
 
 const adapterMap = {
   paystack: paystack,
@@ -17,6 +18,10 @@ const adapterMap = {
   jenga_mobile_wallet: jenga,
   daraja: daraja,
   daraja_b2c: daraja,
+  pawapay: pawapay,
+  pawapay_mpesa: pawapay,
+  pawapay_mobile_money: pawapay,
+  pawapay_withdrawal: pawapay,
   mtn_momo_request_to_pay: mtnMomo,
   mtn_momo_transfer: mtnMomo,
   telebirr_app_approval: telebirr,
