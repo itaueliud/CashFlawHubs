@@ -42,20 +42,29 @@ export default function OfferwallsPage() {
   const [frameVersion, setFrameVersion] = useState(0);
   const isOfferwallsUnlocked = Boolean(user?.activationStatus);
 
-  const offerwallSrc =
-    resolveEmbedSource('NEXT_PUBLIC_CPALEAD_OFFERWALL_URL', 'VITE_CPALEAD_OFFERWALL_URL') ||
-    'https://www.cdnflair.com/wall/dJ6T';
-  const browseOffersSrc =
-    resolveEmbedSource(
-      'NEXT_PUBLIC_CPALEAD_NATIVE_OFFERS_URL',
-      'NEXT_PUBLIC_CPALEAD_OFFERS_URL',
-      'VITE_CPALEAD_NATIVE_OFFERS_URL',
-      'VITE_CPALEAD_OFFERS_URL',
-      'NEXT_PUBLIC_CPALEAD_OFFERWALL_URL',
-      'VITE_CPALEAD_OFFERWALL_URL'
-    ) || offerwallSrc;
-  const timewallSrc = resolveEmbedSource('NEXT_PUBLIC_TIMEWALL_OFFERWALLS_URL', 'VITE_TIMEWALL_OFFERWALLS_URL');
+  const PLACEHOLDER_EMBED_SOURCES = new Set([
+    'https://www.cdnflair.com/wall/dJ6T',
+    'https://timewall.io/o/440de2b21c4ecb1c',
+  ]);
 
+  const normalizeEnvEmbed = (...keys: string[]) => {
+    const rawValue = resolveEmbedSource(...keys);
+    return rawValue && !PLACEHOLDER_EMBED_SOURCES.has(rawValue) ? rawValue : '';
+  };
+
+  const envOfferwallSrc = normalizeEnvEmbed('NEXT_PUBLIC_CPALEAD_OFFERWALL_URL', 'VITE_CPALEAD_OFFERWALL_URL');
+  const envBrowseOffersSrc = normalizeEnvEmbed(
+    'NEXT_PUBLIC_CPALEAD_NATIVE_OFFERS_URL',
+    'NEXT_PUBLIC_CPALEAD_OFFERS_URL',
+    'VITE_CPALEAD_NATIVE_OFFERS_URL',
+    'VITE_CPALEAD_OFFERS_URL',
+    'NEXT_PUBLIC_CPALEAD_OFFERWALL_URL',
+    'VITE_CPALEAD_OFFERWALL_URL'
+  );
+  const timewallSrc = resolveEmbedSource('NEXT_PUBLIC_TIMEWALL_OFFERWALLS_URL', 'VITE_TIMEWALL_OFFERWALLS_URL') || 'https://timewall.io/o/440de2b21c4ecb1c';
+
+  const offerwallSrc = envOfferwallSrc || 'https://www.cdnflair.com/wall/dJ6T';
+  const browseOffersSrc = envBrowseOffersSrc || offerwallSrc;
   const currentSrc = activeTab === 'wall' ? offerwallSrc : activeTab === 'offers' ? browseOffersSrc : timewallSrc;
   const currentTitle = activeTab === 'wall' ? 'CPAlead Offerwall' : activeTab === 'offers' ? 'Browse Offers' : 'Timewall Offerwall';
   const currentDescription =
@@ -64,7 +73,7 @@ export default function OfferwallsPage() {
       : activeTab === 'offers'
         ? browseOffersSrc === offerwallSrc
           ? 'Browse Offers uses the same provider feed until a dedicated native-offers URL is set.'
-          : 'Native CPAlead offers feed shown inside the same dashboard module.'
+          : 'Native partner offers feed shown inside the same dashboard module.'
         : 'Timewall rewarded offers shown in the same dashboard space.';
 
   useEffect(() => {
@@ -78,7 +87,7 @@ export default function OfferwallsPage() {
 
   const { data: rewardsData, isLoading: rewardsLoading } = useQuery({
     queryKey: ['timewall-offer-rewards', user?.id],
-    queryFn: () => api.get('/wallet/transactions?type=offer&limit=10').then((response) => response.data),
+    queryFn: () => api.get<{ transactions: RewardTx[] }>('/wallet/transactions?type=offer&limit=10').then((response) => response.data),
     enabled: hasHydrated && !!user?.id && isOfferwallsUnlocked,
     refetchInterval: 60_000,
   });
