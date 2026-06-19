@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -140,7 +140,7 @@ export default function LedgerProfilePage() {
   if (user?.role !== 'ledger') return <div className="card text-sm text-slate-400">Ledger access required.</div>;
 
   return (
-    <div className="space-y-5">
+    <div className="dashboard-shell">
       <div className="card">
         <h1 className="text-2xl font-bold text-white">Ledger Profile</h1>
         <p className="mt-2 text-sm text-slate-400">Update your profile, password, and security settings.</p>
@@ -186,7 +186,7 @@ export default function LedgerProfilePage() {
 
         {twoFAStatus?.enabled && !setupData && (
           <div className="rounded-lg border border-emerald-400/20 bg-emerald-400/10 p-3 text-sm text-emerald-100">
-            ✓ 2FA is currently enabled. Backup codes remaining: {twoFAStatus.backupCodesCount ?? 0}
+            âœ“ 2FA is currently enabled. Backup codes remaining: {twoFAStatus.backupCodesCount ?? 0}
           </div>
         )}
 
@@ -200,7 +200,7 @@ export default function LedgerProfilePage() {
             </div>
             <div>
               <p className="text-xs font-bold text-white mb-2">Backup codes (copy these now - save them safely):</p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {(setupData.backupCodes || []).map((c: string) => (
                   <div key={c} className="rounded bg-slate-900/60 p-2 font-mono text-xs">{c}</div>
                 ))}
@@ -236,7 +236,7 @@ export default function LedgerProfilePage() {
               placeholder="Your password"
               className="input"
             />
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <button onClick={startSetup} disabled={twoFALoading} className="btn-secondary flex-1">
                 {twoFALoading ? 'Loading...' : 'Reconfigure'}
               </button>
@@ -261,3 +261,4 @@ export default function LedgerProfilePage() {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -41,8 +41,8 @@ export default function ProviderHealthPage() {
   const cleanProviders = offerwallPerformance.filter((item: any) => item.riskLevel === 'clean').length;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+    <div className="dashboard-shell">
+      <div className="dashboard-toolbar">
         <div>
           <h1 className="text-2xl font-black">Provider Health</h1>
           <p className="mt-1 text-sm text-slate-400">
@@ -57,7 +57,7 @@ export default function ProviderHealthPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {transactionCounts.map((item: any) => (
           <div key={item._id} className="card">
             <div className="text-xs uppercase tracking-wide text-slate-500">{item._id}</div>
@@ -72,7 +72,7 @@ export default function ProviderHealthPage() {
       </div>
 
       <div className="space-y-4">
-        <div className="flex items-end justify-between gap-4">
+        <div className="dashboard-toolbar">
           <div>
             <h2 className="text-xl font-black">Ads Callback Metrics</h2>
             <p className="mt-1 text-sm text-slate-400">
@@ -93,7 +93,7 @@ export default function ProviderHealthPage() {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <div className="card border-red-500/20 bg-red-500/5">
             <div className="text-xs uppercase tracking-wide text-red-200">Critical Providers</div>
             <div className="mt-2 text-3xl font-black text-red-300">{criticalProviders}</div>
@@ -123,7 +123,7 @@ export default function ProviderHealthPage() {
                     {item.riskLevel === 'critical' ? 'critical' : item.riskLevel === 'warning' ? 'warning' : 'clean'}
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
                   <div className="rounded-xl border border-slate-700 p-2"><div className="text-slate-500">Processed</div><div className="mt-1 text-sm font-semibold text-slate-200">{item.processed}</div></div>
                   <div className="rounded-xl border border-slate-700 p-2"><div className="text-slate-500">Credited</div><div className="mt-1 text-sm font-semibold text-green-300">{item.credited}</div></div>
                   <div className="rounded-xl border border-slate-700 p-2"><div className="text-slate-500">Failed</div><div className="mt-1 text-sm font-semibold text-red-300">{item.failed}</div></div>
@@ -167,11 +167,11 @@ export default function ProviderHealthPage() {
       <div className="grid gap-4 xl:grid-cols-2">
         {data.providers.map((provider: any) => (
           <div key={provider.key} className="card space-y-4">
-            <div className="flex items-start justify-between gap-4">
+            <div className="dashboard-toolbar">
               <div>
                 <h2 className="text-lg font-black">{provider.label}</h2>
                 <div className="mt-1 text-xs text-slate-500">
-                  {provider.key} · env {provider.environment} · docs {provider.documentationStatus}
+                  {provider.key} Â· env {provider.environment} Â· docs {provider.documentationStatus}
                 </div>
               </div>
               <div className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusStyles[provider.status] || statusStyles.partial}`}>
@@ -249,3 +249,5 @@ export default function ProviderHealthPage() {
     </div>
   );
 }
+
+

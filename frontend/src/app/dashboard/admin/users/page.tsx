@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -139,8 +139,8 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="rounded-[2rem] border border-blue-500/20 bg-gradient-to-br from-blue-950 via-slate-950 to-slate-900 p-6 shadow-2xl shadow-blue-950/20">
+    <div className="dashboard-shell animate-fade-in">
+      <div className="dashboard-hero">
         <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-blue-300">
           <Shield size={12} /> User management
         </div>
@@ -197,7 +197,7 @@ export default function AdminUsersPage() {
                 <span className={item.isBanned ? 'badge-red' : 'badge-blue'}>{item.isBanned ? 'banned' : 'active'}</span>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 <button
                   onClick={() => setSelectedUserId(item._id)}
                   className="inline-flex items-center gap-2 rounded-xl border border-blue-400/30 bg-blue-500/10 px-4 py-2.5 text-sm font-semibold text-blue-200 transition hover:border-blue-300/50"
@@ -279,14 +279,14 @@ export default function AdminUsersPage() {
               <div className="card text-sm text-slate-400">Loading user profile...</div>
             ) : (
               <div className="space-y-4">
-                <div className="grid gap-3 md:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
                   <div className="card"><div className="text-xs text-slate-400">Name</div><div className="mt-1 text-sm text-white">{selectedUser?.name || '-'}</div></div>
                   <div className="card"><div className="text-xs text-slate-400">Email</div><div className="mt-1 text-sm text-white">{selectedUser?.email || '-'}</div></div>
                   <div className="card"><div className="text-xs text-slate-400">Phone</div><div className="mt-1 text-sm text-white">{selectedUser?.phone || '-'}</div></div>
                 </div>
                 <div className="card"><div className="text-xs text-slate-400">Access type</div><div className="mt-1 text-sm text-white">{selectedUser?.userAccessType || 'real'}</div></div>
 
-                <div className="grid gap-3 md:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <div className="card"><div className="text-xs text-slate-400">Wallet USD</div><div className="mt-1 text-xl font-black text-blue-300">${Number(selectedWallet?.balanceUSD || 0).toFixed(2)}</div></div>
                   <div className="card"><div className="text-xs text-slate-400">Total earned</div><div className="mt-1 text-xl font-black text-white">${Number(selectedWallet?.totalEarned || 0).toFixed(2)}</div></div>
                   <div className="card"><div className="text-xs text-slate-400">Transactions</div><div className="mt-1 text-xl font-black text-white">{selectedTransactions.length}</div></div>
@@ -304,7 +304,7 @@ export default function AdminUsersPage() {
                   )}
                 </div>
 
-                <div className="card overflow-x-auto">
+                <div className="card table-shell">
                   <div className="mb-2 text-sm font-semibold text-white">Recent transactions</div>
                   <table className="min-w-full text-sm">
                     <thead>
@@ -340,3 +340,5 @@ export default function AdminUsersPage() {
     </div>
   );
 }
+
+

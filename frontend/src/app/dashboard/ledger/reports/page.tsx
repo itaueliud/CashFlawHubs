@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -30,11 +30,11 @@ export default function LedgerReportsPage() {
   if (isLoading) return <div className="card text-sm text-slate-400">Loading reports...</div>;
 
   return (
-    <div className="space-y-5">
+    <div className="dashboard-shell">
       <div className="card">
-        <div className="flex items-center justify-between">
+        <div className="dashboard-toolbar">
           <h1 className="text-2xl font-bold text-white">Ledger Reports</h1>
-          <select className="input max-w-[140px]" value={range} onChange={(e) => setRange(e.target.value as Range)}>
+          <select className="input w-full max-w-[140px]" value={range} onChange={(e) => setRange(e.target.value as Range)}>
             <option value="7d">Last 7 days</option>
             <option value="30d">Last 30 days</option>
             <option value="90d">Last 90 days</option>
@@ -42,7 +42,7 @@ export default function LedgerReportsPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <div className="card"><div className="text-xs text-slate-400">Total USD</div><div className="text-2xl font-black text-white">${Number(data?.ledger?.totalUSD || 0).toFixed(2)}</div></div>
         <div className="card"><div className="text-xs text-slate-400">Transactions</div><div className="text-2xl font-black text-white">{Number(data?.ledger?.count || 0)}</div></div>
         <div className="card"><div className="text-xs text-slate-400">Admin Share</div><div className="text-2xl font-black text-white">${Number(data?.ledger?.adminShareUSD || 0).toFixed(2)}</div></div>
@@ -63,3 +63,4 @@ export default function LedgerReportsPage() {
     </div>
   );
 }
+

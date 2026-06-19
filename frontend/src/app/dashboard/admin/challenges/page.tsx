@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -148,9 +148,9 @@ export default function AdminChallengesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="dashboard-shell">
       <div className="card bg-gradient-to-r from-blue-500/10 to-cyan-500/5 border-blue-500/30">
-        <div className="flex items-center justify-between gap-4">
+        <div className="dashboard-toolbar">
           <div>
             <h1 className="text-2xl font-black flex items-center gap-2">
               <Trophy size={22} className="text-blue-400" /> Challenge Manager
@@ -172,7 +172,7 @@ export default function AdminChallengesPage() {
 
       {showForm && (
         <div className="card border-blue-500/20">
-          <div className="flex items-center gap-2 text-sm text-blue-300 mb-4">
+          <div className="dashboard-toolbar text-sm text-blue-300 mb-4">
             <CalendarClock size={14} /> {editing ? 'Edit challenge' : 'Create challenge'}
           </div>
           <div className="grid gap-4 md:grid-cols-2">
@@ -262,7 +262,7 @@ export default function AdminChallengesPage() {
               Active
             </label>
           </div>
-          <div className="mt-5 flex gap-3">
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row">
             <button
               onClick={() => saveMutation.mutate(form)}
               disabled={saveMutation.isPending}
@@ -291,7 +291,7 @@ export default function AdminChallengesPage() {
           {challenges.map((challenge) => (
             <div
               key={challenge._id}
-              className={`card border flex items-center justify-between gap-4 ${challenge.isActive ? 'border-green-500/20' : 'border-slate-700/50 opacity-60'}`}
+              className={`card border flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between ${challenge.isActive ? 'border-green-500/20' : 'border-slate-700/50 opacity-60'}`}
             >
               <div>
                 <div className="flex items-center gap-2">
@@ -306,11 +306,11 @@ export default function AdminChallengesPage() {
                 <div className="flex items-center gap-2 mt-1 text-xs flex-wrap">
                   <span className="badge-green">${challenge.rewardUSD}</span>
                   <span className="text-emerald-400">+{challenge.xpReward} XP</span>
-                  <span className="text-slate-500">· {challenge.eventType}</span>
-                  <span className="text-slate-500">· {challenge.type}</span>
+                  <span className="text-slate-500">Â· {challenge.eventType}</span>
+                  <span className="text-slate-500">Â· {challenge.type}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                 <button
                   onClick={() => toggleMutation.mutate({ id: challenge._id, isActive: !challenge.isActive })}
                   title={challenge.isActive ? 'Deactivate' : 'Activate'}
@@ -333,3 +333,5 @@ export default function AdminChallengesPage() {
     </div>
   );
 }
+
+

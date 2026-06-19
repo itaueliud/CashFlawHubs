@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -32,10 +32,10 @@ export default function SupportPage() {
   });
 
   return (
-    <div className="space-y-5">
+    <div className="dashboard-shell">
       <div className="card"><h1 className="text-2xl font-bold text-white">Support Tickets</h1><p className="mt-1 text-sm text-slate-400">Triage, assign, and resolve user support issues.</p></div>
 
-      <div className="card grid gap-3 md:grid-cols-4">
+      <div className="card grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}><option value="all">All status</option><option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option><option value="closed">Closed</option></select>
         <select className="input" value={priority} onChange={(e) => setPriority(e.target.value)}><option value="all">All priority</option><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select>
         <input className="input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search subject/description" />
@@ -77,3 +77,4 @@ export default function SupportPage() {
     </div>
   );
 }
+

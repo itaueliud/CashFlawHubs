@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -16,15 +16,15 @@ export default function AuditPage() {
 
   return (
     <div className="space-y-5">
-      <div className="card flex flex-wrap items-center justify-between gap-3">
+      <div className="card dashboard-toolbar">
         <div><h1 className="text-2xl font-bold text-white">Audit Center</h1><p className="mt-1 text-sm text-slate-400">Immutable staff activity trail across modules.</p></div>
-        <select className="input max-w-[220px]" value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)}>
+        <select className="input w-full max-w-[220px]" value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)}>
           <option value="all">All modules</option><option value="moderation">Moderation</option><option value="support">Support</option><option value="config">Config</option><option value="reconciliation">Reconciliation</option>
         </select>
       </div>
 
       {isLoading ? <div className="card text-sm text-slate-400">Loading audit logs...</div> : (
-        <div className="card overflow-x-auto">
+        <div className="card table-shell">
           <table className="min-w-full text-sm">
             <thead><tr className="border-b border-slate-700 text-left text-slate-400"><th className="px-3 py-2">Date</th><th className="px-3 py-2">Actor</th><th className="px-3 py-2">Role</th><th className="px-3 py-2">Module</th><th className="px-3 py-2">Action</th><th className="px-3 py-2">Target</th></tr></thead>
             <tbody>
@@ -46,3 +46,4 @@ export default function AuditPage() {
     </div>
   );
 }
+

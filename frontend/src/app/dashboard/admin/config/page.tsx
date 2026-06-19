@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -35,7 +35,7 @@ export default function ConfigPage() {
   const rows = [...DEFAULT_TOGGLES.map((t) => existingByKey.get(t.key) || t), ...existing.filter((x: any) => !DEFAULT_TOGGLES.some((t) => t.key === x.key))];
 
   return (
-    <div className="space-y-5">
+    <div className="dashboard-shell">
       <div className="card"><h1 className="text-2xl font-bold text-white">Configuration Toggles</h1><p className="mt-1 text-sm text-slate-400">Manage runtime feature flags and operations controls.</p></div>
 
       {isLoading ? <div className="card text-sm text-slate-400">Loading config...</div> : (
@@ -44,13 +44,13 @@ export default function ConfigPage() {
             const key = row.key;
             const currentValue = drafts[key] !== undefined ? drafts[key] : row.value;
             return (
-              <div key={key} className="card flex flex-wrap items-center justify-between gap-4">
+              <div key={key} className="card dashboard-toolbar">
                 <div>
                   <div className="text-sm font-semibold text-white">{key}</div>
                   <div className="text-xs text-slate-500">{row.description || 'No description'}</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <select className="input max-w-[130px]" value={String(currentValue)} onChange={(e) => {
+                  <select className="input w-full max-w-[130px]" value={String(currentValue)} onChange={(e) => {
                     const val = e.target.value === 'true' ? true : e.target.value === 'false' ? false : e.target.value;
                     setDrafts((d) => ({ ...d, [key]: val }));
                   }}>
@@ -67,3 +67,4 @@ export default function ConfigPage() {
     </div>
   );
 }
+

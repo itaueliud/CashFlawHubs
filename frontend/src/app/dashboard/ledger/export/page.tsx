@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -53,14 +53,14 @@ export default function LedgerExportPage() {
   if (isLoading) return <div className="card text-sm text-slate-400">Preparing export data...</div>;
 
   return (
-    <div className="space-y-5">
+    <div className="dashboard-shell">
       <div className="card">
         <h1 className="text-2xl font-bold text-white">Export Ledger Data</h1>
         <p className="mt-2 text-sm text-slate-400">Download transaction records for reporting and audits.</p>
       </div>
       <div className="card space-y-4">
         <label className="block text-sm text-slate-300">Range</label>
-        <select className="input max-w-[180px]" value={range} onChange={(e) => setRange(e.target.value as Range)}>
+        <select className="input w-full max-w-[180px]" value={range} onChange={(e) => setRange(e.target.value as Range)}>
           <option value="7d">Last 7 days</option>
           <option value="30d">Last 30 days</option>
           <option value="90d">Last 90 days</option>
@@ -71,3 +71,4 @@ export default function LedgerExportPage() {
     </div>
   );
 }
+

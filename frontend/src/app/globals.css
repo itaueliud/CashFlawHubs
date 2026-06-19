@@ -1,4 +1,4 @@
-@tailwind base;
+﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -14,6 +14,24 @@ body {
 @layer components {
   .card {
     @apply rounded-2xl border border-slate-800 bg-[#111827] p-5;
+  }
+  .dashboard-shell {
+    @apply space-y-5;
+  }
+  .dashboard-hero {
+    @apply rounded-[2rem] border border-blue-500/20 bg-gradient-to-br from-blue-950 via-slate-950 to-slate-900 p-5 shadow-2xl shadow-blue-950/20 sm:p-6;
+  }
+  .dashboard-toolbar {
+    @apply flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between;
+  }
+  .dashboard-controls {
+    @apply flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center;
+  }
+  .dashboard-tablist {
+    @apply flex gap-2 overflow-x-auto pb-1;
+  }
+  .table-shell {
+    @apply -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0;
   }
   .btn-primary {
     @apply rounded-xl bg-amber-500 px-5 py-2.5 font-semibold text-slate-950 transition-all duration-200 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50;
@@ -36,6 +54,17 @@ body {
   .badge-red    { @apply inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-red-500/20 text-red-400; }
   .stat-card {
     @apply flex flex-col gap-1 rounded-2xl border border-slate-800 bg-[#111827] p-5;
+  }
+}
+
+@media (max-width: 640px) {
+  .card {
+    @apply p-4;
+  }
+  .btn-primary,
+  .btn-secondary,
+  .btn-outline {
+    @apply w-full justify-center;
   }
 }
 

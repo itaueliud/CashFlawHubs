@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -69,8 +69,8 @@ export default function AdminLedgerPage() {
   const ledger = data.ledger;
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="rounded-[2rem] border border-blue-500/20 bg-gradient-to-br from-blue-950 via-slate-950 to-slate-900 p-6 shadow-2xl shadow-blue-950/20">
+    <div className="dashboard-shell animate-fade-in">
+      <div className="dashboard-hero">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-blue-300">
@@ -94,7 +94,7 @@ export default function AdminLedgerPage() {
         </div>
       </div>
 
-      <div className="flex gap-2">
+      <div className="dashboard-tablist">
         {([
           ['summary', 'Summary'],
           ['staff', 'Admins/Superadmins'],
@@ -132,7 +132,7 @@ export default function AdminLedgerPage() {
         <div className="card space-y-3">
           <h2 className="text-xl font-bold text-white">Superadmins and Admins</h2>
           {(adminsData?.admins || []).map((admin: any) => (
-            <div key={admin._id} className="rounded-2xl border border-slate-700 bg-slate-950/70 p-4 flex items-center justify-between gap-3">
+            <div key={admin._id} className="rounded-2xl border border-slate-700 bg-slate-950/70 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="text-sm font-semibold text-white">{admin.name}</div>
                 <div className="text-xs text-slate-500">{admin.email} | {admin.phone}</div>
@@ -153,7 +153,7 @@ export default function AdminLedgerPage() {
 
       {tab === 'b2c' && (
         <div className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <div className="card">
               <div className="text-xs text-slate-400">Today Successful</div>
               <div className="text-2xl font-black text-emerald-400">{b2cData?.b2c?.todaySuccessful || 0}</div>
@@ -190,13 +190,13 @@ export default function AdminLedgerPage() {
 
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl w-full max-w-md mx-4">
+          <div className="rounded-2xl border border-slate-700 bg-slate-900 p-4 shadow-2xl w-full max-w-md mx-4 sm:p-6">
             <div className="mb-4 flex items-center gap-3">
               <AlertCircle className="text-yellow-400" size={24} />
               <h3 className="text-lg font-bold text-white">Confirm Payout Execution</h3>
             </div>
             <p className="text-sm text-slate-300 mb-5">This will distribute ledger funds to superadmin and admins for the selected period.</p>
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <button onClick={() => setShowConfirm(false)} className="flex-1 rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 font-semibold text-slate-200">Cancel</button>
               <button onClick={() => executeMutation.mutate()} className="flex-1 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2 font-semibold text-white">Execute</button>
             </div>
@@ -206,3 +206,4 @@ export default function AdminLedgerPage() {
     </div>
   );
 }
+

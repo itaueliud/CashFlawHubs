@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -44,7 +44,7 @@ export default function ReconciliationPage() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="dashboard-shell">
       <div className="card"><h1 className="text-2xl font-bold text-white">Reconciliation Import</h1><p className="mt-1 text-sm text-slate-400">Import settlement rows and auto-match with ledger transactions.</p></div>
 
       <div className="card space-y-3">
@@ -53,7 +53,7 @@ export default function ReconciliationPage() {
         <button className="btn-primary" disabled={importMutation.isPending} onClick={onImport}>{importMutation.isPending ? 'Importing...' : 'Import Batch'}</button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="card"><div className="text-xs text-slate-400">Total batches</div><div className="text-2xl font-black text-white">{batches.length}</div></div>
         <div className="card"><div className="text-xs text-slate-400">Latest total</div><div className="text-2xl font-black text-white">{latest?.summary?.total || 0}</div></div>
         <div className="card"><div className="text-xs text-slate-400">Latest matched</div><div className="text-2xl font-black text-emerald-300">{latest?.summary?.matched || 0}</div></div>
@@ -61,7 +61,7 @@ export default function ReconciliationPage() {
       </div>
 
       {isLoading ? <div className="card text-sm text-slate-400">Loading batches...</div> : (
-        <div className="card overflow-x-auto">
+        <div className="card table-shell">
           <table className="min-w-full text-sm">
             <thead><tr className="border-b border-slate-700 text-left text-slate-400"><th className="px-3 py-2">Date</th><th className="px-3 py-2">Source</th><th className="px-3 py-2">Imported By</th><th className="px-3 py-2">Total</th><th className="px-3 py-2">Matched</th><th className="px-3 py-2">Unmatched</th></tr></thead>
             <tbody>
@@ -83,3 +83,4 @@ export default function ReconciliationPage() {
     </div>
   );
 }
+

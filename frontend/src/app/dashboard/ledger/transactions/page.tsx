@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -61,7 +61,7 @@ export default function LedgerTransactionsPage() {
   if (isLoading) return <div className="card text-sm text-slate-400">Loading transactions...</div>;
 
   return (
-    <div className="space-y-5">
+    <div className="dashboard-shell">
       <div className="card space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-bold text-white">Ledger Explorer</h1>
@@ -71,7 +71,7 @@ export default function LedgerTransactionsPage() {
             <option value="90d">Last 90 days</option>
           </select>
         </div>
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <input className="input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search user, id, reference" />
           <select className="input" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
             <option value="all">All types</option>
@@ -110,7 +110,7 @@ export default function LedgerTransactionsPage() {
         </div>
       </div>
 
-      <div className="card overflow-x-auto">
+      <div className="card table-shell">
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-700 text-left text-slate-400">
@@ -163,3 +163,4 @@ export default function LedgerTransactionsPage() {
     </div>
   );
 }
+
