@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import api from '../../../lib/api';
-import { Search, ChevronLeft, ChevronRight, MoreVertical, Ban, CheckCircle, Eye, Download, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, MoreVertical, Ban, CheckCircle, Eye, Download, ToggleLeft, ToggleRight, Lock } from 'lucide-react';
 
 interface User {
   _id: string;
@@ -49,11 +49,13 @@ function UserActionsMenu({
   onRefresh,
   open,
   onToggle,
+  onResetPassword,
 }: {
   user: User;
   onRefresh: () => void;
   open: boolean;
   onToggle: (userId: string | null) => void;
+  onResetPassword: (user: User) => void;
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +102,11 @@ function UserActionsMenu({
     }
   };
 
+  const handleResetPassword = () => {
+    onToggle(null);
+    onResetPassword(user);
+  };
+
   return (
     <div className="relative">
       <button
@@ -133,6 +140,13 @@ function UserActionsMenu({
             {String(user.userAccessType || 'real') === 'test' ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
             Mark as {String(user.userAccessType || 'real') === 'test' ? 'Real' : 'Test'}
           </button>
+          <button
+            onClick={handleResetPassword}
+            disabled={loading}
+            className="w-full px-4 py-2 text-left text-sm hover:bg-white/10 disabled:opacity-50 flex items-center gap-2"
+          >
+            <Lock className="h-4 w-4" /> Reset Password
+          </button>
           <a
             href={`/dashboard/users/${user._id}`}
             className="w-full px-4 py-2 text-left text-sm hover:bg-white/10 flex items-center gap-2 block"
@@ -152,6 +166,10 @@ export default function UsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [activeMenuUserId, setActiveMenuUserId] = useState<string | null>(null);
+  const [resetTarget, setResetTarget] = useState<User | null>(null);
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetLoading, setResetLoading] = useState(false);
   const [filters, setFilters] = useState({
     banned: 'all',
     verified: 'all',
@@ -185,6 +203,34 @@ export default function UsersPage() {
   useEffect(() => {
     setActiveMenuUserId(null);
   }, [users]);
+
+  const handleResetPassword = (user: User) => {
+    setResetTarget(user);
+    setResetPassword('');
+    setResetError(null);
+  };
+
+  const submitPasswordReset = async () => {
+    if (!resetTarget) return;
+    if (resetPassword.trim().length < 8) {
+      setResetError('Password must be at least 8 characters');
+      return;
+    }
+
+    setResetLoading(true);
+    setResetError(null);
+    try {
+      await api.put(`/admin/users/${resetTarget._id}/reset-password`, { newPassword: resetPassword.trim() });
+      setResetTarget(null);
+      setResetPassword('');
+      setResetError(null);
+      await loadUsers(pagination.page, search, filters.banned, filters.verified, filters.role);
+    } catch (err: any) {
+      setResetError(err?.response?.data?.message || 'Failed to reset password');
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
@@ -257,9 +303,9 @@ export default function UsersPage() {
             onChange={(e) => handleFilterChange('banned', e.target.value)}
             className="rounded-lg border border-white/8 bg-white/5 px-4 py-2 text-sm text-white outline-none"
           >
-            <option value="all">All Status</option>
-            <option value="true">Banned Only</option>
-            <option value="false">Not Banned</option>
+            <option value="all" className="text-slate-900">All Status</option>
+            <option value="true" className="text-slate-900">Banned Only</option>
+            <option value="false" className="text-slate-900">Not Banned</option>
           </select>
 
           <select
@@ -267,9 +313,9 @@ export default function UsersPage() {
             onChange={(e) => handleFilterChange('verified', e.target.value)}
             className="rounded-lg border border-white/8 bg-white/5 px-4 py-2 text-sm text-white outline-none"
           >
-            <option value="all">All Activation</option>
-            <option value="true">Activated</option>
-            <option value="false">Not Activated</option>
+            <option value="all" className="text-slate-900">All Activation</option>
+            <option value="true" className="text-slate-900">Activated</option>
+            <option value="false" className="text-slate-900">Not Activated</option>
           </select>
 
           <select
@@ -277,10 +323,10 @@ export default function UsersPage() {
             onChange={(e) => handleFilterChange('role', e.target.value)}
             className="rounded-lg border border-white/8 bg-white/5 px-4 py-2 text-sm text-white outline-none"
           >
-            <option value="all">All Roles</option>
-            <option value="user">User</option>
-            <option value="admin">Admin</option>
-            <option value="superadmin">Superadmin</option>
+            <option value="all" className="text-slate-900">All Roles</option>
+            <option value="user" className="text-slate-900">User</option>
+            <option value="admin" className="text-slate-900">Admin</option>
+            <option value="superadmin" className="text-slate-900">Superadmin</option>
           </select>
         </div>
 
@@ -339,6 +385,7 @@ export default function UsersPage() {
                         user={user}
                         open={activeMenuUserId === user._id}
                         onToggle={setActiveMenuUserId}
+                        onResetPassword={handleResetPassword}
                         onRefresh={() => loadUsers(pagination.page, search, filters.banned, filters.verified, filters.role)}
                       />
                     </td>
@@ -391,6 +438,60 @@ export default function UsersPage() {
             </button>
           </div>
         </section>
+      )}
+
+      {resetTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-slate-950 p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-bold text-white">Reset Password</h3>
+                <p className="mt-1 text-sm text-slate-400">
+                  Set a new password for {resetTarget.name}.
+                </p>
+              </div>
+              <button
+                onClick={() => setResetTarget(null)}
+                className="rounded-lg border border-white/10 px-3 py-1.5 text-sm text-slate-300 hover:bg-white/5"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <label className="block text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                New password
+              </label>
+              <input
+                type="password"
+                value={resetPassword}
+                onChange={(e) => setResetPassword(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
+                placeholder="Enter new password"
+              />
+              {resetError && (
+                <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                  {resetError}
+                </div>
+              )}
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setResetTarget(null)}
+                  className="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300 hover:bg-white/5"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitPasswordReset}
+                  disabled={resetLoading || resetPassword.trim().length < 8}
+                  className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50"
+                >
+                  {resetLoading ? 'Updating...' : 'Reset Password'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

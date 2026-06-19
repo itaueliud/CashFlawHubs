@@ -78,13 +78,13 @@ export default function OfferwallsPage() {
   const offerwallSrc = cpaSrc;
   const browseOffersSrc = cpaSrc;
   const currentSrc = activeTab === 'wall' ? offerwallSrc : activeTab === 'offers' ? browseOffersSrc : adgemSrc;
-  const currentTitle = activeTab === 'wall' ? 'CPAlead Offerwall' : activeTab === 'offers' ? 'CPAlead Offers' : 'AdGem Offerwall';
+  const currentTitle = activeTab === 'wall' ? 'CFH Wall' : activeTab === 'offers' ? 'CFH offers' : 'CFH Rewards';
   const currentDescription =
     activeTab === 'wall'
-      ? 'Personalized CPAlead offerwall with user and locale tracking.'
+      ? 'CFH wall with user and locale tracking.'
       : activeTab === 'offers'
-        ? 'CPAlead partner offers and app installs.'
-        : 'AdGem rewarded offers shown in the same dashboard space.';
+        ? 'CFH offers and app installs.'
+        : 'CFH Rewards shown in the same dashboard space.';
 
   useEffect(() => {
     setMounted(true);
@@ -188,9 +188,9 @@ export default function OfferwallsPage() {
             <div className="text-xs text-slate-500">{currentDescription}</div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {renderTab('wall', <LayoutGrid size={14} />, 'CPAlead Offerwall', 'Main rewarded CPAlead content')}
-            {renderTab('offers', <ListFilter size={14} />, 'CPAlead Offers', 'Native CPAlead offers feed')}
-            {renderTab('adgem', <Gift size={14} />, 'AdGem', 'AdGem rewards feed')}
+            {renderTab('wall', <LayoutGrid size={14} />, 'CFH wall', 'Main CFH wall content')}
+            {renderTab('offers', <ListFilter size={14} />, 'CFH offers', 'Native CFH offers feed')}
+            {renderTab('adgem', <Gift size={14} />, 'CFH Rewards', 'CFH rewards feed')}
             <button
               onClick={() => {
                 setIframeLoaded(false);
