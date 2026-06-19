@@ -26,11 +26,21 @@ const verifyAdGemRequest = (req) => {
     .update(fullUrl.toString())
     .digest('hex');
 
-  try {
-    return crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(String(verifier), 'hex'));
-  } catch {
-    return false;
+  const matched = (() => {
+    try {
+      return crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(String(verifier), 'hex'));
+    } catch {
+      return false;
+    }
+  })();
+
+  if (!matched) {
+    logger.warn(
+      `[AdGem] Verifier mismatch debug — hashedUrl="${fullUrl.toString()}" expected="${expected}" received="${verifier}"`
+    );
   }
+
+  return matched;
 };
 
 const getWallet = async (userId) => {
