@@ -240,8 +240,9 @@ export default function OfferwallsPage() {
                 onLoad={() => setIframeLoaded(true)}
                 onError={() => setIframeError(true)}
                 className="block h-[700px] w-full"
+                allow="autoplay; encrypted-media; fullscreen; geolocation; clipboard-read; clipboard-write; camera; microphone; accelerometer; gyroscope; magnetometer"
                 sandbox="allow-popups allow-same-origin allow-scripts allow-top-navigation-by-user-activation allow-popups-to-escape-sandbox"
-                referrerPolicy="no-referrer"
+                referrerPolicy="strict-origin-when-cross-origin"
               />
             </>
           )}
