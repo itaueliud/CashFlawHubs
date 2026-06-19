@@ -82,7 +82,7 @@ exports.postback = async (req, res) => {
       return respond('MISSING_PARAMS');
     }
 
-    const user = await User.findById(player_id);
+    const user = await User.findOne({ userId: player_id });
     if (!user) {
       logger.warn(`[AdGem] User not found: ${player_id}`);
       return respond('USER_NOT_FOUND');
