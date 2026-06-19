@@ -205,16 +205,13 @@ const buildOfferwallLaunchUrl = (providerKey, context = {}) => {
   }
 
   if (providerKey === 'adgem') {
-    const appId = process.env.ADGEM_APP_ID;
+    const appId = process.env.ADGEM_APP_ID || '32838';
     if (!appId || !context.user?.userId) return null;
 
-    const params = {
-      ...getOfferwallLaunchParams(providerKey, context),
-      appid: appId,
-      playerid: context.user.userId,
-    };
-
-    return buildUrlFromTemplate('https://api.adgem.com/v1/wall', params);
+    return buildUrlFromTemplate(
+      `https://adunits.adgem.com/wall?appid=${encodeURIComponent(appId)}&playerid=${encodeURIComponent(context.user.userId)}`,
+      {}
+    );
   }
 
   const template = getOfferwallUrlTemplate(providerKey);
