@@ -118,9 +118,9 @@ const buildContentSecurityPolicy = (nonce: string) =>
     `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com ${ADS_ORIGINS.join(' ')}`,
     `script-src-elem 'self' 'nonce-${nonce}' 'unsafe-inline' https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com ${ADS_ORIGINS.join(' ')}`,
     `connect-src ${buildConnectSrc()}`,
-    `frame-src 'self' https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com https://www.ayetstudios.com https://wall.adgaterewards.com https://offers.cpx-research.com https://timewall.io ${EMBED_ORIGINS.join(' ')} ${ADS_ORIGINS.join(' ')}`,
+    `frame-src 'self' https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com https://www.ayetstudios.com https://wall.adgaterewards.com https://offers.cpx-research.com https://timewall.io https://api.adgem.com ${EMBED_ORIGINS.join(' ')} ${ADS_ORIGINS.join(' ')}`,
     "worker-src 'self' blob: https://challenges.cloudflare.com",
-    `child-src 'self' blob: https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com https://www.ayetstudios.com https://wall.adgaterewards.com https://offers.cpx-research.com https://timewall.io ${EMBED_ORIGINS.join(' ')} ${ADS_ORIGINS.join(' ')}`,
+    `child-src 'self' blob: https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com https://www.ayetstudios.com https://wall.adgaterewards.com https://offers.cpx-research.com https://timewall.io https://api.adgem.com ${EMBED_ORIGINS.join(' ')} ${ADS_ORIGINS.join(' ')}`,
   ].join('; ');
 
 const attachSecurityHeaders = (response: NextResponse, nonce: string) => {
