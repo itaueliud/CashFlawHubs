@@ -228,7 +228,6 @@ export default function AuditPage() {
               <tbody className="divide-y divide-white/5">
                 {logs
                   .slice()
-                  .sort((a, b) => Number(isCritical(b)) - Number(isCritical(a)) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                   .map((log) => {
                     const metadataText = log.metadata ? JSON.stringify(log.metadata) : '';
                     return (

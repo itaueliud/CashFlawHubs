@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -26,11 +26,27 @@ const navItems = [
   { label: 'Profile',         href: '/dashboard/profile',           icon: User },
 ];
 
+const isRouteAllowed = (pathname: string, href: string) => {
+  if (href === '/dashboard') {
+    return pathname === '/dashboard';
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+};
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router   = useRouter();
   const pathname = usePathname();
   const { user, hasHydrated, logout } = useAuthStore();
   const [mounted, setMounted] = useState(false);
+  const allowedPages = useMemo(
+    () => (Array.isArray(user?.adminAllowedPages) ? user.adminAllowedPages.filter(Boolean) : []),
+    [user?.adminAllowedPages]
+  );
+  const visibleNavItems = useMemo(
+    () => (allowedPages.length > 0 ? navItems.filter((item) => allowedPages.includes(item.href)) : navItems),
+    [allowedPages]
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -42,6 +58,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.replace('/login');
     }
   }, [hasHydrated, user, router]);
+
+  useEffect(() => {
+    if (!hasHydrated || !user || !['admin', 'superadmin'].includes(user.role || '')) return;
+    if (allowedPages.length === 0) return;
+
+    const currentRouteAllowed = visibleNavItems.some((item) => isRouteAllowed(pathname, item.href));
+    if (currentRouteAllowed) return;
+
+    const fallbackHref = visibleNavItems[0]?.href || '/dashboard';
+    if (pathname !== fallbackHref) {
+      router.replace(fallbackHref);
+    }
+  }, [allowedPages, hasHydrated, pathname, router, user, visibleNavItems]);
 
   if (!mounted || !hasHydrated || !user) {
     return (
@@ -78,8 +107,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-            {navItems.map((item) => {
-              const isActive = pathname === item.href;
+            {visibleNavItems.map((item) => {
+              const isActive = isRouteAllowed(pathname, item.href);
               const Icon = item.icon;
               return (
                 <Link key={item.href} href={item.href} className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all duration-150 ${isActive ? 'border-blue-500/20 bg-blue-500/15 text-blue-300 ring-1 ring-inset ring-blue-500/20 shadow-lg shadow-blue-500/10' : 'border-transparent text-slate-300 hover:border-white/8 hover:bg-slate-700/80 hover:text-white'}`}>

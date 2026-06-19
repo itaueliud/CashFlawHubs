@@ -1,0 +1,168 @@
+:root{
+  --bg-base:#030712;
+  --bg-panel:#08111f;
+  --bg-surface:#0e1728;
+  --bg-elevated:#121d31;
+  --border:rgba(255,255,255,0.08);
+  --border-strong:rgba(148,163,184,0.18);
+  --accent-cyan:#38bdf8;
+  --accent-green:#34d399;
+  --accent-red:#f87171;
+  --accent-amber:#fbbf24;
+  --accent-violet:#a78bfa;
+  --text-primary:#f8fafc;
+  --text-muted:#94a3b8;
+  --text-dim:#334155;
+}
+
+html,body,#root{height:100%;}
+html{scroll-behavior:smooth;}
+
+body{
+  margin:0;
+  font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;
+  color:var(--text-primary);
+  background:
+    radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 24%),
+    radial-gradient(circle at top right, rgba(167,139,250,0.14), transparent 22%),
+    radial-gradient(circle at bottom center, rgba(52,211,153,0.08), transparent 28%),
+    linear-gradient(180deg, #02040a 0%, #030712 100%);
+}
+
+*{box-sizing:border-box}
+a{color:inherit;text-decoration:none}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+::selection{background:rgba(56,189,248,0.24);color:var(--text-primary)}
+
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:rgba(255,255,255,0.03)}
+::-webkit-scrollbar-thumb{
+  background:rgba(148,163,184,0.3);
+  border-radius:999px;
+  border:2px solid transparent;
+  background-clip:padding-box;
+}
+::-webkit-scrollbar-thumb:hover{background:rgba(148,163,184,0.45);background-clip:padding-box}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.ledger-app{
+  position:relative;
+  isolation:isolate;
+}
+
+.ledger-app::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.03), transparent 20%),
+    radial-gradient(circle at 50% 0%, rgba(56,189,248,0.10), transparent 32%);
+  pointer-events:none;
+  z-index:-1;
+}
+
+.dashboard-shell{
+  position:relative;
+  isolation:isolate;
+}
+
+.card-surface{
+  background:linear-gradient(180deg, rgba(14,23,40,0.96), rgba(8,17,31,0.96));
+  border:1px solid var(--border);
+  box-shadow:0 24px 80px rgba(0,0,0,0.26);
+  backdrop-filter:blur(18px);
+}
+
+.panel-edge{
+  border:1px solid var(--border-strong);
+}
+
+.soft-in{animation:soft-in 260ms ease-out both;}
+.soft-up{animation:soft-up 320ms ease-out both;}
+
+.pulse-dot{position:relative;}
+.pulse-dot::after{
+  content:'';
+  position:absolute;
+  inset:-3px;
+  border-radius:9999px;
+  border:1px solid rgba(52,211,153,0.35);
+  animation:pulse-ring 2s ease-out infinite;
+}
+
+.ledger-grid{
+  display:grid;
+  gap:1rem;
+}
+
+.ledger-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:.375rem;
+  border-radius:9999px;
+  border:1px solid rgba(255,255,255,0.10);
+  background:rgba(255,255,255,0.05);
+  padding:.35rem .75rem;
+  font-size:.75rem;
+  font-weight:700;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:var(--text-muted);
+}
+
+.ledger-button{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:.5rem;
+  border-radius:1rem;
+  border:1px solid rgba(255,255,255,0.10);
+  background:rgba(255,255,255,0.05);
+  padding:.75rem 1rem;
+  color:var(--text-primary);
+  transition:transform .15s ease, border-color .15s ease, background .15s ease;
+}
+
+.ledger-button:hover{
+  transform:translateY(-1px);
+  border-color:rgba(56,189,248,0.28);
+  background:rgba(56,189,248,0.10);
+}
+
+.ledger-card{
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:1.5rem;
+  background:rgba(8,17,31,0.74);
+  box-shadow:0 18px 60px rgba(0,0,0,0.20);
+}
+
+.ledger-table{
+  overflow:hidden;
+  border-radius:1.5rem;
+  border:1px solid rgba(255,255,255,0.08);
+  background:rgba(5,11,23,0.92);
+}
+
+@keyframes soft-in{
+  from{opacity:0;transform:translateY(8px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+@keyframes soft-up{
+  from{opacity:0;transform:translateY(12px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+@keyframes pulse-ring{
+  0%{transform:scale(.72);opacity:.9}
+  70%{transform:scale(1.25);opacity:0}
+  100%{transform:scale(1.25);opacity:0}
+}

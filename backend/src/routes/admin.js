@@ -684,7 +684,7 @@ router.get('/kyc/queue', protect, requireAdmin, async (req, res) => {
 
     const safePage = Math.max(Number(page) || 1, 1);
     const safeLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
-    const query = { identityVerificationStatus: 'pending' };
+    const query = { identityVerificationStatus: 'submitted' };
 
     const normalizedSearch = String(search || '').trim();
     if (normalizedSearch) {
@@ -1507,6 +1507,25 @@ router.put('/admins/:id/pages', protect, ledgerOrSuperadminOnly, async (req, res
   target.adminAllowedPages = pages;
   await target.save();
   res.json({ success: true, message: 'Admin permissions updated successfully', admin: target });
+});
+
+router.delete('/admins/:id', protect, ledgerOrSuperadminOnly, async (req, res) => {
+  const target = await User.findById(req.params.id);
+  if (!target || !['admin', 'superadmin'].includes(target.role)) {
+    return res.status(404).json({ success: false, message: 'Admin account not found' });
+  }
+  if (target._id.toString() === req.user.id.toString()) {
+    return res.status(400).json({ success: false, message: 'You cannot delete your own account' });
+  }
+  if (req.user.role === 'ledger' && target.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Ledger can only delete admin accounts' });
+  }
+  if (req.user.role === 'superadmin' && target.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Superadmin can only manage admin accounts' });
+  }
+
+  await User.findByIdAndDelete(target._id);
+  res.json({ success: true, message: 'Admin account deleted successfully' });
 });
 
 router.get('/ledger', protect, ledgerOrSuperadminOnly, async (req, res) => {

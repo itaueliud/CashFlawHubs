@@ -253,3 +253,4 @@ async function getHistory(req, res) {
 }
 
 module.exports = { handlePostback, getIframeParams, getHistory };
+

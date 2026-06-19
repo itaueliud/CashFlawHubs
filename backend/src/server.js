@@ -49,6 +49,9 @@ const ledgerPayoutsRoutes = require('./routes/ledgerPayouts');
 const ledgerAuditLogsRoutes = require('./routes/ledgerAuditLogs');
 const ledgerActivationsRoutes = require('./routes/ledgerActivations');
 const ledgerDashboardRoutes = require('./routes/ledgerDashboard');
+const ledgerRailsRoutes = require('./routes/ledgerRails');
+const ledgerRulesRoutes = require('./routes/ledgerRules');
+const ledgerBatchesRoutes = require('./routes/ledgerBatches');
 const mongoose = require('mongoose');
 const { startCpxVerificationWorker } = require('./workers/cpxVerificationWorker');
 
@@ -166,7 +169,10 @@ const limiter = rateLimit({
   }
 });
 app.use('/api/', (req, res, next) => {
-  const isCallback = req.path.includes('/callback') || req.path.includes('/webhook');
+  const isCallback =
+    req.path.includes('/callback') ||
+    req.path.includes('/webhook') ||
+    req.path.includes('/postback');
   if (isCallback) return next();
   return limiter(req, res, next);
 });
@@ -231,6 +237,9 @@ app.use('/api/ledger/payouts', ledgerPayoutsRoutes);
 app.use('/api/ledger/audit-logs', ledgerAuditLogsRoutes);
 app.use('/api/ledger/activations', ledgerActivationsRoutes);
 app.use('/api/ledger/dashboard', ledgerDashboardRoutes);
+app.use('/api/ledger/rails', ledgerRailsRoutes);
+app.use('/api/ledger/rules', ledgerRulesRoutes);
+app.use('/api/ledger/batches', ledgerBatchesRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -287,3 +296,4 @@ server.listen(PORT, () => {
 });
 
 module.exports = app;
+

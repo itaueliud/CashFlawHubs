@@ -48,6 +48,7 @@ const buildUserResponse = (user) => ({
   totalTokensPurchased: user.totalTokensPurchased,
   totalTokensSpent: user.totalTokensSpent,
   role: user.role,
+  adminAllowedPages: Array.isArray(user.adminAllowedPages) ? user.adminAllowedPages : [],
   level: user.level,
   xpPoints: user.xpPoints,
   streak: user.streak,

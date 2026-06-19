@@ -1318,6 +1318,7 @@ exports.login = async (req, res) => {
         badges: user.badges,
         balanceUSD: wallet?.balanceUSD || 0,
         managedBy: user.managedBy || null,
+        adminAllowedPages: Array.isArray(user.adminAllowedPages) ? user.adminAllowedPages : [],
       },
     });
   } catch (error) {
@@ -1369,6 +1370,7 @@ exports.getMe = async (req, res) => {
           ...user,
           activationStatus: isUserActivated(user),
           activationStatusRaw: user.activationStatus,
+          adminAllowedPages: Array.isArray(user.adminAllowedPages) ? user.adminAllowedPages : [],
         },
         wallet: { balanceUSD: user.balanceUSD || 0 },
       });
@@ -1384,6 +1386,7 @@ exports.getMe = async (req, res) => {
         _id: user._id,
         activationStatus: isUserActivated(user),
         activationStatusRaw: user.activationStatus,
+        adminAllowedPages: Array.isArray(user.adminAllowedPages) ? user.adminAllowedPages : [],
       },
       wallet,
     });

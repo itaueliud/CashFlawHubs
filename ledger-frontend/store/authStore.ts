@@ -3,19 +3,15 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import api from '../lib/api';
 
-interface AdminUser {
+interface LedgerUser {
   id: string; name: string; email?: string; phone: string;
-  role: 'admin' | 'superadmin'; tokenBalance?: number;
-  balanceUSD?: number; xpPoints?: number;
+  role: 'ledger'; tokenBalance?: number; balanceUSD?: number; xpPoints?: number;
   twoFactorEnabled?: boolean;
-  adminAllowedPages?: string[];
 }
 
 interface AuthState {
-  user: AdminUser | null; token: string | null;
-  isLoading: boolean; hasHydrated: boolean;
-  // 2FA challenge state
-  pending2FA: { challengeId: string; userId: string; identifier: string; password: string; portal: string } | null;
+  user: LedgerUser | null; token: string | null; isLoading: boolean; hasHydrated: boolean;
+  pending2FA: { challengeId: string; userId: string } | null;
   setHasHydrated: (v: boolean) => void;
   login: (identifier: string, password: string) => Promise<any>;
   verify2FA: (code: string) => Promise<void>;
@@ -26,35 +22,21 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
-      user: null, token: null, isLoading: false,
-      hasHydrated: false, pending2FA: null,
+      user: null, token: null, isLoading: false, hasHydrated: false, pending2FA: null,
 
       setHasHydrated: (v) => set({ hasHydrated: v }),
 
       login: async (identifier, password) => {
         set({ isLoading: true });
         try {
-          const res = await api.post('/auth/login', {
-            identifier, password, portal: 'admin',
-          });
+          const res = await api.post('/ledger/auth/login', { identifier, password });
           const data = res.data;
           if (data.requires2FA) {
-            set({
-              pending2FA: {
-                challengeId: data.challengeId,
-                userId: data.userId,
-                identifier,
-                password,
-                portal: 'admin',
-              },
-              isLoading: false,
-            });
+            set({ pending2FA: { challengeId: data.challengeId, userId: data.userId }, isLoading: false });
             return { requires2FA: true };
           }
           const { token, user } = data;
-          if (!['admin', 'superadmin'].includes(user.role)) {
-            throw new Error('Access denied. Admin credentials required.');
-          }
+          if (user.role !== 'ledger') throw new Error('Access denied. Ledger credentials required.');
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
           set({ token, user, isLoading: false, pending2FA: null });
           return {};
@@ -69,15 +51,12 @@ export const useAuthStore = create<AuthState>()(
         if (!pending2FA) throw new Error('No pending 2FA challenge');
         set({ isLoading: true });
         try {
-          const res = await api.post('/auth/login', {
-            identifier: pending2FA.identifier,
-            password: pending2FA.password,
-            twoFactorToken: code,
-            twoFactorChallengeId: pending2FA.challengeId,
-            portal: pending2FA.portal || 'admin',
+          const res = await api.post('/ledger/auth/login/2fa', {
+            token: code,
+            tempToken: pending2FA.challengeId,
           });
           const { token, user } = res.data;
-          if (!['admin', 'superadmin'].includes(user.role)) throw new Error('Access denied');
+          if (user.role !== 'ledger') throw new Error('Access denied');
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
           set({ token, user, pending2FA: null, isLoading: false });
         } catch (err) {
@@ -88,7 +67,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         api.post('/auth/logout').catch(() => {});
-        set({ user: null, token: null, pending2FA: null, isLoading: false });
+        set({ user: null, token: null, pending2FA: null });
         delete api.defaults.headers.common['Authorization'];
       },
 
@@ -100,16 +79,11 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'admin-auth',
-      storage: createJSONStorage(() =>
-        typeof window !== 'undefined' ? localStorage
-          : { getItem: () => null, setItem: () => {}, removeItem: () => {} }
-      ),
+      name: 'ledger-auth',
+      storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : { getItem: () => null, setItem: () => {}, removeItem: () => {} })),
       partialize: (s) => ({ token: s.token, user: s.user }),
       onRehydrateStorage: () => (state) => {
-        if (state?.token) {
-          api.defaults.headers.common['Authorization'] = `Bearer ${state.token}`;
-        }
+        if (state?.token) api.defaults.headers.common['Authorization'] = `Bearer ${state.token}`;
         (state ?? useAuthStore.getState())?.setHasHydrated(true);
       },
     }
