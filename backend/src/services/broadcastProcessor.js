@@ -14,7 +14,7 @@ const normalizeAudience = (campaign) => ({
 });
 
 const buildAudienceQuery = (target) => {
-  const query = { isActive: true, isBanned: false };
+  const query = { isBanned: false };
   if (target.scope === 'country' && target.countries.length > 0) {
     query.country = { $in: target.countries };
   }

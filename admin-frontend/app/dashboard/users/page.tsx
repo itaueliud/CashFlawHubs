@@ -44,8 +44,17 @@ function AccessTypeBadge({ user }: { user: User }) {
   );
 }
 
-function UserActionsMenu({ user, onRefresh }: { user: User; onRefresh: () => void }) {
-  const [open, setOpen] = useState(false);
+function UserActionsMenu({
+  user,
+  onRefresh,
+  open,
+  onToggle,
+}: {
+  user: User;
+  onRefresh: () => void;
+  open: boolean;
+  onToggle: (userId: string | null) => void;
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,7 +63,7 @@ function UserActionsMenu({ user, onRefresh }: { user: User; onRefresh: () => voi
     setLoading(true);
     try {
       await api.put(`/admin/users/${user._id}/ban`, { reason: 'Banned by admin' });
-      setOpen(false);
+      onToggle(null);
       onRefresh();
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to ban user');
@@ -67,7 +76,7 @@ function UserActionsMenu({ user, onRefresh }: { user: User; onRefresh: () => voi
     setLoading(true);
     try {
       await api.put(`/admin/users/${user._id}/unban`);
-      setOpen(false);
+      onToggle(null);
       onRefresh();
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to unban user');
@@ -82,7 +91,7 @@ function UserActionsMenu({ user, onRefresh }: { user: User; onRefresh: () => voi
     setLoading(true);
     try {
       await api.put(`/admin/users/${user._id}/access-type`, { userAccessType: nextType });
-      setOpen(false);
+      onToggle(null);
       onRefresh();
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to update access type');
@@ -94,7 +103,7 @@ function UserActionsMenu({ user, onRefresh }: { user: User; onRefresh: () => voi
   return (
     <div className="relative">
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => onToggle(open ? null : user._id)}
         className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white"
       >
         <MoreVertical className="h-4 w-4" />
@@ -142,6 +151,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [activeMenuUserId, setActiveMenuUserId] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     banned: 'all',
     verified: 'all',
@@ -171,6 +181,10 @@ export default function UsersPage() {
   useEffect(() => {
     loadUsers(1, search, filters.banned, filters.verified, filters.role);
   }, []);
+
+  useEffect(() => {
+    setActiveMenuUserId(null);
+  }, [users]);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
@@ -321,7 +335,12 @@ export default function UsersPage() {
                       {new Date(user.createdAt || '').toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3">
-                      <UserActionsMenu user={user} onRefresh={() => loadUsers(pagination.page, search, filters.banned, filters.verified, filters.role)} />
+                      <UserActionsMenu
+                        user={user}
+                        open={activeMenuUserId === user._id}
+                        onToggle={setActiveMenuUserId}
+                        onRefresh={() => loadUsers(pagination.page, search, filters.banned, filters.verified, filters.role)}
+                      />
                     </td>
                   </tr>
                 ))}
