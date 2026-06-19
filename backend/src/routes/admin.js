@@ -704,7 +704,7 @@ router.get('/kyc/queue', protect, requireAdmin, async (req, res) => {
 
     const [users, total] = await Promise.all([
       User.find(query)
-        .select('name email phone country userId createdAt identityVerificationStatus kycDocuments balanceUSD referralCode fraudRiskScore fraudRiskLevel registrationContext')
+        .select('name email phone country userId createdAt identityVerificationStatus idNumber idDocumentImage faceVerificationImage balanceUSD referralCode fraudRiskScore fraudRiskLevel registrationContext')
         .sort({ createdAt: 1 })
         .skip((safePage - 1) * safeLimit)
         .limit(safeLimit),
@@ -1211,7 +1211,6 @@ router.patch('/users/:userId/kyc', protect, requireAdmin, async (req, res) => {
     }
 
     const updates = { identityVerificationStatus: status };
-    if (status === 'verified') updates.activationStatus = true;
 
     const user = await User.findByIdAndUpdate(req.params.userId, updates, { new: true });
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
@@ -1230,12 +1229,12 @@ router.get('/admins', protect, ledgerOrSuperadminOnly, async (req, res) => {
     : ['admin'];
   const admins = await User.find({ role: { $in: visibleRoles } })
     .sort({ createdAt: -1 })
-    .select('name email phone role country isBanned isActive lastActiveDate userId createdAt');
+    .select('name email phone role country isBanned isActive lastActiveDate userId createdAt adminAllowedPages');
   res.json({ success: true, admins });
 });
 
 router.post('/admins', protect, ledgerOrSuperadminOnly, async (req, res) => {
-  const { name, email, phone, country, password, role = 'admin' } = req.body;
+  const { name, email, phone, country, password, role = 'admin', adminAllowedPages = [] } = req.body;
 
   if (!name || !email || !phone || !country || !password) {
     return res.status(400).json({ success: false, message: 'Missing required admin fields' });
@@ -1262,6 +1261,7 @@ router.post('/admins', protect, ledgerOrSuperadminOnly, async (req, res) => {
     emailVerified: true,
     phoneVerified: true,
     isActive: true,
+    adminAllowedPages: Array.isArray(adminAllowedPages) ? adminAllowedPages.filter(Boolean) : [],
   });
 
   res.status(201).json({ success: true, admin });
@@ -1490,6 +1490,23 @@ router.put('/admins/:id/reset-password', protect, ledgerOrSuperadminOnly, async 
   target.lockUntil = null;
   await target.save();
   res.json({ success: true, message: 'Admin password updated successfully' });
+});
+
+router.put('/admins/:id/pages', protect, ledgerOrSuperadminOnly, async (req, res) => {
+  const pages = Array.isArray(req.body?.adminAllowedPages) ? req.body.adminAllowedPages.map((page) => String(page).trim()).filter(Boolean) : null;
+  if (!pages) {
+    return res.status(400).json({ success: false, message: 'adminAllowedPages array is required' });
+  }
+  const target = await User.findById(req.params.id);
+  if (!target || !['admin', 'superadmin'].includes(target.role)) {
+    return res.status(404).json({ success: false, message: 'Admin account not found' });
+  }
+  if (req.user.role === 'superadmin' && target.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Superadmin can only manage admin accounts' });
+  }
+  target.adminAllowedPages = pages;
+  await target.save();
+  res.json({ success: true, message: 'Admin permissions updated successfully', admin: target });
 });
 
 router.get('/ledger', protect, ledgerOrSuperadminOnly, async (req, res) => {

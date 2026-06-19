@@ -15,9 +15,9 @@ interface KycUser {
   referralCode?: string;
   createdAt: string;
   identityVerificationStatus: string;
-  kycDocuments?: any;
-  documentType?: string;
-  documentNumber?: string;
+  idNumber?: string;
+  idDocumentImage?: string;
+  faceVerificationImage?: string;
   balanceUSD?: number;
   fraudRiskScore?: number;
   fraudRiskLevel?: 'low' | 'medium' | 'high';
@@ -32,6 +32,9 @@ interface PaginationData {
   page: number;
   limit: number;
 }
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const docUrl = (filename?: string) => (filename ? `${API_BASE}/uploads/registrations/${filename}` : null);
 
 function RiskBadge({ user }: { user: KycUser }) {
   const level = user.fraudRiskLevel || (Number(user.fraudRiskScore || 0) >= 80 ? 'high' : Number(user.fraudRiskScore || 0) >= 45 ? 'medium' : 'low');
@@ -115,21 +118,14 @@ function KycUserRow({ user, onRefresh }: { user: KycUser; onRefresh: () => void 
         <td className="px-4 py-3">
           <div className="flex flex-wrap items-center gap-2">
             <RiskBadge user={user} />
-            <button
-              onClick={handleApprove}
-              disabled={processing}
-              className="rounded-full border border-emerald-400/20 bg-emerald-500/10 p-2 text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
-              title="Approve"
-            >
-              <CheckCircle className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setShowRejectForm(!showRejectForm)}
-              className="rounded-full border border-red-400/20 bg-red-500/10 p-2 text-red-300 hover:bg-red-500/20"
-              title="Reject"
-            >
-              <XCircle className="h-4 w-4" />
-            </button>
+            {!expanded && (
+              <button
+                onClick={() => setExpanded(true)}
+                className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20"
+              >
+                View details
+              </button>
+            )}
           </div>
         </td>
       </tr>
@@ -179,14 +175,53 @@ function KycUserRow({ user, onRefresh }: { user: KycUser; onRefresh: () => void 
                 </div>
               </div>
 
-              {user.kycDocuments && (
-                <div className="rounded border border-white/10 bg-white/5 p-3">
-                  <div className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">KYC Documents</div>
-                  <pre className="max-h-40 overflow-auto text-xs text-slate-300">
-                    {JSON.stringify(user.kycDocuments, null, 2)}
-                  </pre>
+              <div className="rounded border border-white/10 bg-white/5 p-3 space-y-3">
+                <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Submitted KYC Documents</div>
+
+                <div>
+                  <div className="text-xs text-slate-500">ID Number</div>
+                  <div className="mt-1 text-sm text-white">{user.idNumber || 'Not provided'}</div>
                 </div>
-              )}
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <div className="mb-1 text-xs text-slate-500">ID Document</div>
+                    {docUrl(user.idDocumentImage) ? (
+                      <a href={docUrl(user.idDocumentImage)!} target="_blank" rel="noreferrer">
+                        <img src={docUrl(user.idDocumentImage)!} alt="ID document" className="max-h-56 rounded-lg border border-white/10 object-contain" />
+                      </a>
+                    ) : (
+                      <div className="rounded-lg border border-white/10 bg-black/20 p-4 text-xs text-slate-500">Not submitted</div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="mb-1 text-xs text-slate-500">Selfie / Face Verification</div>
+                    {docUrl(user.faceVerificationImage) ? (
+                      <a href={docUrl(user.faceVerificationImage)!} target="_blank" rel="noreferrer">
+                        <img src={docUrl(user.faceVerificationImage)!} alt="Selfie" className="max-h-56 rounded-lg border border-white/10 object-contain" />
+                      </a>
+                    ) : (
+                      <div className="rounded-lg border border-white/10 bg-black/20 p-4 text-xs text-slate-500">Not submitted</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={handleApprove}
+                  disabled={processing}
+                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                >
+                  <CheckCircle className="h-4 w-4" /> Approve KYC
+                </button>
+                <button
+                  onClick={() => setShowRejectForm(!showRejectForm)}
+                  className="inline-flex items-center gap-2 rounded-lg border border-red-400/20 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-300 hover:bg-red-500/20"
+                >
+                  <XCircle className="h-4 w-4" /> Reject KYC
+                </button>
+              </div>
 
               {showRejectForm && (
                 <div className="rounded border border-red-500/20 bg-red-500/10 p-3 space-y-2">

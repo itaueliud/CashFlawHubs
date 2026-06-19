@@ -1,7 +1,8 @@
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const BroadcastCampaign = require('../models/BroadcastCampaign');
-const { createNotification, sendgridClient } = require('./notificationService');
+const { createNotification } = require('./notificationCenter');
+const { sendgridClient } = require('./notificationService');
 const logger = require('../utils/logger');
 
 const normalizeAudience = (campaign) => ({

@@ -22,10 +22,10 @@ const createNotification = async ({
     scheduledFor,
     sentAt: new Date(),
     readAt: null,
-    dedupeKey,
   };
 
   if (dedupeKey) {
+    update.dedupeKey = dedupeKey;
     return Notification.findOneAndUpdate(
       { dedupeKey },
       { $setOnInsert: update },

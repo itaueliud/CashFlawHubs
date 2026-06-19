@@ -66,7 +66,11 @@ export default function NotificationBell() {
       >
         <Bell size={18} />
         {unreadCount > 0 ? (
-          <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+          <span
+            className={`absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white ${
+              notifications.some((n) => !n.readAt && n.type === 'system') ? 'bg-red-500' : 'bg-emerald-500'
+            }`}
+          >
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         ) : null}
@@ -95,30 +99,47 @@ export default function NotificationBell() {
               <div className="flex items-center justify-center px-4 py-10 text-sm text-slate-400">
                 <Loader2 size={14} className="mr-2 animate-spin" /> {t('notifications.loadingNotifications')}
               </div>
-            ) : notifications.length === 0 ? (
-              <div className="px-4 py-10 text-center text-sm text-slate-400">{t('notifications.noNotifications')}</div>
-            ) : (
-              notifications.map((notification) => {
-                const unread = !notification.readAt;
-                return (
-                  <button
-                    key={notification._id}
+              ) : notifications.length === 0 ? (
+                <div className="px-4 py-10 text-center text-sm text-slate-400">{t('notifications.noNotifications')}</div>
+              ) : (
+                notifications.map((notification) => {
+                  const unread = !notification.readAt;
+                  const isAdminMessage = notification.type === 'system';
+                  return (
+                    <button
+                      key={notification._id}
                     type="button"
                     onClick={() => {
                       if (unread) readOneMutation.mutate(notification._id);
                       setOpen(false);
                     }}
-                    className={`w-full px-3 py-3 text-left transition hover:bg-slate-900 sm:px-4 ${unread ? 'bg-slate-950' : 'bg-slate-950/60'}`}
-                  >
-                    <div className="flex items-start gap-2 sm:gap-3">
-                      <div className={`mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full sm:h-8 sm:w-8 ${unread ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-800 text-slate-500'}`}>
+                      className={`w-full px-3 py-3 text-left transition hover:bg-slate-900 sm:px-4 ${unread ? 'bg-slate-950' : 'bg-slate-950/60'}`}
+                    >
+                      <div className="flex items-start gap-2 sm:gap-3">
+                      <div
+                        className={`mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full sm:h-8 sm:w-8 ${
+                          isAdminMessage
+                            ? 'bg-red-500/15 text-red-400'
+                            : unread
+                              ? 'bg-emerald-500/15 text-emerald-300'
+                              : 'bg-slate-800 text-slate-500'
+                        }`}
+                      >
                         <Dot size={18} className="sm:block hidden" />
                         <Dot size={16} className="sm:hidden block" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-col items-start justify-between gap-1 sm:flex-row sm:items-center sm:gap-2">
-                          <div className="truncate text-xs font-semibold text-white sm:text-sm">{notification.title}</div>
-                          <span className="whitespace-nowrap text-[9px] uppercase tracking-[0.12em] text-slate-500 sm:text-[10px] sm:tracking-[0.18em]">{notification.type}</span>
+                          <div className={`truncate text-xs font-semibold sm:text-sm ${isAdminMessage ? 'text-red-400' : 'text-white'}`}>
+                            {notification.title}
+                          </div>
+                          <span
+                            className={`whitespace-nowrap text-[9px] uppercase tracking-[0.12em] sm:text-[10px] sm:tracking-[0.18em] ${
+                              isAdminMessage ? 'text-red-400' : 'text-slate-500'
+                            }`}
+                          >
+                            {isAdminMessage ? 'Admin' : notification.type}
+                          </span>
                         </div>
                         <div className="mt-1 text-xs text-slate-400 sm:text-sm">{notification.message}</div>
                         <div className="mt-2 text-[10px] text-slate-600 sm:text-[11px]">{new Date(notification.createdAt).toLocaleString()}</div>

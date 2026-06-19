@@ -211,7 +211,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       )}
 
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col overflow-visible">
         <header className="bg-slate-900 border-b border-slate-700 px-4 py-3 flex items-center justify-between flex-shrink-0">
           <button onClick={() => setMobileOpen(true)} className="md:hidden text-slate-400 hover:text-white">
             <Menu size={20} />
