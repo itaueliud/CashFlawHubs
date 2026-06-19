@@ -8,12 +8,22 @@ const { trackEvent, checkEarningMilestones } = require('../services/eventTracker
 const REWARD_CAP_USD = 50;
 const ADGEM_POSTBACK_KEY = process.env.ADGEM_POSTBACK_KEY || '';
 
-const verifyAdGemRequest = (requestId, verifier) => {
-  if (!ADGEM_POSTBACK_KEY || !requestId || !verifier) return false;
+const verifyAdGemRequest = (req) => {
+  if (!ADGEM_POSTBACK_KEY) return false;
+
+  const verifier = req.query.verifier;
+  if (!verifier) return false;
+
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  if (!host) return false;
+
+  const fullUrl = new URL(`${protocol}://${host}${req.originalUrl}`);
+  fullUrl.searchParams.delete('verifier');
 
   const expected = crypto
-    .createHash('sha256')
-    .update(`${requestId}${ADGEM_POSTBACK_KEY}`)
+    .createHmac('sha256', ADGEM_POSTBACK_KEY)
+    .update(fullUrl.toString())
     .digest('hex');
 
   try {
@@ -38,28 +48,27 @@ exports.postback = async (req, res) => {
   try {
     const {
       request_id,
-      verifier,
       player_id,
       transaction_id,
-      amount,
       payout,
+      amount,
       offer_id,
       offer_name,
       country,
     } = req.query;
 
-    if (!request_id || !verifier) {
+    if (!request_id || !req.query.verifier) {
       logger.warn(`[AdGem] Missing request_id/verifier: ${JSON.stringify(req.query)}`);
       return respond('MISSING_PARAMS');
     }
 
-    if (!verifyAdGemRequest(request_id, verifier)) {
+    if (!verifyAdGemRequest(req)) {
       logger.warn(`[AdGem] Verifier mismatch request_id=${request_id}`);
       return respond('INVALID_VERIFIER');
     }
 
-    if (!player_id || !transaction_id || !amount) {
-      logger.warn(`[AdGem] Missing player_id/transaction_id/amount: ${JSON.stringify(req.query)}`);
+    if (!player_id || !transaction_id || !payout) {
+      logger.warn(`[AdGem] Missing player_id/transaction_id/payout: ${JSON.stringify(req.query)}`);
       return respond('MISSING_PARAMS');
     }
 
@@ -79,9 +88,9 @@ exports.postback = async (req, res) => {
       return respond('DUPLICATE');
     }
 
-    const parsedAmount = Number.parseFloat(amount);
+    const parsedAmount = Number.parseFloat(payout);
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      logger.warn(`[AdGem] Invalid amount: ${amount}`);
+      logger.warn(`[AdGem] Invalid payout amount: ${payout}`);
       return respond('INVALID_AMOUNT');
     }
 
@@ -107,7 +116,7 @@ exports.postback = async (req, res) => {
         offerId: offer_id,
         offerName: offer_name,
         requestId: request_id,
-        rawPayout: payout,
+        rawAmount: amount,
       },
     });
 
