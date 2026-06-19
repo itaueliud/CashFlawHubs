@@ -1,23 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Trophy, CalendarClock, CheckCircle2, Loader2, X } from 'lucide-react';
+import { Trophy, CalendarClock, CheckCircle2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { resolveEmbedSource } from '@/lib/embeds';
 
 export default function ChallengesPage() {
   const queryClient = useQueryClient();
   const { user, refreshUser } = useAuthStore();
-  const [showTimewallLocker, setShowTimewallLocker] = useState(false);
-  const [timewallLockerLoaded, setTimewallLockerLoaded] = useState(false);
-
-  useEffect(() => {
-    if (!showTimewallLocker) setTimewallLockerLoaded(false);
-  }, [showTimewallLocker]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['daily-challenges-page'],
@@ -32,8 +25,6 @@ export default function ChallengesPage() {
     },
     onSuccess: (payload) => {
       toast.success(payload.message || 'Challenge reward claimed');
-      setShowTimewallLocker(false);
-      setTimewallLockerLoaded(false);
       queryClient.invalidateQueries({ queryKey: ['daily-challenges-page'] });
       queryClient.invalidateQueries({ queryKey: ['challenges'] });
       queryClient.invalidateQueries({ queryKey: ['wallet'] });
@@ -46,10 +37,6 @@ export default function ChallengesPage() {
   });
 
   const challenges = data || [];
-  const timewallLockerSrc = resolveEmbedSource(
-    'NEXT_PUBLIC_TIMEWALL_CHALLENGES_URL',
-    'VITE_TIMEWALL_CHALLENGES_URL'
-  );
   const getChallengeTarget = (challenge: any) => {
     const type = String(challenge.type || challenge.eventType || '').toLowerCase();
     if (type.includes('referral')) return '/dashboard/referrals';
@@ -156,73 +143,6 @@ export default function ChallengesPage() {
         </div>
       )}
 
-      <div className="card border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-slate-900">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold">Timewall Bonus XP</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Open the Timewall locker for bonus XP tasks without leaving the challenges page.
-            </p>
-          </div>
-          <span className="badge-green">Timewall</span>
-        </div>
-        <button
-          onClick={() => setShowTimewallLocker(true)}
-          className="btn-primary mt-4 w-full inline-flex items-center justify-center gap-2"
-        >
-          Open Timewall Bonus XP
-        </button>
-      </div>
-
-      {showTimewallLocker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-700 bg-[#111827] shadow-2xl">
-            <div className="flex items-start justify-between gap-3 border-b border-slate-700 px-4 py-3">
-              <div>
-                <h3 className="text-lg font-bold">Timewall Bonus XP</h3>
-                <p className="mt-1 text-xs text-slate-400">Complete a Timewall task to earn extra XP.</p>
-              </div>
-              <button
-                onClick={() => {
-                  setShowTimewallLocker(false);
-                  setTimewallLockerLoaded(false);
-                }}
-                className="rounded-lg border border-slate-700 p-2 text-slate-400 transition hover:text-white"
-                aria-label="Close timewall bonus locker"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="relative min-h-[550px] bg-slate-950">
-              {!timewallLockerSrc ? (
-                <div className="flex h-[550px] items-center justify-center px-6 text-center text-sm text-slate-400">
-                  Timewall is unavailable right now.
-                </div>
-              ) : (
-                <>
-                  {!timewallLockerLoaded && (
-                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/80">
-                      <Loader2 size={24} className="animate-spin text-emerald-400" />
-                    </div>
-                  )}
-                  <iframe
-                    src={timewallLockerSrc}
-                    width="100%"
-                    height="550px"
-                    frameBorder="0"
-                    title="Timewall Bonus XP Locker"
-                    onLoad={() => setTimewallLockerLoaded(true)}
-                    className="block h-[550px] w-full"
-                    sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-top-navigation"
-                    referrerPolicy="no-referrer"
-                  />
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

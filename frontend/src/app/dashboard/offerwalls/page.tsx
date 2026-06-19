@@ -14,7 +14,7 @@ type RewardTx = {
   createdAt: string;
 };
 
-type OfferTab = 'wall' | 'offers' | 'timewall';
+type OfferTab = 'wall' | 'offers' | 'adgem';
 
 type OfferwallLaunchResponse = {
   success: boolean;
@@ -61,30 +61,30 @@ export default function OfferwallsPage() {
     staleTime: 1000 * 60 * 5,
   });
 
-  // Fetch signed Timewall offerwall URL from backend
+  // Fetch signed AdGem offerwall URL from backend
   const {
-    data: timewallData,
-    refetch: refetchTimewall,
+    data: adgemData,
+    refetch: refetchAdgem,
   } = useQuery<OfferwallLaunchResponse>({
-    queryKey: ['offerwall-launch', 'timewall', user?.id, locale],
-    queryFn: () => api.get<OfferwallLaunchResponse>('/offerwalls/launch/timewall').then((response) => response.data),
+    queryKey: ['offerwall-launch', 'adgem', user?.id, locale],
+    queryFn: () => api.get<OfferwallLaunchResponse>('/offerwalls/launch/adgem').then((response) => response.data),
     enabled: hasHydrated && !!user?.id && isOfferwallsUnlocked,
     retry: false,
     staleTime: 1000 * 60 * 5,
   });
 
   const cpaSrc = cpaData?.wallUrl || '';
-  const timewallSrc = timewallData?.wallUrl || '';
+  const adgemSrc = adgemData?.wallUrl || '';
   const offerwallSrc = cpaSrc;
   const browseOffersSrc = cpaSrc;
-  const currentSrc = activeTab === 'wall' ? offerwallSrc : activeTab === 'offers' ? browseOffersSrc : timewallSrc;
-  const currentTitle = activeTab === 'wall' ? 'CPAlead Offerwall' : activeTab === 'offers' ? 'CPAlead Offers' : 'Timewall Offerwall';
+  const currentSrc = activeTab === 'wall' ? offerwallSrc : activeTab === 'offers' ? browseOffersSrc : adgemSrc;
+  const currentTitle = activeTab === 'wall' ? 'CPAlead Offerwall' : activeTab === 'offers' ? 'CPAlead Offers' : 'AdGem Offerwall';
   const currentDescription =
     activeTab === 'wall'
       ? 'Personalized CPAlead offerwall with user and locale tracking.'
       : activeTab === 'offers'
         ? 'CPAlead partner offers and app installs.'
-        : 'Timewall rewarded offers shown in the same dashboard space.';
+        : 'AdGem rewarded offers shown in the same dashboard space.';
 
   useEffect(() => {
     setMounted(true);
@@ -190,14 +190,14 @@ export default function OfferwallsPage() {
           <div className="flex flex-wrap gap-2">
             {renderTab('wall', <LayoutGrid size={14} />, 'CPAlead Offerwall', 'Main rewarded CPAlead content')}
             {renderTab('offers', <ListFilter size={14} />, 'CPAlead Offers', 'Native CPAlead offers feed')}
-            {renderTab('timewall', <Gift size={14} />, 'Timewall', 'Timewall rewards feed')}
+            {renderTab('adgem', <Gift size={14} />, 'AdGem', 'AdGem rewards feed')}
             <button
               onClick={() => {
                 setIframeLoaded(false);
                 setIframeError(false);
                 setFrameVersion((value) => value + 1);
                 void refetchCpa();
-                void refetchTimewall();
+                void refetchAdgem();
               }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 transition hover:text-slate-200"
             >
@@ -213,7 +213,7 @@ export default function OfferwallsPage() {
                 ? 'Offerwalls are unavailable right now.'
                 : activeTab === 'offers'
                   ? 'Browse Offers is unavailable right now.'
-                  : 'Timewall is unavailable right now.'}
+                  : 'AdGem is unavailable right now.'}
             </div>
           ) : iframeError ? (
             <div className="flex h-[700px] flex-col items-center justify-center gap-3 px-6 text-center">

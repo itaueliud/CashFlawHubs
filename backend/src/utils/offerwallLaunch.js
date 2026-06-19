@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const DEFAULT_LOCALE = 'en';
 const FALLBACK_OFFERWALL_URLS = {
   cpa: 'https://www.cdnflair.com/wall/dJ6T',
-  timewall: 'https://timewall.io/o/440de2b21c4ecb1c',
+  adgem: '',
 };
 
 const OFFERWALL_PROVIDER_CONFIGS = {
@@ -23,20 +23,17 @@ const OFFERWALL_PROVIDER_CONFIGS = {
       'VITE_CPALEAD_NATIVE_OFFERS_URL',
     ],
   },
-  timewall: {
-    key: 'timewall',
-    name: 'Timewall',
-    description: 'Rewarded offerwall inventory from Timewall.',
+  adgem: {
+    key: 'adgem',
+    name: 'AdGem',
+    description: 'Rewarded offerwall inventory from AdGem.',
     integrationType: 'api',
     access: 'signed_wall',
     badge: 'Live',
     urlEnvKeys: [
-      'TIMEWALL_OFFERWALL_URL',
-      'TIMEWALL_OFFERWALLS_URL',
-      'NEXT_PUBLIC_TIMEWALL_OFFERWALL_URL',
-      'NEXT_PUBLIC_TIMEWALL_OFFERWALLS_URL',
-      'VITE_TIMEWALL_OFFERWALL_URL',
-      'VITE_TIMEWALL_OFFERWALLS_URL',
+      'ADGEM_APP_ID',
+      'NEXT_PUBLIC_ADGEM_APP_ID',
+      'VITE_ADGEM_APP_ID',
     ],
   },
   ayetstudios: {
@@ -118,7 +115,7 @@ const getOfferwallUrlTemplate = (providerKey) => {
   const config = OFFERWALL_PROVIDER_CONFIGS[providerKey];
   if (!config) return '';
 
-  if (providerKey === 'cpa' || providerKey === 'timewall') {
+  if (providerKey === 'cpa') {
     return firstConfiguredValue(
       ...config.urlEnvKeys.map((key) => process.env[key]),
       FALLBACK_OFFERWALL_URLS[providerKey]
@@ -172,10 +169,11 @@ const getOfferwallLaunchParams = (providerKey, context = {}) => {
     };
   }
 
-  if (providerKey === 'timewall') {
+  if (providerKey === 'adgem') {
     return {
       ...commonParams,
-      placement: 'offerwalls',
+      appid: process.env.ADGEM_APP_ID || '',
+      playerid: context.user?.userId || '',
     };
   }
 
@@ -204,6 +202,19 @@ const buildOfferwallLaunchUrl = (providerKey, context = {}) => {
 
     const params = getOfferwallLaunchParams(providerKey, context);
     return buildUrlFromTemplate(`https://wall.adgaterewards.com/${pubId}/${context.user.userId}`, params);
+  }
+
+  if (providerKey === 'adgem') {
+    const appId = process.env.ADGEM_APP_ID;
+    if (!appId || !context.user?.userId) return null;
+
+    const params = {
+      ...getOfferwallLaunchParams(providerKey, context),
+      appid: appId,
+      playerid: context.user.userId,
+    };
+
+    return buildUrlFromTemplate('https://api.adgem.com/v1/wall', params);
   }
 
   const template = getOfferwallUrlTemplate(providerKey);

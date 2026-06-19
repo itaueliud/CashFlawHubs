@@ -166,7 +166,7 @@ exports.getOfferwallHistory = async (req, res) => {
     const query = {
       userId: req.user.id,
       type: 'offer',
-      'metadata.provider': { $in: ['adgate', 'ayetstudios', 'cpa', 'timewall'] },
+      'metadata.provider': { $in: ['adgate', 'ayetstudios', 'cpa', 'adgem'] },
     };
 
     const [transactions, total] = await Promise.all([

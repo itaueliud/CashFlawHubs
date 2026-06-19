@@ -37,7 +37,7 @@ const buildOfferwallUrl = (providerKey, user) => {
     return `https://wall.adgaterewards.com/${process.env.ADGATE_PUBLISHER_ID}/${user.userId}`;
   }
 
-  if (providerKey === 'cpa' || providerKey === 'timewall') {
+  if (providerKey === 'cpa' || providerKey === 'adgem') {
     const context = getOfferwallContext({ user });
     return buildOfferwallLaunchUrl(providerKey, context);
   }

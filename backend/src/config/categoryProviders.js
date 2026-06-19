@@ -287,8 +287,8 @@ const CATEGORY_PROVIDERS = {
         badge: 'Live',
       },
       {
-        key: 'timewall',
-        name: 'Timewall',
+        key: 'adgem',
+        name: 'AdGem',
         description: 'Rewarded offers and task inventory with localized launches.',
         integrationType: 'api',
         access: 'signed_wall',

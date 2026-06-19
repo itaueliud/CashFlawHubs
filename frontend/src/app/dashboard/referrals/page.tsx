@@ -4,14 +4,12 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Copy, Users, DollarSign, Trophy, MessageCircle, Send, Loader2, RefreshCw, Lock, X } from 'lucide-react';
+import { Copy, Users, DollarSign, Trophy, MessageCircle, Send, Loader2, Lock, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { resolveEmbedSource } from '@/lib/embeds';
 
 export default function ReferralsPage() {
   const { user, hasHydrated } = useAuthStore();
-  const [affiliateLoaded, setAffiliateLoaded] = useState(false);
-  const [affiliateVersion, setAffiliateVersion] = useState(0);
   const [showFileLocker, setShowFileLocker] = useState(false);
   const [fileLockerLoaded, setFileLockerLoaded] = useState(false);
   const userId = user?.id || user?._id || user?.userId || null;
@@ -28,7 +26,6 @@ export default function ReferralsPage() {
     queryKey: ['leaderboard'],
     queryFn: () => api.get('/referrals/leaderboard').then(r => r.data.leaderboard),
   });
-  const affiliateSrc = user?.id ? `https://timewall.io/o/e4eb8297dcfcb0e7?userID=${encodeURIComponent(user.id)}` : null;
   const fileLockerSrc = resolveEmbedSource('NEXT_PUBLIC_CPALEAD_FILE_LOCKER_URL', 'VITE_CPALEAD_FILE_LOCKER_URL');
   const invited = data?.invited || data?.recentInvited || [];
   const referred = data?.referred || data?.recentReferred || [];
@@ -113,56 +110,6 @@ export default function ReferralsPage() {
           </div>
         </div>
       )}
-
-      <div className="border-t border-slate-700 pt-4">
-        <h2 className="text-lg font-bold mt-2">Extra Earning Opportunities</h2>
-        <p className="mt-1 text-sm text-slate-400">Complete partner offers and earn additional USD rewards on top of your referral bonuses.</p>
-      </div>
-
-      <div className="card overflow-hidden border-emerald-500/20 bg-slate-900/70 p-0">
-        <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-          <div>
-            <div className="text-sm font-semibold text-slate-200">Timewall Affiliate Network</div>
-            <div className="text-xs text-slate-500">Earn more from partner offers.</div>
-          </div>
-          <button
-            onClick={() => {
-              setAffiliateLoaded(false);
-              setAffiliateVersion((value) => value + 1);
-            }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 transition hover:text-slate-200"
-          >
-            <RefreshCw size={12} /> Refresh
-          </button>
-        </div>
-
-        <div className="relative min-h-[600px] w-full">
-          {!affiliateSrc ? (
-            <div className="flex h-[600px] items-center justify-center text-sm text-slate-400">
-              Timewall is unavailable right now.
-            </div>
-          ) : (
-            <>
-              {!affiliateLoaded && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/80">
-                  <Loader2 size={24} className="animate-spin text-emerald-400" />
-                </div>
-              )}
-              <iframe
-                src={affiliateSrc}
-                key={`${affiliateSrc}-${affiliateVersion}`}
-                width="100%"
-                height="600px"
-                frameBorder="0"
-                title="Timewall Affiliate Network"
-                onLoad={() => setAffiliateLoaded(true)}
-                className="block h-[600px] w-full"
-                sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-top-navigation"
-              />
-            </>
-          )}
-        </div>
-      </div>
 
       <div className="card border border-violet-500/20 bg-gradient-to-br from-violet-500/10 to-slate-900">
         <div className="flex items-start justify-between gap-4">
