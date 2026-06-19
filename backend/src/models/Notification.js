@@ -16,7 +16,7 @@ const notificationSchema = new mongoose.Schema(
     scheduledFor: { type: Date, default: null, index: true },
     sentAt: { type: Date, default: Date.now },
     readAt: { type: Date, default: null, index: true },
-    dedupeKey: { type: String, default: null, sparse: true, unique: true },
+    dedupeKey: { type: String, sparse: true, unique: true },
   },
   { timestamps: true }
 );

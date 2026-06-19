@@ -85,6 +85,15 @@ function RichEditor({
   );
 }
 
+const stripHtml = (html: string) =>
+  String(html || '')
+    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 export default function NotificationsPage() {
   const [mode, setMode] = useState<'broadcast' | 'targeted'>('broadcast');
   const [loading, setLoading] = useState(false);
@@ -148,9 +157,10 @@ export default function NotificationsPage() {
     setError(null);
     setSuccess(null);
     try {
+      const broadcastPlainText = stripHtml(htmlMessage);
       const response = await api.post('/admin/notifications/broadcast', {
         title,
-        message,
+        message: message.trim() || broadcastPlainText || title.trim(),
         htmlMessage,
         channel,
         segment,
@@ -201,7 +211,7 @@ export default function NotificationsPage() {
     setSelectedRecipients((current) => current.filter((item) => item._id !== userId));
   };
 
-  const canSendBroadcast = title.trim() && message.trim();
+  const canSendBroadcast = title.trim() && (message.trim() || stripHtml(htmlMessage));
   const canSendTargeted = title.trim() && targetMessage.trim() && selectedRecipients.length > 0;
 
   const historySorted = useMemo(() => history.slice().sort((a, b) => Number(new Date(b.createdAt || b.sentAt || 0)) - Number(new Date(a.createdAt || a.sentAt || 0))), [history]);
@@ -214,7 +224,7 @@ export default function NotificationsPage() {
       const response = await api.post('/admin/notifications/targeted', {
         recipients: selectedRecipients.map((u) => u._id),
         title,
-        message: targetMessage,
+        message: targetMessage.trim(),
         notificationType: 'system',
         channel,
         metadata: { source: 'admin-targeted-center' },
