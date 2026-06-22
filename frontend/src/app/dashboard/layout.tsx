@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -19,7 +19,7 @@ import {
   TrendingUp,
   Menu,
   Trophy,
-  Radio,
+  Video,
   MessagesSquare,
   Mail,
   BookOpen,
@@ -34,7 +34,7 @@ const BASE_NAV = [
   { href: '/dashboard/jobs', icon: Briefcase, labelKey: 'nav.remoteJobs', category: 'Earn Features' },
   { href: '/dashboard/surveys', icon: ClipboardList, labelKey: 'nav.paidSurveys', category: 'Earn Features' },
   { href: '/dashboard/tasks', icon: Zap, labelKey: 'nav.microtasks', category: 'Earn Features' },
-  { href: '/dashboard/ads-network', icon: Radio, labelKey: 'nav.adsNetwork', category: 'Earn Features' },
+  { href: '/dashboard/ads-network', icon: Video, labelKey: 'nav.adsNetwork', category: 'Earn Features' },
   { href: '/dashboard/offerwalls', icon: Gift, labelKey: 'nav.offerwalls', category: 'Earn Features' },
   { href: '/dashboard/cash-tasks', icon: TrendingUp, labelKey: 'nav.cashTasks', category: 'Earn Features' },
   { href: '/dashboard/challenges', icon: Trophy, labelKey: 'nav.dailyChallenges', category: 'Earn Features' },

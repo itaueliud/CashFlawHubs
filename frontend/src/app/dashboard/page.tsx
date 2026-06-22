@@ -15,7 +15,7 @@ import {
   TrendingUp,
   Flame,
   Trophy,
-  Radio,
+  Video,
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 
@@ -23,7 +23,7 @@ const QUICK_ACTIONS = [
   { href: '/dashboard/jobs', icon: Briefcase, labelKey: 'nav.remoteJobs', color: 'bg-purple-500/20 text-purple-400', descKey: 'dashboard.remoteJobsDesc' },
   { href: '/dashboard/surveys', icon: ClipboardList, labelKey: 'nav.paidSurveys', color: 'bg-blue-500/20 text-blue-400', descKey: 'dashboard.paidSurveysDesc' },
   { href: '/dashboard/tasks', icon: Zap, labelKey: 'nav.microtasks', color: 'bg-yellow-500/20 text-yellow-400', descKey: 'dashboard.microtasksDesc' },
-  { href: '/dashboard/ads-network', icon: Radio, labelKey: 'nav.adsNetwork', color: 'bg-cyan-500/20 text-cyan-400', descKey: 'dashboard.adsNetworkDesc' },
+  { href: '/dashboard/ads-network', icon: Video, labelKey: 'nav.adsNetwork', color: 'bg-cyan-500/20 text-cyan-400', descKey: 'dashboard.adsNetworkDesc' },
   { href: '/dashboard/offerwalls', icon: Gift, labelKey: 'nav.offerwalls', color: 'bg-pink-500/20 text-pink-400', descKey: 'dashboard.offerwallsDesc' },
   { href: '/dashboard/cash-tasks', icon: TrendingUp, labelKey: 'nav.cashTasks', color: 'bg-orange-500/20 text-orange-400', descKey: 'dashboard.cashTasksDesc' },
   { href: '/dashboard/referrals', icon: Star, labelKey: 'nav.referAndEarn', color: 'bg-green-500/20 text-green-400', descKey: 'dashboard.referralsDesc' },

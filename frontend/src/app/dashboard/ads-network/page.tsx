@@ -13,7 +13,7 @@ export default function AdsNetworkPage() {
             <Clock3 size={18} />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-white">Create Hub Coming Soon</h1>
+            <h1 className="text-2xl font-black text-white">Creator HUB Coming Soon</h1>
             <p className="mt-2 text-sm text-slate-300">
               This section is being prepared and will be available soon.
             </p>

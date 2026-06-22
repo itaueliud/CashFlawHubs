@@ -10,12 +10,12 @@ const LABELS: Record<string, string> = {
   jobs: 'Remote Jobs',
   surveys: 'Paid Surveys',
   tasks: 'Microtasks',
-  'ads-network': 'Create Hub',
+  'ads-network': 'Creator HUB',
   offerwalls: 'Offerwalls',
   'file-locker': 'File Locker',
   'link-locker': 'Link Locker',
   offers: 'Offers',
-  'cash-tasks': 'Cash Tasks',
+  'cash-tasks': 'Coming Soon',
   referrals: 'Referral Earnings',
   chat: 'Job Chats',
   wallet: 'Wallet',
@@ -41,13 +41,21 @@ const LABELS: Record<string, string> = {
 export function Breadcrumbs() {
   const pathname = usePathname() ?? '';
   const segments = pathname.split('/').filter(Boolean);
+  const isDashboardRoute = pathname.startsWith('/dashboard');
+  const baseSegments = isDashboardRoute ? segments.slice(1) : segments;
 
-  const crumbs = segments.map((segment, index) => ({
+  const rootCrumb = isDashboardRoute
+    ? { label: 'Dashboard', href: '/dashboard' }
+    : { label: 'Home', href: '/' };
+
+  const crumbs = baseSegments.map((segment, index) => ({
     label: LABELS[segment] ?? segment.replace(/-/g, ' '),
-    href: `/${segments.slice(0, index + 1).join('/')}`,
+    href: isDashboardRoute
+      ? `/dashboard/${baseSegments.slice(0, index + 1).join('/')}`
+      : `/${baseSegments.slice(0, index + 1).join('/')}`,
   }));
 
-  const allCrumbs = [{ label: 'Home', href: '/' }, ...crumbs];
+  const allCrumbs = [rootCrumb, ...crumbs];
 
   const schema = {
     '@context': 'https://schema.org',

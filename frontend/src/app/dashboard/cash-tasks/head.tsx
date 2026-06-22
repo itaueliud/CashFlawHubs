@@ -3,10 +3,10 @@ import { SITE_URL } from '@/lib/seo';
 export default function Head() {
   return (
     <>
-      <title>Cash Tasks | CashFlowHubs</title>
+      <title>Coming Soon | CashFlowHubs</title>
       <meta
         name="description"
-        content="Pick up cash tasks on CashFlowHubs and earn immediately. Tasks range from simple actions to short projects."
+        content="This Cash Tasks section is coming soon on CashFlowHubs."
       />
       <meta name="robots" content="noindex,nofollow" />
       <link rel="canonical" href={`${SITE_URL}/dashboard/cash-tasks`} />
