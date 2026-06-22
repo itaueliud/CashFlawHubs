@@ -10,7 +10,7 @@ const LABELS: Record<string, string> = {
   jobs: 'Remote Jobs',
   surveys: 'Paid Surveys',
   tasks: 'Microtasks',
-  'ads-network': 'Ads Network',
+  'ads-network': 'Create Hub',
   offerwalls: 'Offerwalls',
   'file-locker': 'File Locker',
   'link-locker': 'Link Locker',

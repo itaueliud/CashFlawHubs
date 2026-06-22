@@ -3,10 +3,10 @@ import { SITE_URL } from '@/lib/seo';
 export default function Head() {
   return (
     <>
-      <title>Ads Network | CashFlowHubs</title>
+      <title>Create Hub Coming Soon | CashFlowHubs</title>
       <meta
         name="description"
-        content="Earn rewards through the CashFlowHubs Ads Network by viewing and interacting with partner promotions."
+        content="Create Hub is coming soon on CashFlowHubs."
       />
       <meta name="robots" content="noindex,nofollow" />
       <link rel="canonical" href={`${SITE_URL}/dashboard/ads-network`} />
