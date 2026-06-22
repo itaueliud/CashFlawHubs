@@ -139,7 +139,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       : pathname === href || pathname.startsWith(`${href}/`);
 
   const SidebarContent = () => (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <div className="border-b border-slate-700 p-5">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500 font-bold text-sm">C</div>
@@ -164,7 +164,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </div>
 
-      <nav className="flex-1 space-y-4 p-3">
+      <nav className="flex-1 min-h-0 space-y-4 overflow-y-auto p-3">
         {Array.from(new Set(nav.map(n => (n as { category?: string }).category || 'Menu'))).map(category => (
           <div key={category}>
             {category !== 'Menu' && <div className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-emerald-400">{category}</div>}
@@ -188,7 +188,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         ))}
       </nav>
 
-      <div className="border-t border-slate-700 p-4">
+      <div className="shrink-0 border-t border-slate-700 p-4">
         <div className="mb-3 rounded-xl border border-green-500/20 bg-green-500/10 p-3 text-center">
           <div className="text-xs text-slate-400">{t('common.balance')}</div>
           <div className="text-xl font-black text-green-400">${(user.balanceUSD || 0).toFixed(2)}</div>
