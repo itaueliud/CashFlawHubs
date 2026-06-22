@@ -40,9 +40,34 @@ const PAYSTACK_TRANSFER_RECIPIENTS = {
 };
 
 
-const ACTIVATION_TOKEN_BONUS = Number(process.env.ACTIVATION_TOKEN_BONUS || 60);
-const ACTIVATION_TOKEN_BONUS_AMOUNT = Number(process.env.ACTIVATION_TOKEN_BONUS_AMOUNT || 500);
-const ACTIVATION_TOKEN_BONUS_CURRENCY = String(process.env.ACTIVATION_TOKEN_BONUS_CURRENCY || 'KES').toUpperCase();
+const parseActivationTokenBonusByCountry = () => {
+  const fallback = { KE: 60 };
+  const raw = process.env.ACTIVATION_TOKEN_BONUS_BY_COUNTRY;
+  if (!raw) return fallback;
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return fallback;
+    }
+
+    const normalized = {};
+    for (const [country, value] of Object.entries(parsed)) {
+      const code = String(country || '').trim().toUpperCase();
+      const amount = Number(value);
+      if (code && Number.isFinite(amount) && amount > 0) {
+        normalized[code] = amount;
+      }
+    }
+
+    return Object.keys(normalized).length > 0 ? normalized : fallback;
+  } catch (error) {
+    logger.warn(`Invalid ACTIVATION_TOKEN_BONUS_BY_COUNTRY config: ${error.message}`);
+    return fallback;
+  }
+};
+
+const ACTIVATION_TOKEN_BONUS_BY_COUNTRY = parseActivationTokenBonusByCountry();
 
 const FRONTEND_PAYMENT_PATHS = {
   activation: '/activation/callback',
@@ -224,15 +249,23 @@ const findPendingActivationTransaction = async (userId, providerTxId, session) =
 };
 
 
-const shouldGrantActivationTokenBonus = (amountLocal, currency) => {
-  if (!Number.isFinite(ACTIVATION_TOKEN_BONUS) || ACTIVATION_TOKEN_BONUS <= 0) {
-    return false;
+const getActivationTokenBonus = ({ country, amountLocal, currency }) => {
+  const countryCode = String(country || '').trim().toUpperCase();
+  const bonusAmount = Number(ACTIVATION_TOKEN_BONUS_BY_COUNTRY[countryCode] || 0);
+  const countryConfig = COUNTRIES[countryCode];
+
+  if (!Number.isFinite(bonusAmount) || bonusAmount <= 0 || !countryConfig) {
+    return 0;
   }
 
-  return (
-    Number(amountLocal) === ACTIVATION_TOKEN_BONUS_AMOUNT &&
-    String(currency || '').toUpperCase() === ACTIVATION_TOKEN_BONUS_CURRENCY
-  );
+  if (
+    Number(amountLocal) !== Number(countryConfig.activationFee) ||
+    String(currency || '').toUpperCase() !== String(countryConfig.currency || '').toUpperCase()
+  ) {
+    return 0;
+  }
+
+  return bonusAmount;
 };
 
 const tagPendingPayoutTransactions = async (userId, payoutReference, session) => {
@@ -1310,7 +1343,7 @@ exports.processActivationPayment = async ({ userId, amountLocal, currency, provi
     const referralShareUSD = await localToUSD(countryConfig.referralReward, countryConfig.currency);
     const platformShareUSD = await localToUSD(countryConfig.platformShare, countryConfig.currency);
     const now = new Date();
-    const grantTokenBonus = shouldGrantActivationTokenBonus(amountLocal, currency);
+    const activationTokenBonus = getActivationTokenBonus({ country: user.country, amountLocal, currency });
 
 
     await User.findByIdAndUpdate(
@@ -1322,16 +1355,16 @@ exports.processActivationPayment = async ({ userId, amountLocal, currency, provi
       { session }
     );
 
-    if (grantTokenBonus) {
+    if (activationTokenBonus > 0) {
       await Promise.all([
         User.findByIdAndUpdate(
           userId,
-          { $inc: { tokenBalance: ACTIVATION_TOKEN_BONUS } },
+          { $inc: { tokenBalance: activationTokenBonus } },
           { session }
         ),
         Wallet.findOneAndUpdate(
           { userId },
-          { $inc: { tokenBalance: ACTIVATION_TOKEN_BONUS } },
+          { $inc: { tokenBalance: activationTokenBonus } },
           { session, upsert: true, setDefaultsOnInsert: true }
         ),
       ]);
@@ -1351,7 +1384,7 @@ exports.processActivationPayment = async ({ userId, amountLocal, currency, provi
         ...(pendingActivation.metadata || {}),
         referralShareUSD,
         platformShareUSD,
-        activationTokenBonus: grantTokenBonus ? ACTIVATION_TOKEN_BONUS : 0,
+        activationTokenBonus,
       };
       await pendingActivation.save({ session });
     } else {
@@ -1370,7 +1403,7 @@ exports.processActivationPayment = async ({ userId, amountLocal, currency, provi
         metadata: {
           referralShareUSD,
           platformShareUSD,
-          activationTokenBonus: grantTokenBonus ? ACTIVATION_TOKEN_BONUS : 0,
+          activationTokenBonus,
         },
       }], { session });
     }
@@ -1431,8 +1464,8 @@ exports.processActivationPayment = async ({ userId, amountLocal, currency, provi
     await session.commitTransaction();
     logger.info(`Activation processed for user ${user.userId}`);
 
-    if (grantTokenBonus) {
-      logger.info(`Granted ${ACTIVATION_TOKEN_BONUS} bonus tokens for activation payment ${amountLocal} ${currency} to ${user.userId}`);
+    if (activationTokenBonus > 0) {
+      logger.info(`Granted ${activationTokenBonus} bonus tokens for activation payment ${amountLocal} ${currency} to ${user.userId}`);
     }
 
     if (user.referredBy) {
