@@ -39,6 +39,11 @@ const PAYSTACK_TRANSFER_RECIPIENTS = {
   },
 };
 
+
+const ACTIVATION_TOKEN_BONUS = Number(process.env.ACTIVATION_TOKEN_BONUS || 60);
+const ACTIVATION_TOKEN_BONUS_AMOUNT = Number(process.env.ACTIVATION_TOKEN_BONUS_AMOUNT || 500);
+const ACTIVATION_TOKEN_BONUS_CURRENCY = String(process.env.ACTIVATION_TOKEN_BONUS_CURRENCY || 'KES').toUpperCase();
+
 const FRONTEND_PAYMENT_PATHS = {
   activation: '/activation/callback',
   token_purchase: '/dashboard/wallet/callback',
@@ -216,6 +221,18 @@ const findPendingActivationTransaction = async (userId, providerTxId, session) =
   }
 
   return Transaction.findOne(baseQuery).sort({ createdAt: -1 }).session(session);
+};
+
+
+const shouldGrantActivationTokenBonus = (amountLocal, currency) => {
+  if (!Number.isFinite(ACTIVATION_TOKEN_BONUS) || ACTIVATION_TOKEN_BONUS <= 0) {
+    return false;
+  }
+
+  return (
+    Number(amountLocal) === ACTIVATION_TOKEN_BONUS_AMOUNT &&
+    String(currency || '').toUpperCase() === ACTIVATION_TOKEN_BONUS_CURRENCY
+  );
 };
 
 const tagPendingPayoutTransactions = async (userId, payoutReference, session) => {
@@ -1257,6 +1274,20 @@ exports.tanzaniaWalletCallback = async (req, res) => {
   }
 };
 
+exports.pawapayCallback = async (req, res) => {
+  try {
+    const reference = req.body?.reference || req.body?.transactionReference || req.body?.externalId || req.body?.merchantReference;
+    const status = String(req.body?.status || req.body?.transactionStatus || req.body?.state || '').toLowerCase();
+    if (reference && (status.includes('success') || status.includes('completed') || status.includes('approved'))) {
+      await fulfillPendingCollection(reference, 'pawapay', req.body?.transactionId || req.body?.providerTransactionId || reference);
+    }
+    res.status(200).json({ received: true });
+  } catch (error) {
+    logger.error(`pawapayCallback error: ${error.message}`);
+    res.status(200).json({ received: true });
+  }
+};
+
 // Core payment split processor (called by queue worker)
 exports.processActivationPayment = async ({ userId, amountLocal, currency, providerTxId, provider = 'paystack' }) => {
   const session = await mongoose.startSession();
@@ -1279,6 +1310,8 @@ exports.processActivationPayment = async ({ userId, amountLocal, currency, provi
     const referralShareUSD = await localToUSD(countryConfig.referralReward, countryConfig.currency);
     const platformShareUSD = await localToUSD(countryConfig.platformShare, countryConfig.currency);
     const now = new Date();
+    const grantTokenBonus = shouldGrantActivationTokenBonus(amountLocal, currency);
+
 
     await User.findByIdAndUpdate(
       userId,
@@ -1288,6 +1321,21 @@ exports.processActivationPayment = async ({ userId, amountLocal, currency, provi
       },
       { session }
     );
+
+    if (grantTokenBonus) {
+      await Promise.all([
+        User.findByIdAndUpdate(
+          userId,
+          { $inc: { tokenBalance: ACTIVATION_TOKEN_BONUS } },
+          { session }
+        ),
+        Wallet.findOneAndUpdate(
+          { userId },
+          { $inc: { tokenBalance: ACTIVATION_TOKEN_BONUS } },
+          { session, upsert: true, setDefaultsOnInsert: true }
+        ),
+      ]);
+    }
 
     const pendingActivation = await findPendingActivationTransaction(user._id, providerTxId, session);
 
@@ -1303,6 +1351,7 @@ exports.processActivationPayment = async ({ userId, amountLocal, currency, provi
         ...(pendingActivation.metadata || {}),
         referralShareUSD,
         platformShareUSD,
+        activationTokenBonus: grantTokenBonus ? ACTIVATION_TOKEN_BONUS : 0,
       };
       await pendingActivation.save({ session });
     } else {
@@ -1321,6 +1370,7 @@ exports.processActivationPayment = async ({ userId, amountLocal, currency, provi
         metadata: {
           referralShareUSD,
           platformShareUSD,
+          activationTokenBonus: grantTokenBonus ? ACTIVATION_TOKEN_BONUS : 0,
         },
       }], { session });
     }
@@ -1381,7 +1431,12 @@ exports.processActivationPayment = async ({ userId, amountLocal, currency, provi
     await session.commitTransaction();
     logger.info(`Activation processed for user ${user.userId}`);
 
+    if (grantTokenBonus) {
+      logger.info(`Granted ${ACTIVATION_TOKEN_BONUS} bonus tokens for activation payment ${amountLocal} ${currency} to ${user.userId}`);
+    }
+
     if (user.referredBy) {
+
       const referrer = await User.findOne({ referralCode: user.referredBy }).select('_id totalReferrals');
       if (referrer) {
         await trackEvent(referrer._id, 'referral');
