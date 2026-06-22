@@ -164,7 +164,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </div>
 
-      <nav className="flex-1 space-y-4 overflow-y-auto p-3">
+      <nav className="flex-1 space-y-4 p-3">
         {Array.from(new Set(nav.map(n => (n as { category?: string }).category || 'Menu'))).map(category => (
           <div key={category}>
             {category !== 'Menu' && <div className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-emerald-400">{category}</div>}
@@ -209,7 +209,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen bg-slate-950 overflow-hidden">
-      <aside className="hidden w-64 flex-shrink-0 flex-col border-r border-slate-700 bg-slate-800 md:flex">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-shrink-0 flex-col border-r border-slate-700 bg-slate-800 md:flex">
         <SidebarContent />
       </aside>
 
@@ -222,7 +222,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       )}
 
-      <main className="flex min-w-0 flex-1 flex-col overflow-visible">
+      <main className="flex min-w-0 flex-1 flex-col overflow-visible md:ml-64">
         <header className="sticky top-0 z-40 flex flex-col gap-3 border-b border-slate-700 bg-slate-900/95 px-4 py-3 backdrop-blur md:flex-row md:items-center md:justify-between">
           <div className="flex items-center justify-between gap-3 md:justify-start">
             <button onClick={() => setMobileOpen(true)} className="text-slate-400 transition hover:text-white md:hidden">
