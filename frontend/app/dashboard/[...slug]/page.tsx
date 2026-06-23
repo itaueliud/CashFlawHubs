@@ -16,6 +16,7 @@ import CreatorHubUploadPage from '../../../src/app/dashboard/creator-hub/upload/
 import CreatorHubMyUploadsPage from '../../../src/app/dashboard/creator-hub/my-uploads/page';
 import CreatorHubSavedPage from '../../../src/app/dashboard/creator-hub/saved/page';
 import CreatorHubDetailPage from '../../../src/app/dashboard/creator-hub/[id]/page';
+import CreatorHubLayout from '../../../src/app/dashboard/creator-hub/layout';
 import DashboardLedgerPage from '../../../src/app/dashboard/ledger/page';
 import DashboardOfferwallsPage from '../../../src/app/dashboard/offerwalls/page';
 import DashboardProfilePage from '../../../src/app/dashboard/profile/page';
@@ -88,14 +89,14 @@ export default function DashboardCatchAllPage({ params }: { params: { slug?: str
 
   if (params.slug?.[0] === 'creator-hub') {
     if (params.slug.length === 1) {
-      return <CreatorHubBrowsePage />;
+      return <CreatorHubLayout><CreatorHubBrowsePage /></CreatorHubLayout>;
     }
 
     if (params.slug.length === 2) {
-      if (params.slug[1] === 'upload') return <CreatorHubUploadPage />;
-      if (params.slug[1] === 'my-uploads') return <CreatorHubMyUploadsPage />;
-      if (params.slug[1] === 'saved') return <CreatorHubSavedPage />;
-      return <CreatorHubDetailPage />;
+      if (params.slug[1] === 'upload') return <CreatorHubLayout><CreatorHubUploadPage /></CreatorHubLayout>;
+      if (params.slug[1] === 'my-uploads') return <CreatorHubLayout><CreatorHubMyUploadsPage /></CreatorHubLayout>;
+      if (params.slug[1] === 'saved') return <CreatorHubLayout><CreatorHubSavedPage /></CreatorHubLayout>;
+      return <CreatorHubLayout><CreatorHubDetailPage /></CreatorHubLayout>;
     }
   }
 
