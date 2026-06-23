@@ -913,17 +913,38 @@ exports.getJob = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Job not found' });
     }
 
-    const requesterId = String(req.user.id || req.user._id || '');
-    const isOwner = job.postedBy && String(job.postedBy) === requesterId;
+    const requesterId = String(req.user._id || req.user.id || '');
     const isAdmin = ['admin', 'superadmin'].includes(String(req.user.role || ''));
     const isExpired = Boolean(job.expiresAt && job.expiresAt <= new Date());
     const isInactive = !job.isActive;
+
+    const ownsViaTransaction = await Transaction.exists({
+      userId: requesterId,
+      type: 'job_posting',
+      status: 'successful',
+      $or: [
+        { 'metadata.jobId': String(job._id) },
+        { 'metadata.job_id': String(job._id) },
+        { 'metadata.jobIdStr': String(job._id) },
+      ],
+    });
+
+    const isOwner = Boolean(job.postedBy && String(job.postedBy) === requesterId) || Boolean(ownsViaTransaction);
+
+    if (isOwner && !job.postedBy) {
+      job.postedBy = requesterId;
+      await Job.updateOne(
+        { _id: job._id, postedBy: null, source: INTERNAL_JOB_SOURCE },
+        { $set: { postedBy: requesterId } }
+      );
+    }
 
     if ((isInactive || isExpired) && !isOwner && !isAdmin) {
       return res.status(404).json({ success: false, message: 'Job not found' });
     }
 
     const canManageApplications = isAdmin || isOwner;
+
 
     const [userApplication, applications] = await Promise.all([
       JobApplication.findOne({
