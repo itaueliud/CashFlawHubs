@@ -48,13 +48,16 @@ export default function CreatorHubLayout({ children }: { children: React.ReactNo
   return (
     <section className={clsx('min-h-screen rounded-[28px] border p-4 md:p-6', shellClass, theme === 'dark' ? 'dark' : '')}>
       <div className="mx-auto max-w-7xl space-y-5">
-        <div className="flex flex-col gap-4 rounded-[24px] border border-black/5 bg-white/70 p-4 backdrop-blur md:flex-row md:items-end md:justify-between dark:border-white/5 dark:bg-slate-900/70">
+        <div className="flex flex-col gap-4 rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/85 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">
               <ArrowLeftRight size={12} /> Creator Hub
             </div>
             <div>
-              <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white md:text-3xl">Discover Talent. Promote Your Work. Create Opportunities.</h1>
+              <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white md:text-3xl">
+                <span className="dark:hidden">Discover Talent. Promote Your Work. Create Opportunities.</span>
+                <span className="hidden dark:inline">Showcase skills, services, products. Get discovered.</span>
+              </h1>
               <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-300">Browse, unlock, save, and publish premium creator videos with the same token wallet you already use across CashFlowHubs.</p>
             </div>
           </div>
@@ -72,7 +75,7 @@ export default function CreatorHubLayout({ children }: { children: React.ReactNo
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 rounded-[22px] border border-black/5 bg-white/80 p-3 backdrop-blur dark:border-white/5 dark:bg-slate-900/80">
+        <div className="flex flex-wrap items-center gap-2 rounded-[22px] border border-slate-200 bg-white/90 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
           {TOP_NAV.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
@@ -90,7 +93,7 @@ export default function CreatorHubLayout({ children }: { children: React.ReactNo
           ))}
         </div>
 
-        <div className="rounded-[28px] border border-black/5 bg-white/90 p-4 text-slate-900 shadow-sm backdrop-blur dark:border-white/5 dark:bg-slate-900/70 dark:text-slate-100 md:p-6">
+        <div className="rounded-[28px] border border-slate-200 bg-white/90 p-4 text-slate-900 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-100 md:p-6">
           {children}
         </div>
       </div>

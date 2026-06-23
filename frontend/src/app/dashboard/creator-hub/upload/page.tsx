@@ -95,7 +95,7 @@ export default function CreatorHubUploadPage() {
             >
               <div className="font-bold">{value.label}</div>
               <div className="mt-1 text-sm text-emerald-600 dark:text-emerald-300">{value.tokenCost} Tokens</div>
-              <div className="mt-1 text-xs text-slate-500">up to {value.maxSizeMB}MB · {value.maxDurationSec}s</div>
+              <div className="mt-1 text-xs text-slate-500">up to {value.maxSizeMB}MB - {value.maxDurationSec}s</div>
             </button>
           ))}
         </div>

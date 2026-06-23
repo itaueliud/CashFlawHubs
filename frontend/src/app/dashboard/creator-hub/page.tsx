@@ -114,18 +114,18 @@ export default function CreatorHubBrowsePage() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="flex flex-col gap-3 lg:flex-nowrap lg:flex-row lg:items-center">
           <div className="relative flex-1">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value.slice(0, 50))}
               maxLength={50}
-              placeholder="Search by title... (max 50 chars)"
+              placeholder="Search"
               className="w-full rounded-2xl border border-slate-300 bg-white py-3 pl-11 pr-4 text-sm outline-none transition focus:border-emerald-400 dark:border-slate-700 dark:bg-slate-900"
             />
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-1 flex-wrap gap-2">
             <button onClick={() => setCategory(CATEGORY_ALL)} className={clsx('rounded-full border px-4 py-2 text-sm font-medium', category === CATEGORY_ALL ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300')}>All</button>
             {categories.map((item) => (
               <button key={item.value} onClick={() => setCategory(item.value)} className={clsx('rounded-full border px-4 py-2 text-sm font-medium', category === item.value ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300')}>
@@ -209,7 +209,7 @@ export default function CreatorHubBrowsePage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="line-clamp-2 text-base font-bold leading-snug text-slate-900 dark:text-white">{item.title}</h3>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{item.creator?.name || 'Creator'}{item.creator?.country ? ` · ${item.creator.country}` : ''}</p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{item.creator?.name || 'Creator'}{item.creator?.country ? ` - ${item.creator.country}` : ''}</p>
                   </div>
                   <button onClick={() => toggleSave(item)} disabled={savingId === item._id} className="inline-flex shrink-0 items-center justify-center rounded-full border border-slate-300 p-2 text-slate-500 transition hover:border-emerald-400 hover:text-emerald-700 disabled:opacity-50 dark:border-slate-700 dark:text-slate-400 dark:hover:text-emerald-300">
                     {item.isSaved ? <BookmarkCheck size={16} className="text-emerald-600 dark:text-emerald-300" /> : <Bookmark size={16} />}
