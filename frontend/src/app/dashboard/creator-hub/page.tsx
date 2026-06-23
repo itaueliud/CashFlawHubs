@@ -11,6 +11,7 @@ import clsx from 'clsx';
 import { CreatorHubMeta, CreatorUploadItem } from './types';
 
 const CATEGORY_ALL = 'all';
+const CREATOR_HUB_ROUTE = '/dashboard/creator-hub';
 
 export default function CreatorHubBrowsePage() {
   const router = useRouter();
@@ -170,7 +171,7 @@ export default function CreatorHubBrowsePage() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {uploads.map((item) => (
             <article key={item._id} className="group overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl dark:border-slate-800 dark:bg-slate-900">
-              <button onClick={() => router.push(`/dashboard/creator-hub/${item._id}`)} className="block w-full text-left">
+              <button onClick={() => router.push(`${CREATOR_HUB_ROUTE}/${item._id}`)} className="block w-full text-left">
                 <div className="relative aspect-video overflow-hidden bg-slate-900">
                   {!item.isLocked ? (
                     <video
@@ -239,3 +240,4 @@ export default function CreatorHubBrowsePage() {
     </div>
   );
 }
+
