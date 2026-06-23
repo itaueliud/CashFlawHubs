@@ -909,13 +909,21 @@ exports.getMyPostedJobs = async (req, res) => {
 exports.getJob = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
-    if (!job || !job.isActive || (job.expiresAt && job.expiresAt <= new Date())) {
+    if (!job) {
       return res.status(404).json({ success: false, message: 'Job not found' });
     }
 
-    const canManageApplications =
-      ['admin', 'superadmin'].includes(String(req.user.role || '')) ||
-      (job.postedBy && String(job.postedBy) === String(req.user.id));
+    const requesterId = String(req.user.id || req.user._id || '');
+    const isOwner = job.postedBy && String(job.postedBy) === requesterId;
+    const isAdmin = ['admin', 'superadmin'].includes(String(req.user.role || ''));
+    const isExpired = Boolean(job.expiresAt && job.expiresAt <= new Date());
+    const isInactive = !job.isActive;
+
+    if ((isInactive || isExpired) && !isOwner && !isAdmin) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+
+    const canManageApplications = isAdmin || isOwner;
 
     const [userApplication, applications] = await Promise.all([
       JobApplication.findOne({
@@ -2213,5 +2221,6 @@ exports.syncJobs = async () => {
     return { success: false, synced, providers: providerStats, error: error.message };
   }
 };
+
 
 
