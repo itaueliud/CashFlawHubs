@@ -1,6 +1,6 @@
 ﻿const fs = require('fs');
 const path = require('path');
-const ffmpeg = require('fluent-ffmpeg');
+const { execFile } = require('child_process');
 const ffprobePath = require('ffprobe-static').path;
 
 const User = require('../models/User');
@@ -21,8 +21,6 @@ const {
   FALLBACK_PREMIUM_PRICE,
 } = require('../config/creatorHubConfig');
 
-ffmpeg.setFfprobePath(ffprobePath);
-
 const safeUnlink = (filePath) => {
   try {
     if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
@@ -33,14 +31,33 @@ const safeUnlink = (filePath) => {
 
 const getVideoDurationSeconds = (filePath) =>
   new Promise((resolve, reject) => {
-    ffmpeg.ffprobe(filePath, (err, metadata) => {
-      if (err) return reject(new Error(`Could not read video metadata: ${err.message}`));
-      const duration = metadata?.format?.duration;
-      if (typeof duration !== 'number' || Number.isNaN(duration)) {
-        return reject(new Error('Video duration could not be determined'));
+    execFile(
+      ffprobePath,
+      [
+        '-v',
+        'error',
+        '-show_entries',
+        'format=duration',
+        '-of',
+        'json',
+        filePath,
+      ],
+      { windowsHide: true, maxBuffer: 1024 * 1024 },
+      (err, stdout) => {
+        if (err) return reject(new Error(`Could not read video metadata: ${err.message}`));
+
+        try {
+          const parsed = JSON.parse(String(stdout || '{}'));
+          const duration = Number(parsed?.format?.duration);
+          if (!Number.isFinite(duration) || duration <= 0) {
+            return reject(new Error('Video duration could not be determined'));
+          }
+          resolve(duration);
+        } catch (parseError) {
+          reject(new Error(`Could not read video metadata: ${parseError.message}`));
+        }
       }
-      resolve(duration);
-    });
+    );
   });
 
 const resolvePrice = (upload, countryCode) => {

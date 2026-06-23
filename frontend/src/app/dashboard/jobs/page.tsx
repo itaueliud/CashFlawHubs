@@ -39,7 +39,7 @@ export default function JobsPage() {
   const [form, setForm] = useState(EMPTY_FORM);
 
   useEffect(() => {
-    const nextTab = searchParams.get('tab');
+    const nextTab = searchParams?.get('tab');
     if (nextTab === 'browse' || nextTab === 'recent' || nextTab === 'post' || nextTab === 'onsite') {
       setTab(nextTab);
     }
