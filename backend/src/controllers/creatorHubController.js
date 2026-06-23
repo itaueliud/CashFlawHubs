@@ -1,4 +1,4 @@
-﻿const fs = require('fs');
+const fs = require('fs');
 const path = require('path');
 
 const User = require('../models/User');
@@ -37,6 +37,41 @@ const resolvePrice = (upload, countryCode) => {
     if (byCountry[countryCode] !== undefined) return byCountry[countryCode];
   }
   return upload.pricing?.defaultTokens || DEFAULT_PREMIUM_PRICE_BY_COUNTRY[countryCode] || FALLBACK_PREMIUM_PRICE;
+};
+const normalizeCreatorHubTransactionType = (type) => {
+  switch (String(type || '')) {
+    case 'creator_hub_upload':
+    case 'creator_hub_purchase':
+      return 'token_spend';
+    case 'creator_hub_earning':
+      return 'manual_payment';
+    default:
+      return type;
+  }
+};
+
+const createCreatorHubTransactions = async (docs) => {
+  try {
+    return await Transaction.create(docs);
+  } catch (error) {
+    const isTypeEnumError =
+      error?.name === 'ValidationError' &&
+      error?.errors &&
+      Object.values(error.errors).some((item) => item?.path === 'type' || String(item?.message || '').toLowerCase().includes('enum value for path type'));
+
+    if (!isTypeEnumError) throw error;
+
+    const fallbackDocs = docs.map((doc) => ({
+      ...doc,
+      type: normalizeCreatorHubTransactionType(doc.type),
+      metadata: {
+        ...(doc.metadata || {}),
+        originalType: doc.type,
+      },
+    }));
+
+    return await Transaction.create(fallbackDocs);
+  }
 };
 
 const calculateUnlockUsd = async (tokenAmount) => {
@@ -364,27 +399,31 @@ exports.createUpload = async (req, res) => {
       status: 'published',
     }], { session });
 
-    await Transaction.create([{
-      userId: creator._id,
-      type: 'creator_hub_upload',
-      amountLocal: tierConfig.tokenCost,
-      amountUSD: 0,
-      currency: 'TOKEN',
-      country: creator.country,
-      provider: 'internal',
-      direction: 'debit',
-      status: 'successful',
-      processedAt: new Date(),
-      metadata: {
-        creatorUploadId: uploadDoc[0]._id.toString(),
-        tier,
-        category,
-        tokenCost: tierConfig.tokenCost,
-      },
-    }], { session });
-
     await session.commitTransaction();
     session.endSession();
+
+    try {
+      await createCreatorHubTransactions([{
+        userId: creator._id,
+        type: 'creator_hub_upload',
+        amountLocal: tierConfig.tokenCost,
+        amountUSD: 0,
+        currency: 'TOKEN',
+        country: creator.country,
+        provider: 'internal',
+        direction: 'debit',
+        status: 'successful',
+        processedAt: new Date(),
+        metadata: {
+          creatorUploadId: uploadDoc[0]._id.toString(),
+          tier,
+          category,
+          tokenCost: tierConfig.tokenCost,
+        },
+      }]);
+    } catch (transactionError) {
+      console.warn(`Creator hub upload transaction logging failed: ${transactionError.message}`);
+    }
 
     const refreshedUser = await User.findById(creator._id).select('tokenBalance totalTokensSpent');
     return res.status(201).json({
@@ -471,44 +510,49 @@ exports.unlockUploadWithWallet = async (req, res) => {
     await creatorWallet.save({ session });
 
     const creatorCountry = upload.creatorId?.country || req.user.country || 'KE';
-    await Transaction.create([{
-      userId: viewer._id,
-      type: 'creator_hub_purchase',
-      amountLocal: priceTokens,
-      amountUSD: netUsd,
-      currency: 'TOKEN',
-      country: req.user.country,
-      provider: 'internal',
-      direction: 'debit',
-      status: 'successful',
-      processedAt: new Date(),
-      metadata: {
-        uploadId: upload._id.toString(),
-        creatorId: String(creatorId),
-        method: 'wallet',
-        priceTokens,
-      },
-    }, {
-      userId: creatorId,
-      type: 'creator_hub_earning',
-      amountLocal: priceTokens,
-      amountUSD: netUsd,
-      currency: 'TOKEN',
-      country: creatorCountry,
-      provider: 'internal',
-      direction: 'credit',
-      status: 'successful',
-      processedAt: new Date(),
-      metadata: {
-        uploadId: upload._id.toString(),
-        purchaserId: viewer._id.toString(),
-        platformFeePercent: CREATOR_HUB_PLATFORM_FEE_PERCENT,
-        priceTokens,
-      },
-    }], { session });
 
     await session.commitTransaction();
     session.endSession();
+
+    try {
+      await createCreatorHubTransactions([{
+        userId: viewer._id,
+        type: 'creator_hub_purchase',
+        amountLocal: priceTokens,
+        amountUSD: netUsd,
+        currency: 'TOKEN',
+        country: req.user.country,
+        provider: 'internal',
+        direction: 'debit',
+        status: 'successful',
+        processedAt: new Date(),
+        metadata: {
+          uploadId: upload._id.toString(),
+          creatorId: String(creatorId),
+          method: 'wallet',
+          priceTokens,
+        },
+      }, {
+        userId: creatorId,
+        type: 'creator_hub_earning',
+        amountLocal: priceTokens,
+        amountUSD: netUsd,
+        currency: 'TOKEN',
+        country: creatorCountry,
+        provider: 'internal',
+        direction: 'credit',
+        status: 'successful',
+        processedAt: new Date(),
+        metadata: {
+          uploadId: upload._id.toString(),
+          purchaserId: viewer._id.toString(),
+          platformFeePercent: CREATOR_HUB_PLATFORM_FEE_PERCENT,
+          priceTokens,
+        },
+      }]);
+    } catch (transactionError) {
+      console.warn(`Creator hub unlock transaction logging failed: ${transactionError.message}`);
+    }
 
     const refreshedUser = await User.findById(viewer._id).select('tokenBalance totalTokensSpent');
     return res.json({
@@ -599,4 +643,3 @@ exports.deleteUpload = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
