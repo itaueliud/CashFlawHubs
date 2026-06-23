@@ -52,15 +52,9 @@ const normalizeCreatorHubTransactionType = (type) => {
 
 const createCreatorHubTransactions = async (docs) => {
   try {
-    return await Transaction.create(docs);
+    await Transaction.create(docs);
+    return { success: true, fallbackUsed: false, warning: null };
   } catch (error) {
-    const isTypeEnumError =
-      error?.name === 'ValidationError' &&
-      error?.errors &&
-      Object.values(error.errors).some((item) => item?.path === 'type' || String(item?.message || '').toLowerCase().includes('enum value for path type'));
-
-    if (!isTypeEnumError) throw error;
-
     const fallbackDocs = docs.map((doc) => ({
       ...doc,
       type: normalizeCreatorHubTransactionType(doc.type),
@@ -70,7 +64,21 @@ const createCreatorHubTransactions = async (docs) => {
       },
     }));
 
-    return await Transaction.create(fallbackDocs);
+    try {
+      await Transaction.create(fallbackDocs);
+      return {
+        success: true,
+        fallbackUsed: true,
+        warning: 'Audit log used a fallback transaction mapping, but your upload still completed successfully.',
+      };
+    } catch (fallbackError) {
+      console.warn(`Creator hub transaction logging failed even after fallback: ${fallbackError.message}`);
+      return {
+        success: false,
+        fallbackUsed: true,
+        warning: 'Your upload completed, but the audit log could not be written.',
+      };
+    }
   }
 };
 
@@ -402,33 +410,30 @@ exports.createUpload = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
-    try {
-      await createCreatorHubTransactions([{
-        userId: creator._id,
-        type: 'creator_hub_upload',
-        amountLocal: tierConfig.tokenCost,
-        amountUSD: 0,
-        currency: 'TOKEN',
-        country: creator.country,
-        provider: 'internal',
-        direction: 'debit',
-        status: 'successful',
-        processedAt: new Date(),
-        metadata: {
-          creatorUploadId: uploadDoc[0]._id.toString(),
-          tier,
-          category,
-          tokenCost: tierConfig.tokenCost,
-        },
-      }]);
-    } catch (transactionError) {
-      console.warn(`Creator hub upload transaction logging failed: ${transactionError.message}`);
-    }
+    const auditLogResult = await createCreatorHubTransactions([{
+      userId: creator._id,
+      type: 'creator_hub_upload',
+      amountLocal: tierConfig.tokenCost,
+      amountUSD: 0,
+      currency: 'TOKEN',
+      country: creator.country,
+      provider: 'internal',
+      direction: 'debit',
+      status: 'successful',
+      processedAt: new Date(),
+      metadata: {
+        creatorUploadId: uploadDoc[0]._id.toString(),
+        tier,
+        category,
+        tokenCost: tierConfig.tokenCost,
+      },
+    }]);
 
     const refreshedUser = await User.findById(creator._id).select('tokenBalance totalTokensSpent');
     return res.status(201).json({
       success: true,
       message: 'Upload published successfully',
+      auditLogWarning: auditLogResult.warning,
       upload: {
         _id: uploadDoc[0]._id,
         title: uploadDoc[0].title,
@@ -514,53 +519,50 @@ exports.unlockUploadWithWallet = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
-    try {
-      await createCreatorHubTransactions([{
-        userId: viewer._id,
-        type: 'creator_hub_purchase',
-        amountLocal: priceTokens,
-        amountUSD: netUsd,
-        currency: 'TOKEN',
-        country: req.user.country,
-        provider: 'internal',
-        direction: 'debit',
-        status: 'successful',
-        processedAt: new Date(),
-        metadata: {
-          uploadId: upload._id.toString(),
-          creatorId: String(creatorId),
-          method: 'wallet',
-          priceTokens,
-        },
-      }, {
-        userId: creatorId,
-        type: 'creator_hub_earning',
-        amountLocal: priceTokens,
-        amountUSD: netUsd,
-        currency: 'TOKEN',
-        country: creatorCountry,
-        provider: 'internal',
-        direction: 'credit',
-        status: 'successful',
-        processedAt: new Date(),
-        metadata: {
-          uploadId: upload._id.toString(),
-          purchaserId: viewer._id.toString(),
-          platformFeePercent: CREATOR_HUB_PLATFORM_FEE_PERCENT,
-          priceTokens,
-        },
-      }]);
-    } catch (transactionError) {
-      console.warn(`Creator hub unlock transaction logging failed: ${transactionError.message}`);
-    }
+    const auditLogResult = await createCreatorHubTransactions([{
+      userId: viewer._id,
+      type: 'creator_hub_purchase',
+      amountLocal: priceTokens,
+      amountUSD: netUsd,
+      currency: 'TOKEN',
+      country: req.user.country,
+      provider: 'internal',
+      direction: 'debit',
+      status: 'successful',
+      processedAt: new Date(),
+      metadata: {
+        uploadId: upload._id.toString(),
+        creatorId: String(creatorId),
+        method: 'wallet',
+        tokenAmount: priceTokens,
+      },
+    }, {
+      userId: creatorId,
+      type: 'creator_hub_earning',
+      amountLocal: priceTokens,
+      amountUSD: netUsd,
+      currency: 'TOKEN',
+      country: creatorCountry,
+      provider: 'internal',
+      direction: 'credit',
+      status: 'successful',
+      processedAt: new Date(),
+      metadata: {
+        uploadId: upload._id.toString(),
+        purchaserId: viewer._id.toString(),
+        platformFeePercent: CREATOR_HUB_PLATFORM_FEE_PERCENT,
+        tokenAmount: priceTokens,
+      },
+    }]);
 
     const refreshedUser = await User.findById(viewer._id).select('tokenBalance totalTokensSpent');
     return res.json({
       success: true,
       unlocked: true,
-      priceTokens,
+      tokenAmount: priceTokens,
       tokenBalance: refreshedUser?.tokenBalance ?? viewer.tokenBalance,
       usdEarned: netUsd,
+      auditLogWarning: auditLogResult.warning,
     });
   } catch (error) {
     try {

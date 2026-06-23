@@ -58,13 +58,21 @@ export default function CreatorHubUploadPage() {
     setSubmitting(true);
     try {
       const { data } = await api.post('/creator-hub/uploads', form, { headers: { 'Content-Type': 'multipart/form-data' } });
-      toast.success(data.message || 'Upload published');
+      if (data?.auditLogWarning) {
+        toast(data.message || 'Upload published', {
+          icon: '!',
+          duration: 5000,
+        });
+        toast(data.auditLogWarning, { icon: '!', duration: 6000 });
+      } else {
+        toast.success(data.message || 'Upload published');
+      }
       if (user && typeof data.tokenBalance === 'number') {
         setUser({ ...user, tokenBalance: data.tokenBalance });
       }
       router.push('/dashboard/creator-hub/my-uploads');
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Upload failed');
+      toast.error(error?.response?.data?.message || error?.message || 'Upload failed');
     } finally {
       setSubmitting(false);
     }
