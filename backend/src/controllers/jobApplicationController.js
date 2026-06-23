@@ -467,6 +467,8 @@ exports.getJobApplicationsForManagement = async (req, res) => {
             _id: job._id,
             title: job.title,
             company: job.company,
+            postedBy: job.postedBy,
+            source: job.source,
           },
           applications: [],
           pagination: {
@@ -548,6 +550,8 @@ exports.getJobApplicationsForManagement = async (req, res) => {
         _id: job._id,
         title: job.title,
         company: job.company,
+        postedBy: job.postedBy,
+        source: job.source,
       },
       applications: normalized,
       pagination: {
