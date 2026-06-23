@@ -13,7 +13,6 @@ const EMPTY_FORM = {
   company: '',
   category: '',
   jobType: 'contract',
-  location: 'Remote',
   salary: '',
   description: '',
   applicationUrl: '',
@@ -22,7 +21,6 @@ const EMPTY_FORM = {
   categoryOther: '',
 };
 const JOB_TYPES = ['full-time', 'part-time', 'contract', 'internship'];
-const JOB_LOCATIONS = ['Remote', 'On-site'];
 const BUDGET_CURRENCIES = ['KES', 'USD', 'UGX', 'TZS', 'GHS', 'NGN', 'ETB', 'XOF', 'XAF', 'CDF', 'LSL', 'MWK', 'MZN', 'RWF', 'SLL', 'ZMW'];
 
 export default function JobsPage() {
@@ -378,11 +376,9 @@ export default function JobsPage() {
               </select>
             </div>
             <div>
-              <label className="text-sm text-slate-300 mb-1 block">{t('jobs.board.labels.location')}</label>
-              <select className="input" value={form.location} onChange={(e) => updateField('location', e.target.value)}>
-                {JOB_LOCATIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
-              <p className="mt-1 text-xs text-slate-500">On-site jobs appear under the On-site tab automatically.</p>
+              <label className="text-sm text-slate-300 mb-1 block">Location</label>
+              <div className="input cursor-not-allowed opacity-80">On-site</div>
+              <p className="mt-1 text-xs text-slate-500">All posted jobs are saved as on-site automatically.</p>
             </div>
           </div>
 

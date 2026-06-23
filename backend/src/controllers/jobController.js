@@ -712,7 +712,7 @@ exports.createJobPosting = async (req, res) => {
       category: normalizedCategory,
       categoryOther: normalizedCategoryOther,
       jobType: jobType || 'contract',
-      location: location || 'Remote',
+      location: 'On-site',
       salary: salary || null,
       description,
       tags,
