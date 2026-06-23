@@ -1,7 +1,5 @@
 ﻿const fs = require('fs');
 const path = require('path');
-const { execFile } = require('child_process');
-const ffprobePath = require('ffprobe-static').path;
 
 const User = require('../models/User');
 const Wallet = require('../models/Wallet');
@@ -29,36 +27,7 @@ const safeUnlink = (filePath) => {
   }
 };
 
-const getVideoDurationSeconds = (filePath) =>
-  new Promise((resolve, reject) => {
-    execFile(
-      ffprobePath,
-      [
-        '-v',
-        'error',
-        '-show_entries',
-        'format=duration',
-        '-of',
-        'json',
-        filePath,
-      ],
-      { windowsHide: true, maxBuffer: 1024 * 1024 },
-      (err, stdout) => {
-        if (err) return reject(new Error(`Could not read video metadata: ${err.message}`));
-
-        try {
-          const parsed = JSON.parse(String(stdout || '{}'));
-          const duration = Number(parsed?.format?.duration);
-          if (!Number.isFinite(duration) || duration <= 0) {
-            return reject(new Error('Video duration could not be determined'));
-          }
-          resolve(duration);
-        } catch (parseError) {
-          reject(new Error(`Could not read video metadata: ${parseError.message}`));
-        }
-      }
-    );
-  });
+const getVideoDurationSeconds = async () => null;
 
 const resolvePrice = (upload, countryCode) => {
   if (!upload.isPremium) return 0;
@@ -325,15 +294,14 @@ exports.createUpload = async (req, res) => {
       return res.status(400).json({ success: false, message: `${tierConfig.label} allows files up to ${tierConfig.maxSizeMB}MB. Choose a higher package for a bigger file.` });
     }
 
-    let videoDurationSec;
+    let videoDurationSec = null;
     try {
       videoDurationSec = await getVideoDurationSeconds(req.file.path);
-    } catch (probeErr) {
-      safeUnlink(req.file.path);
-      return res.status(400).json({ success: false, message: 'Could not read video file. Make sure it is a valid MP4, MOV, WEBM, or MKV.' });
+    } catch {
+      videoDurationSec = null;
     }
 
-    if (videoDurationSec > tierConfig.maxDurationSec) {
+    if (videoDurationSec !== null && videoDurationSec > tierConfig.maxDurationSec) {
       safeUnlink(req.file.path);
       return res.status(400).json({
         success: false,
