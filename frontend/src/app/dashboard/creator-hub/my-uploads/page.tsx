@@ -40,14 +40,14 @@ export default function MyUploadsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-black">My Uploads</h2>
-        <p className="text-sm text-slate-500">Track views, unlocks, and creator earnings from your own uploads.</p>
+        <h2 className="text-2xl font-black text-slate-900 dark:text-white">My Uploads</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Track views, unlocks, and creator earnings from your own uploads.</p>
       </div>
 
       {loading ? (
         <div className="py-20 text-center text-slate-500">Loading...</div>
       ) : uploads.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center text-slate-500 dark:border-slate-700 dark:bg-slate-950/50">
+        <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center text-slate-500 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-400">
           You haven&apos;t published anything yet.
         </div>
       ) : (

@@ -95,7 +95,7 @@ export default function CreatorHubBrowsePage() {
             <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
               <Sparkles size={12} /> Creator Hub
             </div>
-            <h2 className="mt-3 text-2xl font-black tracking-tight">Browse discoverable videos</h2>
+            <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-900 dark:text-white">Browse discoverable videos</h2>
             <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-300">Free videos autoplay as thumbnails. Premium videos stay locked until a viewer pays with wallet tokens or mobile money.</p>
           </div>
           <div className="grid grid-cols-3 gap-2 text-sm sm:min-w-[20rem]">

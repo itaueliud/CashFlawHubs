@@ -54,7 +54,7 @@ export default function CreatorHubLayout({ children }: { children: React.ReactNo
               <ArrowLeftRight size={12} /> Creator Hub
             </div>
             <div>
-              <h1 className="text-2xl font-black tracking-tight md:text-3xl">Discover Talent. Promote Your Work. Create Opportunities.</h1>
+              <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white md:text-3xl">Discover Talent. Promote Your Work. Create Opportunities.</h1>
               <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-300">Browse, unlock, save, and publish premium creator videos with the same token wallet you already use across CashFlowHubs.</p>
             </div>
           </div>
