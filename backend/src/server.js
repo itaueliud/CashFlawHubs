@@ -52,6 +52,7 @@ const ledgerDashboardRoutes = require('./routes/ledgerDashboard');
 const ledgerRailsRoutes = require('./routes/ledgerRails');
 const ledgerRulesRoutes = require('./routes/ledgerRules');
 const ledgerBatchesRoutes = require('./routes/ledgerBatches');
+const creatorHubRoutes = require('./routes/creatorHub');
 const mongoose = require('mongoose');
 const { startCpxVerificationWorker } = require('./workers/cpxVerificationWorker');
 
@@ -240,6 +241,7 @@ app.use('/api/ledger/dashboard', ledgerDashboardRoutes);
 app.use('/api/ledger/rails', ledgerRailsRoutes);
 app.use('/api/ledger/rules', ledgerRulesRoutes);
 app.use('/api/ledger/batches', ledgerBatchesRoutes);
+app.use('/api/creator-hub', creatorHubRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -296,4 +298,6 @@ server.listen(PORT, () => {
 });
 
 module.exports = app;
+
+
 
