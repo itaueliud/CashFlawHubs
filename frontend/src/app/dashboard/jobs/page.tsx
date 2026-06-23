@@ -1,7 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/lib/api';
 import { Search, Building2, Clock, Plus, Loader2, ArrowRight, Briefcase, Filter, SearchCheck, ShieldCheck, Sparkles, TrendingUp } from 'lucide-react';
@@ -28,6 +28,7 @@ const BUDGET_CURRENCIES = ['KES', 'USD', 'UGX', 'TZS', 'GHS', 'NGN', 'ETB', 'XOF
 export default function JobsPage() {
   const { t } = useTranslation();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [view, setView] = useState<'unique' | 'all' | 'duplicates'>('unique');
@@ -36,6 +37,13 @@ export default function JobsPage() {
   const [posting, setPosting] = useState(false);
   const [syncingJobs, setSyncingJobs] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+
+  useEffect(() => {
+    const nextTab = searchParams.get('tab');
+    if (nextTab === 'browse' || nextTab === 'recent' || nextTab === 'post' || nextTab === 'onsite') {
+      setTab(nextTab);
+    }
+  }, [searchParams]);
   const { user, setUser } = useAuthStore();
   const queryClient = useQueryClient();
   const isStaff = ['admin', 'superadmin', 'ledger'].includes(user?.role || '');
@@ -65,14 +73,23 @@ export default function JobsPage() {
   });
   const recentJobs: any[] = recentData?.jobs || [];
 
+  const { data: onsiteData, isLoading: onsiteLoading } = useQuery({
+    queryKey: ['jobs-onsite', search, category],
+    queryFn: () => {
+      const params = new URLSearchParams({ limit: '50', page: '1', view: 'unique', sort: 'newest', location: 'on-site' });
+      if (search.trim()) params.set('search', search.trim());
+      if (category) params.set('category', category);
+      return api.get(`/jobs?${params.toString()}`).then((r) => r.data);
+    },
+    enabled: tab === 'onsite',
+    staleTime: 60_000,
+  });
+  const onsiteJobs: any[] = onsiteData?.jobs || [];
+
   const jobs = data?.jobs || [];
   const pagination = data?.pagination || {};
   const visibleJobs = jobs;
   const visibleRecentJobs = recentJobs;
-  const onSiteCount = jobs.filter((job: any) => {
-    const location = String(job.location || '').toLowerCase();
-    return location.includes('on-site') || location.includes('onsite');
-  }).length;
   const tokenPolicy = data?.tokenPolicy;
   const availableCategories: string[] = (catData && catData.length > 0) ? catData : ['Other'];
 
@@ -346,7 +363,7 @@ export default function JobsPage() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-3 gap-4">
             <div>
               <label className="text-sm text-slate-300 mb-1 block">{t('jobs.board.labels.category')}</label>
               <select className="input" value={form.category} onChange={(e) => updateField('category', e.target.value)}>
@@ -359,6 +376,13 @@ export default function JobsPage() {
               <select className="input" value={form.jobType} onChange={(e) => updateField('jobType', e.target.value)}>
                 {JOB_TYPES.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
+            </div>
+            <div>
+              <label className="text-sm text-slate-300 mb-1 block">{t('jobs.board.labels.location')}</label>
+              <select className="input" value={form.location} onChange={(e) => updateField('location', e.target.value)}>
+                {JOB_LOCATIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+              <p className="mt-1 text-xs text-slate-500">On-site jobs appear under the On-site tab automatically.</p>
             </div>
           </div>
 
@@ -526,65 +550,63 @@ export default function JobsPage() {
                 <div key={i} className="h-24 rounded-2xl bg-slate-800/50 animate-pulse" />
               ))}
             </div>
-          ) : jobs.filter((job: any) => {
-            const loc = String(job.location || '').toLowerCase();
-            return loc.includes('on-site') || loc.includes('onsite');
-          }).length === 0 ? (
+          ) : onsiteLoading ? (
+            <div className="space-y-3">
+              {Array(5).fill(0).map((_, i) => (
+                <div key={i} className="h-24 rounded-2xl bg-slate-800/50 animate-pulse" />
+              ))}
+            </div>
+          ) : onsiteJobs.length === 0 ? (
             <div className="rounded-2xl border border-slate-700/50 bg-slate-900/50 py-16 text-center text-slate-400 text-sm">
               No on-site jobs found. Try browsing all jobs or check back soon.
             </div>
           ) : (
-            <div className="grid gap-3">
-              {jobs
-                .filter((job: any) => {
-                  const loc = String(job.location || '').toLowerCase();
-                  return loc.includes('on-site') || loc.includes('onsite');
-                })
-                .map((job: any) => {
-                  const locationLabel = String(job.location || 'Remote');
-                  return (
-                    <div
-                      key={job._id}
-                      className="rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 transition-all hover:-translate-y-1 hover:border-emerald-400/30 hover:shadow-xl hover:shadow-emerald-950/15"
-                    >
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="min-w-0 flex-1 space-y-4">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-300">
-                              {locationLabel}
-                            </span>
-                            <span className="badge-blue">{job.category === 'Other' && job.categoryOther ? `Other: ${job.categoryOther}` : job.category}</span>
-                            {job.salary && <span className="badge" style={{ background: 'rgba(16,185,129,0.14)', color: '#6ee7b7' }}>{job.salary}</span>}
-                          </div>
-                          <div className="space-y-2">
-                            <h3 className="text-xl font-bold text-white">{job.title}</h3>
-                            <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400">
-                              <span className="flex items-center gap-1"><Building2 size={12} />{job.company}</span>
-                              <span className="flex items-center gap-1"><Clock size={12} />{new Date(job.publishedAt).toLocaleDateString()}</span>
-                              <span className="capitalize">{job.jobType}</span>
-                            </div>
-                          </div>
+            <div className="grid gap-3"> 
+              {onsiteJobs.map((job: any) => {
+                const locationLabel = String(job.location || 'Remote');
+                return (
+                  <div
+                    key={job._id}
+                    className="rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 transition-all hover:-translate-y-1 hover:border-emerald-400/30 hover:shadow-xl hover:shadow-emerald-950/15"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0 flex-1 space-y-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-300">
+                            {locationLabel}
+                          </span>
+                          <span className="badge-blue">{job.category === 'Other' && job.categoryOther ? `Other: ${job.categoryOther}` : job.category}</span>
+                          {job.salary && <span className="badge" style={{ background: 'rgba(16,185,129,0.14)', color: '#6ee7b7' }}>{job.salary}</span>}
                         </div>
-                        <div className="flex flex-col items-start gap-3 lg:items-end">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (!job?._id) {
-                                toast.error('Unable to open this job');
-                                return;
-                              }
-                              router.push(`/dashboard/jobs/${job._id}`);
-                            }}
-                            className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
-                          >
-                            Apply on-site <ArrowRight size={14} />
-                          </button>
-                          <div className="text-xs uppercase tracking-[0.2em] text-slate-500">On-site position</div>
+                        <div className="space-y-2">
+                          <h3 className="text-xl font-bold text-white">{job.title}</h3>
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400">
+                            <span className="flex items-center gap-1"><Building2 size={12} />{job.company}</span>
+                            <span className="flex items-center gap-1"><Clock size={12} />{new Date(job.publishedAt).toLocaleDateString()}</span>
+                            <span className="capitalize">{job.jobType}</span>
+                          </div>
                         </div>
                       </div>
+                      <div className="flex flex-col items-start gap-3 lg:items-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!job?._id) {
+                              toast.error('Unable to open this job');
+                              return;
+                            }
+                            router.push(`/dashboard/jobs/${job._id}`);
+                          }}
+                          className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
+                        >
+                          Apply on-site <ArrowRight size={14} />
+                        </button>
+                        <div className="text-xs uppercase tracking-[0.2em] text-slate-500">On-site position</div>
+                      </div>
                     </div>
-                  );
-                })}
+                  </div>
+                );
+              })}
             </div>
           )}
         </>      ) : null}

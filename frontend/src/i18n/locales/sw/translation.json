@@ -62,7 +62,9 @@
     "moderation": "Usimamizi",
     "support": "Msaada",
     "providerHealth": "Hali ya Watoa Huduma",
-    "myApplications": "Maombi Yangu"
+    "myApplications": "Maombi Yangu",
+    "creatorHub": "Creator Hub",
+    "myPosts": "Machapisho Yangu"
   },
   "auth": {
     "welcomeBack": "Karibu tena",
@@ -119,6 +121,7 @@
     "remoteJobsDesc": "Kazi za muda wote / muda mfupi",
     "paidSurveysDesc": "Hadi $3 kila moja",
     "microtasksDesc": "$0.10-$1 kila moja",
+    "creatorHubDesc": "Video za wabunifu, kufungua, na kuhifadhi",
     "adsNetworkDesc": "Coming soon",
     "offerwallsDesc": "Sakinisha na upate",
     "fileLockerDesc": "Fungua kazi za faili",
@@ -267,13 +270,13 @@
       "notFound": "Kazi haikupatikana.",
       "description": "Maelezo ya Kazi",
       "skills": "Ujuzi",
-      "applyInSite": "Omba kwenye tovuti",
-      "submitTitle": "Uhamisho wa ombi",
-      "submitSubtitle": "Tunahifadhi ombi lako kwanza, kisha tunafungua tovuti ya mwajiri kwenye tab mpya.",
+      "applyInSite": "Ombi la nje",
+      "submitTitle": "Endelea kwenda kwenye chanzo",
+      "submitSubtitle": "Weka barua pepe yako kisha endelea kwenye tangazo la asili.",
       "company": "Kampuni",
       "location": "Mahali",
       "applyMethod": "Njia ya kuomba",
-      "onSite": "Ombi la nje",
+      "onSite": "Omba ndani ya CashFlowHubs",
       "applicationTokenCost": "Gharama ya tokeni ya ombi",
       "coverLetter": "Barua ya Maelezo",
       "coverLetterPlaceholder": "Mwambie mwajiri kwa nini unafaa kwa nafasi hii...",
@@ -281,7 +284,7 @@
       "uploadCv": "Pakia CV / Resume",
       "cvHint": "PDF, DOC, au DOCX. Hiari, lakini inapendekezwa.",
       "selectedFile": "Imechaguliwa: {{file}}",
-      "apply": "Omba kwenye tovuti",
+      "apply": "Tuma ombi",
       "applied": "Umeomba",
       "applicationStatus": "Hali ya ombi",
       "manageApplications": "Dhibiti maombi",
@@ -293,6 +296,7 @@
       "confirmStatus": "Weka ombi hili kuwa {{status}}?",
       "updating": "Inasasisha...",
       "myApplications": "Maombi Yangu",
+      "creatorHub": "Creator Hub",
       "openJobChat": "Fungua gumzo la kazi",
       "sourceLink": "Ona chanzo asili",
       "sourceNote": "Chanzo asili cha tangazo bado kinapatikana, lakini kuomba kunafanyika hapa ndani ya CashFlowHubs.",
@@ -323,7 +327,16 @@
         "later": "Nitafanya baadaye",
         "viewApplications": "Ona maombi yangu",
         "savedReminder": "Kikumbusho kimehifadhiwa. Tutakukumbusha tena baada ya saa 24."
-      }
+      },
+      "applyInternalBadge": "Omba hapa",
+      "submitTitleInternal": "Wasilisha ombi lako",
+      "submitSubtitleInternal": "Barua yako ya maelezo na CV vitaingia moja kwa moja kwenye kisanduku cha CashFlowHubs cha mwajiri bila kuelekezwa nje.",
+      "applyMethodInternal": "Ombi ndani ya app",
+      "applyMethodExternal": "Uelekezaji wa nje",
+      "externalApplyHelp": "Weka anwani ya barua pepe unayotaka mrejesho wa mwajiri utumwe kisha endelea kwenye tangazo la asili.",
+      "continueToSource": "Endelea kwenda kwenye chanzo",
+      "redirectedSaved": "Tutahifadhi ombi hili kama ombi lililoelekezwa nje ili ufuatilie mrejesho baadaye.",
+      "submitApplication": "Tuma ombi"
     },
     "applications": {
       "backToJobs": "Rudi kwenye kazi",
@@ -371,10 +384,20 @@
         "coverLetter": "Barua ya Maelezo",
         "status": "Hali",
         "manage": "Dhibiti",
-        "delivery": "Uwasilishaji kwa mwajiri"
+        "delivery": "Uwasilishaji kwa mwajiri",
+        "message": "Ujumbe"
       },
       "confirmStatus": "Weka ombi hili kuwa {{status}}?",
       "updating": "Inasasisha..."
+    },
+    "myPosts": {
+      "title": "Machapisho Yangu",
+      "subtitle": "Fuatilia kila kazi uliyoposti na uende moja kwa moja kwa waombaji au tangazo halisi.",
+      "applicants": "Waombaji",
+      "postAnother": "Chapisha kazi nyingine",
+      "none": "Bado hujaposti kazi yoyote.",
+      "viewApplicants": "Tazama waombaji",
+      "viewListing": "Tazama tangazo"
     }
   }
 }

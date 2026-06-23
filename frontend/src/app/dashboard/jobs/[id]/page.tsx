@@ -576,9 +576,9 @@ export default function JobDetailsPage() {
 
           <div className="card space-y-4 h-fit sticky top-24">
             <div>
-              <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">{t('jobs.detail.applyInSite')}</div>
-              <h2 className="text-xl font-bold">{t('jobs.detail.submitTitle')}</h2>
-              <p className="text-sm text-slate-400 mt-2">{t('jobs.detail.submitSubtitle')}</p>
+              <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">{(isExternalJob ? t('jobs.detail.applyInSite') : t('jobs.detail.applyInternalBadge'))}</div>
+              <h2 className="text-xl font-bold">{(isExternalJob ? t('jobs.detail.submitTitle') : t('jobs.detail.submitTitleInternal'))}</h2>
+              <p className="text-sm text-slate-400 mt-2">{(isExternalJob ? t('jobs.detail.submitSubtitle') : t('jobs.detail.submitSubtitleInternal'))}</p>
             </div>
 
             <div className="space-y-2 text-sm text-slate-300">
@@ -592,7 +592,7 @@ export default function JobDetailsPage() {
               </div>
               <div className="rounded-xl bg-slate-900 px-4 py-3">
                 <div className="text-slate-500 text-xs mb-1">{t('jobs.detail.applyMethod')}</div>
-                <div>{isExternalJob ? t('jobs.detail.sourceLink') : t('jobs.detail.onSite')}</div>
+                <div>{isExternalJob ? t('jobs.detail.applyMethodExternal') : t('jobs.detail.applyMethodInternal')}</div>
               </div>
               {typeof job.applicationTokenCost === 'number' && job.applicationTokenCost > 0 ? (
                 <div className="rounded-xl bg-slate-900 px-4 py-3">
@@ -606,7 +606,7 @@ export default function JobDetailsPage() {
               <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4 space-y-3">
                 <div className="text-sm font-semibold text-emerald-200">{t('jobs.detail.sourceNote')}</div>
                 <p className="text-sm text-slate-300">
-                  This is an external listing. Enter the email address where you want recruiter feedback sent, then continue to the source job post.
+                  {t('jobs.detail.externalApplyHelp')}
                 </p>
                 <div>
                   <label className="text-sm text-slate-300 mb-1 block">Feedback email</label>
@@ -627,10 +627,10 @@ export default function JobDetailsPage() {
                   className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-60"
                 >
                   {applyMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <ExternalLink size={16} />}
-                  Continue to source
+                  {t('jobs.detail.continueToSource')}
                 </button>
                 <p className="text-xs text-slate-500">
-                  We&apos;ll save this as a redirected application so you can track feedback later.
+                  {t('jobs.detail.redirectedSaved')}
                 </p>
               </div>
             ) : (
@@ -666,7 +666,7 @@ export default function JobDetailsPage() {
                   className="btn-primary w-full flex items-center justify-center gap-2"
                 >
                   {applyMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                  {userApplication ? t('jobs.detail.applied') : t('jobs.detail.apply')}
+                  {userApplication ? t('jobs.detail.applied') : t('jobs.detail.submitApplication')}
                 </button>
                 {userApplication ? (
                   <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">

@@ -7,8 +7,9 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Loader2, Search } from 'lucide-react';
+import { ArrowLeft, Loader2, MessageSquare, Search } from 'lucide-react';
 import ApplicantEmailBadge from '@/components/ApplicantEmailBadge';
+import { useAuthStore } from '@/store/authStore';
 
 type JobApplicationStatus = 'redirected' | 'applied' | 'interviewing' | 'offered' | 'rejected' | 'withdrawn';
 
@@ -40,6 +41,8 @@ type ApplicantsResponse = {
     _id: string;
     title: string;
     company: string;
+    postedBy?: string;
+    source?: string;
   };
   applications: ManagedApplication[];
   pagination: {
@@ -61,6 +64,7 @@ export default function JobApplicantsPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
+  const { user } = useAuthStore();
 
   const queryString = useMemo(() => {
     const query = new URLSearchParams();
@@ -103,6 +107,7 @@ export default function JobApplicantsPage() {
 
   const applications = data?.applications || [];
   const pagination = data?.pagination || { page: 1, pages: 1, total: 0 };
+  const canOpenChat = Boolean(data?.job && data.job.source === 'internal' && data.job.postedBy && String(data.job.postedBy) === String(user?.id || user?.userId || ''));
 
   if (!jobId) {
     return <div className="card text-slate-400">{t('jobs.detail.missingId')}</div>;
@@ -185,6 +190,7 @@ export default function JobApplicantsPage() {
                 <th className="px-4 py-3 font-medium">{t('jobs.applicants.table.coverLetter')}</th>
                 <th className="px-4 py-3 font-medium">{t('jobs.applicants.table.status')}</th>
                 <th className="px-4 py-3 font-medium">{t('jobs.applicants.table.manage')}</th>
+                <th className="px-4 py-3 font-medium">{t('jobs.applicants.table.message')}</th>
                 <th className="px-4 py-3 font-medium">{t('jobs.applicants.table.delivery')}</th>
               </tr>
             </thead>
@@ -248,6 +254,18 @@ export default function JobApplicantsPage() {
                           ))}
                         </select>
                       </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {canOpenChat && (application.applicant?.id || application.applicant?.userId) ? (
+                        <Link
+                          href={`/dashboard/chat?jobId=${jobId}&applicantId=${application.applicant?.id || application.applicant?.userId}`}
+                          className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-200 hover:border-emerald-300/50 hover:bg-emerald-500/15"
+                        >
+                          <MessageSquare size={14} /> {t('jobs.applicants.table.message')}
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-slate-500">-</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {application.employerDeliveryStatus ? (

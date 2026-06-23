@@ -422,7 +422,7 @@ exports.getJobApplicationsForManagement = async (req, res) => {
     const status = String(req.query.status || '').trim().toLowerCase();
     const search = String(req.query.search || '').trim();
 
-    const job = await Job.findById(jobId).select('_id postedBy title company');
+    const job = await Job.findById(jobId).select('_id postedBy title company source');
     if (!job) {
       return res.status(404).json({ success: false, message: 'Job not found' });
     }
@@ -1245,7 +1245,7 @@ exports.processJobApplicationReminders = async () => {
 exports.getJobApplicants = async (req, res) => {
   try {
     const jobId = req.params.id;
-    const job = await Job.findById(jobId).select('_id postedBy title company');
+    const job = await Job.findById(jobId).select('_id postedBy title company source');
     if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
 
     const canManage =
@@ -1309,7 +1309,7 @@ exports.getJobApplicants = async (req, res) => {
 
     return res.json({
       success: true,
-      job: { _id: job._id, title: job.title, company: job.company },
+      job: { _id: job._id, title: job.title, company: job.company, postedBy: job.postedBy, source: job.source },
       applications: normalized,
       pagination: { total, page: pageNumber, pages: Math.ceil(total / pageSize) },
     });

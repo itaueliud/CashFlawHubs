@@ -46,6 +46,7 @@ export default function ChatPage() {
     });
   }, [search, sessionsQuery.data]);
 
+  const hasSessions = filteredSessions.length > 0;
   const activeSession = useMemo(
     () => (sessionsQuery.data || []).find((s: any) => s._id === activeSessionId),
     [sessionsQuery.data, activeSessionId]
@@ -194,31 +195,43 @@ export default function ChatPage() {
             This job chat is poster-only. Add `applicantId` to start a new conversation.
           </div>
         )}
-        <div className="space-y-2">
-          {filteredSessions.map((session: any) => (
-            <button
-              key={session._id}
-              className={`w-full rounded-xl border p-3 text-left ${session._id === activeSessionId ? 'border-emerald-400 bg-emerald-500/10' : 'border-slate-800 bg-slate-900/60'}`}
-              onClick={() => setActiveSessionId(session._id)}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="font-semibold text-sm truncate">{session.applicantId?.name || session.posterId?.name || 'Chat'}</div>
-                {!!session.unreadCount && <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs">{session.unreadCount}</span>}
-              </div>
-              <div className="mt-1 text-xs text-slate-400 truncate">{session.jobId?.title || session.title}</div>
-              <div className={`mt-2 inline-flex rounded-full border px-2 py-0.5 text-[10px] uppercase ${moderationClass(session.moderationStatus || 'active')}`}>
-                {session.moderationStatus || 'active'}
-              </div>
-            </button>
-          ))}
-        </div>
+        {sessionsQuery.isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="h-20 animate-pulse rounded-xl border border-slate-800 bg-slate-900/60" />
+            ))}
+          </div>
+        ) : hasSessions ? (
+          <div className="space-y-2">
+            {filteredSessions.map((session: any) => (
+              <button
+                key={session._id}
+                className={`w-full rounded-xl border p-3 text-left ${session._id === activeSessionId ? 'border-emerald-400 bg-emerald-500/10' : 'border-slate-800 bg-slate-900/60'}`}
+                onClick={() => setActiveSessionId(session._id)}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-semibold text-sm truncate">{session.applicantId?.name || session.posterId?.name || 'Chat'}</div>
+                  {!!session.unreadCount && <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs">{session.unreadCount}</span>}
+                </div>
+                <div className="mt-1 text-xs text-slate-400 truncate">{session.jobId?.title || session.title}</div>
+                <div className={`mt-2 inline-flex rounded-full border px-2 py-0.5 text-[10px] uppercase ${moderationClass(session.moderationStatus || 'active')}`}>
+                  {session.moderationStatus || 'active'}
+                </div>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-slate-800 bg-slate-950/60 px-4 py-6 text-center text-sm text-slate-400">
+            No chats available right now
+          </div>
+        )}
       </aside>
 
       <section className="card flex min-h-[72vh] flex-col">
         <header className="mb-3 border-b border-slate-800 pb-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold">{activeSession?.applicantId?.name || activeSession?.posterId?.name || 'Select a chat'}</h2>
+              <h2 className="text-lg font-bold">{activeSession ? (activeSession?.applicantId?.name || activeSession?.posterId?.name || 'Select a chat') : (sessionsQuery.isLoading ? 'Loading chats...' : 'No chats available right now')}</h2>
               <div className="text-sm text-slate-400">
                 {activeSession?.jobId?.title || ''} {activeSession?.jobId?.company ? `- ${activeSession.jobId.company}` : ''}
               </div>
@@ -241,8 +254,12 @@ export default function ChatPage() {
         </header>
 
         <div className="flex-1 space-y-3 overflow-y-auto pr-1">
-          {(historyQuery.data || []).map((msg: any) => {
-            const own = String(msg?.senderId?._id || msg?.senderId || '') === currentUserId;
+          {!activeSession ? (
+            <div className="flex h-full min-h-[24rem] items-center justify-center rounded-2xl border border-dashed border-slate-800 bg-slate-950/60 text-center text-sm text-slate-400">
+              No chats available right now
+            </div>
+          ) : ((historyQuery.data || []).map((msg: any) => {
+            const own = String(msg?.senderId?._id || msg?.senderId || "") === currentUserId;
             const bubbleClass = msg.messageType === 'admin_notice'
               ? 'mx-auto max-w-2xl border-blue-500/40 bg-blue-500/10 text-blue-100'
               : msg.isFlagged
@@ -282,7 +299,7 @@ export default function ChatPage() {
                 </div>
               </div>
             );
-          })}
+          }))}
         </div>
 
         <div className="mt-3 border-t border-slate-800 pt-3">

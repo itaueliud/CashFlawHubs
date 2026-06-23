@@ -466,7 +466,8 @@ const requireScraperApiKey = (req, res) => {
 // @GET /api/jobs
 exports.getJobs = async (req, res) => {
   try {
-    const { category, search } = req.query;
+    const { category, search, location } = req.query;
+    const sourceFilter = String(req.query.source || '').trim().toLowerCase();
     const view = String(req.query.view || 'unique').trim().toLowerCase();
     const page = Math.max(Number(req.query.page) || 1, 1);
     const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
@@ -479,6 +480,12 @@ exports.getJobs = async (req, res) => {
     };
     if (category) query.category = category;
     if (search) query.$text = { $search: search };
+    if (location) query.location = { $regex: location, $options: 'i' };
+    if (sourceFilter === 'internal') {
+      query.source = INTERNAL_JOB_SOURCE;
+    } else if (sourceFilter === 'external') {
+      query.source = { $ne: INTERNAL_JOB_SOURCE };
+    }
 
     const shouldPrioritizeRemoteSources = !category && !search && req.query.sort !== 'newest';
     const useRawFeed = view === 'all';
@@ -624,6 +631,7 @@ exports.getJobs = async (req, res) => {
         hasPrevPage: page > 1,
       },
       view: useRawFeed ? 'all' : duplicateGroupsOnly ? 'duplicates' : 'unique',
+      sourceFilter: sourceFilter || 'all',
     });
   } catch (error) {
     logger.error(`getJobs error: ${error.message}`);
@@ -742,11 +750,18 @@ exports.createJobPosting = async (req, res) => {
 exports.getCategories = async (req, res) => {
   try {
     const now = new Date();
-    const categories = await Job.distinct('category', {
-      isActive: true,
-      $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
-    });
-    const normalized = (categories || []).filter(Boolean);
+    const categoriesResult = await Job.aggregate([
+      {
+        $match: {
+          isActive: true,
+          $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
+        },
+      },
+      { $group: { _id: '$category' } },
+      { $match: { _id: { $ne: null } } },
+      { $sort: { _id: 1 } },
+    ]);
+    const normalized = categoriesResult.map((category) => category._id).filter(Boolean);
     const merged = [...new Set([...DEFAULT_JOB_CATEGORIES, ...normalized])];
     return res.json({ success: true, categories: merged });
   } catch (error) {
@@ -759,6 +774,55 @@ exports.getCategories = async (req, res) => {
   }
 };
 
+
+// @GET /api/jobs/my-posts
+exports.getMyPostedJobs = async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const pageNumber = Math.max(Number(req.query.page) || 1, 1);
+    const pageSize = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+    const skip = (pageNumber - 1) * pageSize;
+    const query = { postedBy: userId, source: INTERNAL_JOB_SOURCE };
+
+    const [jobs, total] = await Promise.all([
+      Job.find(query)
+        .sort({ publishedAt: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(pageSize)
+        .lean(),
+      Job.countDocuments(query),
+    ]);
+
+    const jobIds = jobs.map((job) => job._id);
+    const applicantCounts = jobIds.length
+      ? await JobApplication.aggregate([
+          { $match: { jobId: { $in: jobIds } } },
+          { $group: { _id: '$jobId', count: { $sum: 1 } } },
+        ])
+      : [];
+    const countsByJobId = applicantCounts.reduce((acc, item) => {
+      acc[String(item._id)] = item.count;
+      return acc;
+    }, {});
+
+    return res.json({
+      success: true,
+      jobs: jobs.map((job) => ({
+        ...job,
+        applicantCount: countsByJobId[String(job._id)] || 0,
+      })),
+      pagination: {
+        total,
+        page: pageNumber,
+        limit: pageSize,
+        pages: Math.max(Math.ceil(total / pageSize), 1),
+      },
+    });
+  } catch (error) {
+    logger.error(`getMyPostedJobs error: ${error.message}`);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
 // @GET /api/jobs/:id
 exports.getJob = async (req, res) => {
   try {

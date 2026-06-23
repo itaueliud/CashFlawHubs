@@ -8,6 +8,7 @@ import { SITE_URL } from '@/lib/seo';
 const LABELS: Record<string, string> = {
   dashboard: 'Dashboard',
   jobs: 'Remote Jobs',
+  'my-posts': 'My Posts',
   surveys: 'Paid Surveys',
   tasks: 'Microtasks',
   'ads-network': 'Creator HUB',

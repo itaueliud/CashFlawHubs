@@ -62,7 +62,9 @@
     "moderation": "Moderation",
     "support": "Support",
     "providerHealth": "Provider Health",
-    "myApplications": "My Applications"
+    "myApplications": "My Applications",
+    "creatorHub": "Creator Hub",
+    "myPosts": "My Posts"
   },
   "auth": {
     "welcomeBack": "Welcome back",
@@ -119,6 +121,7 @@
     "remoteJobsDesc": "Full-time / part-time",
     "paidSurveysDesc": "Up to $3 each",
     "microtasksDesc": "$0.10-$1 each",
+    "creatorHubDesc": "Creator-made videos, unlocks, and saves",
     "adsNetworkDesc": "Coming soon",
     "offerwallsDesc": "Install & earn",
     "fileLockerDesc": "Unlock file tasks",
@@ -267,13 +270,13 @@
       "notFound": "Job not found.",
       "description": "Job Description",
       "skills": "Skills",
-      "applyInSite": "Apply on site",
-      "submitTitle": "Application handoff",
-      "submitSubtitle": "We record your application first, then open the employer site in a new tab.",
+      "applyInSite": "External application",
+      "submitTitle": "Continue to source",
+      "submitSubtitle": "Enter your email and continue to the source job post.",
       "company": "Company",
       "location": "Location",
       "applyMethod": "Apply method",
-      "onSite": "External application",
+      "onSite": "Apply inside CashFlowHubs",
       "applicationTokenCost": "Application token cost",
       "coverLetter": "Cover Letter",
       "coverLetterPlaceholder": "Tell the employer why you are a fit for this role...",
@@ -281,7 +284,7 @@
       "uploadCv": "Upload CV / Resume",
       "cvHint": "PDF, DOC, or DOCX. Optional, but recommended.",
       "selectedFile": "Selected: {{file}}",
-      "apply": "Apply on site",
+      "apply": "Submit Application",
       "applied": "Applied",
       "applicationStatus": "Application status",
       "manageApplications": "Manage applications",
@@ -293,6 +296,7 @@
       "confirmStatus": "Set this application to {{status}}?",
       "updating": "Updating...",
       "myApplications": "My Applications",
+      "creatorHub": "Creator Hub",
       "openJobChat": "Open job chat",
       "sourceLink": "View original source",
       "sourceNote": "The original posting source is still available, but applying happens here in CashFlowHubs.",
@@ -323,7 +327,16 @@
         "later": "I will do it later",
         "viewApplications": "View my applications",
         "savedReminder": "Reminder saved. We will nudge you again in 24 hours."
-      }
+      },
+      "applyInternalBadge": "Apply here",
+      "submitTitleInternal": "Submit your application",
+      "submitSubtitleInternal": "Your cover letter and CV go straight to the employer's CashFlowHubs inbox - no redirect.",
+      "applyMethodInternal": "In-app application",
+      "applyMethodExternal": "External redirect",
+      "externalApplyHelp": "Enter the email address where you want recruiter feedback sent, then continue to the source job post.",
+      "continueToSource": "Continue to source",
+      "redirectedSaved": "We'll save this as a redirected application so you can track feedback later.",
+      "submitApplication": "Submit Application"
     },
     "applications": {
       "backToJobs": "Back to jobs",
@@ -371,10 +384,20 @@
         "coverLetter": "Cover Letter",
         "status": "Status",
         "manage": "Manage",
-        "delivery": "Recruiter delivery"
+        "delivery": "Recruiter delivery",
+        "message": "Message"
       },
       "confirmStatus": "Set this application to {{status}}?",
       "updating": "Updating..."
+    },
+    "myPosts": {
+      "title": "My Posts",
+      "subtitle": "Track every job you have posted and jump straight to applicants or the live listing.",
+      "applicants": "Applicants",
+      "postAnother": "Post another job",
+      "none": "You have not posted any jobs yet.",
+      "viewApplicants": "View applicants",
+      "viewListing": "View listing"
     }
   }
 }

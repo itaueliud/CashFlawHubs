@@ -23,6 +23,7 @@ import {
   MessagesSquare,
   Mail,
   BookOpen,
+  Layers,
   Loader2,
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -34,12 +35,14 @@ const BASE_NAV = [
   { href: '/dashboard/jobs', icon: Briefcase, labelKey: 'nav.remoteJobs', category: 'Earn Features' },
   { href: '/dashboard/surveys', icon: ClipboardList, labelKey: 'nav.paidSurveys', category: 'Earn Features' },
   { href: '/dashboard/tasks', icon: Zap, labelKey: 'nav.microtasks', category: 'Earn Features' },
-  { href: '/dashboard/ads-network', icon: Video, labelKey: 'nav.adsNetwork', category: 'Earn Features' },
+  { href: '/dashboard/ads-network', icon: Video, labelKey: 'nav.adsNetwork', category: 'Earn Features', hidden: true },
   { href: '/dashboard/offerwalls', icon: Gift, labelKey: 'nav.offerwalls', category: 'Earn Features' },
+  { href: '/dashboard/creator-hub', icon: Video, labelKey: 'nav.creatorHub', category: 'Earn Features' },
   { href: '/dashboard/cash-tasks', icon: TrendingUp, labelKey: 'nav.cashTasks', category: 'Earn Features' },
   { href: '/dashboard/challenges', icon: Trophy, labelKey: 'nav.dailyChallenges', category: 'Earn Features' },
   { href: '/dashboard/chat', icon: MessagesSquare, labelKey: 'nav.jobChats', category: 'Social / Community' },
   { href: '/dashboard/jobs/applications', icon: BookOpen, labelKey: 'nav.myApplications', category: 'Social / Community' },
+  { href: '/dashboard/jobs/my-posts', icon: Layers, labelKey: 'nav.myPosts', category: 'Social / Community' },
   { href: '/dashboard/referrals', icon: Star, labelKey: 'nav.referAndEarn', category: 'Social / Community' },
   { href: '/dashboard/wallet', icon: Wallet, labelKey: 'nav.wallet', category: 'Account' },
   { href: '/dashboard/profile', icon: User, labelKey: 'nav.profile', category: 'Account' },
@@ -132,6 +135,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const nav = BASE_NAV;
+  const visibleNav = nav.filter((item) => !(item as { hidden?: boolean }).hidden);
 
   const isNavActive = (href: string) =>
     href.includes('#')
@@ -156,7 +160,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="truncate text-sm font-medium">{user.name}</div>
             <div className="text-xs text-slate-400">
               {user.activationStatus
-                ? <span className="text-green-400">{t('common.active')} · Lvl {user.level}</span>
+                ? <span className="text-green-400">{t('common.active')} - Lvl {user.level}</span>
                 : <span className="text-yellow-400">{t('common.notActivated')}</span>}
             </div>
             <div className="mt-1 text-xs text-yellow-300">{user.tokenBalance || 0} {t('common.tokens')}</div>
@@ -165,11 +169,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       <nav className="flex-1 min-h-0 space-y-4 overflow-y-auto p-3">
-        {Array.from(new Set(nav.map(n => (n as { category?: string }).category || 'Menu'))).map(category => (
+        {Array.from(new Set(visibleNav.map(n => (n as { category?: string }).category || 'Menu'))).map(category => (
           <div key={category}>
             {category !== 'Menu' && <div className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-emerald-400">{category}</div>}
             <div className="space-y-1">
-              {nav.filter(n => ((n as { category?: string }).category || 'Menu') === category).map(({ href, icon: Icon, labelKey }) => (
+              {visibleNav.filter(n => ((n as { category?: string }).category || 'Menu') === category).map(({ href, icon: Icon, labelKey }) => (
                 <Link
                   key={href}
                   href={href}
@@ -270,7 +274,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {sendingVerification && <Loader2 size={12} className="animate-spin" />}
                   Resend
                 </button>
-                <button onClick={() => setBannerDismissed(true)} className="rounded-lg px-2 py-1 text-xs text-yellow-500/60 transition hover:text-yellow-300">✕</button>
+                <button onClick={() => setBannerDismissed(true)} className="rounded-lg px-2 py-1 text-xs text-yellow-500/60 transition hover:text-yellow-300">x</button>
               </div>
             </div>
           )}
@@ -280,3 +284,4 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
+
