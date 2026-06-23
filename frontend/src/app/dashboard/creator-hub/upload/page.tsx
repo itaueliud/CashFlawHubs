@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/store/authStore';
 import { UploadCloud } from 'lucide-react';
 import { CreatorHubMeta } from '../types';
+import CreatorHubShell from '../CreatorHubShell';
 
 export default function CreatorHubUploadPage() {
   const router = useRouter();
@@ -72,6 +73,7 @@ export default function CreatorHubUploadPage() {
   if (!meta) return <div className="py-20 text-center text-slate-500 dark:text-slate-400">Loading...</div>;
 
   return (
+    <CreatorHubShell>
     <div className="mx-auto max-w-4xl space-y-5">
       <div className="flex flex-col gap-3 rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/70 md:flex-row md:items-center md:justify-between">
         <div>
@@ -158,5 +160,6 @@ export default function CreatorHubUploadPage() {
         {submitting ? 'Publishing...' : `Publish (${tierConfig?.tokenCost || 0} Tokens)`}
       </button>
     </div>
+    </CreatorHubShell>
   );
 }

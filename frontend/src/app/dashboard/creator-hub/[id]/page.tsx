@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/store/authStore';
 import { ArrowLeft, Bookmark, BookmarkCheck, Globe, Lock, Mail, MessageCircle, Smartphone, Wallet, Eye, Flame } from 'lucide-react';
 import { CreatorUploadItem } from '../types';
+import CreatorHubShell from '../CreatorHubShell';
 
 export default function CreatorHubDetailPage() {
   const router = useRouter();
@@ -142,6 +143,7 @@ export default function CreatorHubDetailPage() {
   }
 
   return (
+    <CreatorHubShell>
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <button onClick={() => router.push('/dashboard/creator-hub')} className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-emerald-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
@@ -260,5 +262,6 @@ export default function CreatorHubDetailPage() {
         </div>
       )}
     </div>
+    </CreatorHubShell>
   );
 }

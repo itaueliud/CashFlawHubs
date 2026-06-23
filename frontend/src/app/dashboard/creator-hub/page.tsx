@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/authStore';
 import { Bookmark, Eye, Filter, Heart, Lock, Search, Play, BookmarkCheck, Sparkles } from 'lucide-react';
 import clsx from 'clsx';
 import { CreatorHubMeta, CreatorUploadItem } from './types';
+import CreatorHubShell from './CreatorHubShell';
 
 const CATEGORY_ALL = 'all';
 const CREATOR_HUB_ROUTE = '/dashboard/creator-hub';
@@ -88,6 +89,7 @@ export default function CreatorHubBrowsePage() {
   };
 
   return (
+    <CreatorHubShell>
     <div className="space-y-6">
       <div className="flex flex-col gap-4 rounded-[24px] border border-amber-500/15 bg-gradient-to-br from-amber-50 via-white to-emerald-50 p-5 dark:border-amber-400/20 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900">
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -238,6 +240,6 @@ export default function CreatorHubBrowsePage() {
         </div>
       )}
     </div>
+    </CreatorHubShell>
   );
 }
-

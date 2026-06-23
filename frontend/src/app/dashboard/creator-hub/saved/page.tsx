@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { Bookmark, Eye, Lock } from 'lucide-react';
 import { CreatorUploadItem } from '../types';
+import CreatorHubShell from '../CreatorHubShell';
 
 export default function SavedUploadsPage() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function SavedUploadsPage() {
   }, []);
 
   return (
+    <CreatorHubShell>
     <div className="space-y-4">
       <div>
         <h2 className="text-2xl font-black text-slate-900 dark:text-white">Saved Videos</h2>
@@ -52,5 +54,6 @@ export default function SavedUploadsPage() {
         </div>
       )}
     </div>
+    </CreatorHubShell>
   );
 }

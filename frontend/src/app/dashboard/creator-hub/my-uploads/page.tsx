@@ -5,6 +5,7 @@ import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { Eye, Lock, Trash2 } from 'lucide-react';
 import { MyUploadItem } from '../types';
+import CreatorHubShell from '../CreatorHubShell';
 
 export default function MyUploadsPage() {
   const [uploads, setUploads] = useState<MyUploadItem[]>([]);
@@ -38,6 +39,7 @@ export default function MyUploadsPage() {
   };
 
   return (
+    <CreatorHubShell>
     <div className="space-y-4">
       <div>
         <h2 className="text-2xl font-black text-slate-900 dark:text-white">My Uploads</h2>
@@ -74,5 +76,6 @@ export default function MyUploadsPage() {
         </div>
       )}
     </div>
+    </CreatorHubShell>
   );
 }
