@@ -76,7 +76,7 @@ export default function JobsPage() {
   const { data: onsiteData, isLoading: onsiteLoading } = useQuery({
     queryKey: ['jobs-onsite', search, category],
     queryFn: () => {
-      const params = new URLSearchParams({ limit: '50', page: '1', view: 'unique', sort: 'newest', location: 'on-site' });
+      const params = new URLSearchParams({ limit: '50', page: '1', view: 'unique', sort: 'newest', location: 'onsite' });
       if (search.trim()) params.set('search', search.trim());
       if (category) params.set('category', category);
       return api.get(`/jobs?${params.toString()}`).then((r) => r.data);

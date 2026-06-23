@@ -66,6 +66,17 @@ const normalizeJobType = (value, fallback = 'full-time') => {
   return normalized ? normalized.toLowerCase() : fallback;
 };
 
+const buildLocationFilter = (value) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return null;
+
+  if (normalized === 'onsite' || normalized === 'on-site' || normalized === 'on site') {
+    return { $regex: 'on[\\s-]?site|onsite|in[\\s-]?person|office', $options: 'i' };
+  }
+
+  return { $regex: normalized, $options: 'i' };
+};
+
 const normalizeAdzunaCategory = (category) => {
   const label = String(category?.label || category?.tag || '').trim();
   if (!label) return 'Other';
@@ -480,7 +491,8 @@ exports.getJobs = async (req, res) => {
     };
     if (category) query.category = category;
     if (search) query.$text = { $search: search };
-    if (location) query.location = { $regex: location, $options: 'i' };
+    const locationFilter = buildLocationFilter(location);
+    if (locationFilter) query.location = locationFilter;
     if (sourceFilter === 'internal') {
       query.source = INTERNAL_JOB_SOURCE;
     } else if (sourceFilter === 'external') {
@@ -782,7 +794,22 @@ exports.getMyPostedJobs = async (req, res) => {
     const pageNumber = Math.max(Number(req.query.page) || 1, 1);
     const pageSize = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
     const skip = (pageNumber - 1) * pageSize;
-    const query = { postedBy: userId, source: INTERNAL_JOB_SOURCE };
+
+    const postingTransactions = await Transaction.find({
+      userId,
+      type: 'job_posting',
+      status: 'successful',
+    })
+      .select('metadata.jobId metadata.job_id metadata.jobIdStr')
+      .lean();
+
+    const transactionJobIds = postingTransactions
+      .map((tx) => String(tx?.metadata?.jobId || tx?.metadata?.job_id || tx?.metadata?.jobIdStr || '').trim())
+      .filter(Boolean);
+
+    const query = transactionJobIds.length
+      ? { $or: [{ postedBy: userId, source: INTERNAL_JOB_SOURCE }, { _id: { $in: transactionJobIds } }] }
+      : { postedBy: userId, source: INTERNAL_JOB_SOURCE };
 
     const [jobs, total] = await Promise.all([
       Job.find(query)
@@ -792,6 +819,13 @@ exports.getMyPostedJobs = async (req, res) => {
         .lean(),
       Job.countDocuments(query),
     ]);
+
+    if (transactionJobIds.length) {
+      await Job.updateMany(
+        { _id: { $in: transactionJobIds }, postedBy: null, source: INTERNAL_JOB_SOURCE },
+        { $set: { postedBy: userId } }
+      );
+    }
 
     const jobIds = jobs.map((job) => job._id);
     const applicantCounts = jobIds.length

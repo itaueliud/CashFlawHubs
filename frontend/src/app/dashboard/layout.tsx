@@ -59,6 +59,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [mounted, setMounted] = useState(false);
   const [sendingVerification, setSendingVerification] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [showMyPosts, setShowMyPosts] = useState<boolean | null>(null);
 
   const handleResendVerification = useCallback(async () => {
     setSendingVerification(true);
@@ -98,6 +99,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [hasHydrated, refreshUser, user?.id]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const loadMyPostsVisibility = async () => {
+      if (!hasHydrated || !user || user.role !== 'user') {
+        setShowMyPosts(false);
+        return;
+      }
+
+      try {
+        const { data } = await api.get('/jobs/my-posts?limit=1');
+        if (!cancelled) {
+          setShowMyPosts((data?.pagination?.total || 0) > 0);
+        }
+      } catch {
+        if (!cancelled) setShowMyPosts(false);
+      }
+    };
+
+    void loadMyPostsVisibility();
+    return () => {
+      cancelled = true;
+    };
+  }, [hasHydrated, user?.id, user?.role]);
+
+  useEffect(() => {
     if (!hasHydrated || !user) return;
 
     if (user.role !== 'user') {
@@ -135,7 +161,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const nav = BASE_NAV;
-  const visibleNav = nav.filter((item) => !(item as { hidden?: boolean }).hidden);
+  const visibleNav = nav.filter((item) => !(item as { hidden?: boolean }).hidden && (item.href !== '/dashboard/jobs/my-posts' || showMyPosts === true));
 
   const isNavActive = (href: string) =>
     href.includes('#')
