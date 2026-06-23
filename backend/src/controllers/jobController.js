@@ -807,15 +807,56 @@ exports.getMyPostedJobs = async (req, res) => {
       type: 'job_posting',
       status: 'successful',
     })
-      .select('metadata.jobId metadata.job_id metadata.jobIdStr')
+      .select('metadata.jobId metadata.job_id metadata.jobIdStr createdAt')
       .lean();
 
     const transactionJobIds = postingTransactions
       .map((tx) => String(tx?.metadata?.jobId || tx?.metadata?.job_id || tx?.metadata?.jobIdStr || '').trim())
       .filter(Boolean);
 
-    const query = transactionJobIds.length
-      ? { $or: [{ postedBy: userId }, { _id: { $in: transactionJobIds } }] }
+    const legacyTxTimes = postingTransactions
+      .map((tx) => (tx?.createdAt ? new Date(tx.createdAt).getTime() : null))
+      .filter((time) => Number.isFinite(time))
+      .sort((a, b) => a - b);
+
+    let recoveredLegacyJobIds = [];
+    if (legacyTxTimes.length) {
+      const legacyWindowStart = new Date(legacyTxTimes[0] - 15 * 60 * 1000);
+      const legacyWindowEnd = new Date(legacyTxTimes[legacyTxTimes.length - 1] + 15 * 60 * 1000);
+      const legacyCandidates = await Job.find({
+        source: INTERNAL_JOB_SOURCE,
+        postedBy: null,
+        createdAt: { $gte: legacyWindowStart, $lte: legacyWindowEnd },
+      })
+        .sort({ createdAt: 1, publishedAt: 1 })
+        .lean();
+
+      const usedCandidateIndexes = new Set();
+      recoveredLegacyJobIds = legacyTxTimes.map((txTime) => {
+        let bestIndex = -1;
+        let bestDiff = Number.POSITIVE_INFINITY;
+
+        for (let i = 0; i < legacyCandidates.length; i += 1) {
+          if (usedCandidateIndexes.has(i)) continue;
+          const candidate = legacyCandidates[i];
+          const candidateTime = new Date(candidate.createdAt || candidate.publishedAt || 0).getTime();
+          if (!Number.isFinite(candidateTime)) continue;
+          const diff = Math.abs(candidateTime - txTime);
+          if (diff < bestDiff) {
+            bestDiff = diff;
+            bestIndex = i;
+          }
+        }
+
+        if (bestIndex === -1 || bestDiff > 15 * 60 * 1000) return null;
+        usedCandidateIndexes.add(bestIndex);
+        return String(legacyCandidates[bestIndex]._id);
+      }).filter(Boolean);
+    }
+
+    const jobIdsToShow = [...new Set([...transactionJobIds, ...recoveredLegacyJobIds])];
+    const query = jobIdsToShow.length
+      ? { $or: [{ postedBy: userId }, { _id: { $in: jobIdsToShow } }] }
       : { postedBy: userId };
 
     const [jobs, total] = await Promise.all([
@@ -827,9 +868,9 @@ exports.getMyPostedJobs = async (req, res) => {
       Job.countDocuments(query),
     ]);
 
-    if (transactionJobIds.length) {
+    if (jobIdsToShow.length) {
       await Job.updateMany(
-        { _id: { $in: transactionJobIds }, postedBy: null, source: INTERNAL_JOB_SOURCE },
+        { _id: { $in: jobIdsToShow }, postedBy: null, source: INTERNAL_JOB_SOURCE },
         { $set: { postedBy: userId } }
       );
     }
@@ -2172,4 +2213,5 @@ exports.syncJobs = async () => {
     return { success: false, synced, providers: providerStats, error: error.message };
   }
 };
+
 
