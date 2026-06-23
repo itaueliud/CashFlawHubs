@@ -11,6 +11,11 @@ import DashboardJobApplicationsPage from '../../../src/app/dashboard/jobs/applic
 import DashboardJobApplicantsManagePage from '../../../src/app/dashboard/jobs/[id]/applicants/page';
 import DashboardJobDetailsPage from '../../../src/app/dashboard/jobs/[id]/page';
 import DashboardJobsPage from '../../../src/app/dashboard/jobs/page';
+import CreatorHubBrowsePage from '../../../src/app/dashboard/creator-hub/page';
+import CreatorHubUploadPage from '../../../src/app/dashboard/creator-hub/upload/page';
+import CreatorHubMyUploadsPage from '../../../src/app/dashboard/creator-hub/my-uploads/page';
+import CreatorHubSavedPage from '../../../src/app/dashboard/creator-hub/saved/page';
+import CreatorHubDetailPage from '../../../src/app/dashboard/creator-hub/[id]/page';
 import DashboardLedgerPage from '../../../src/app/dashboard/ledger/page';
 import DashboardOfferwallsPage from '../../../src/app/dashboard/offerwalls/page';
 import DashboardProfilePage from '../../../src/app/dashboard/profile/page';
@@ -53,6 +58,10 @@ const ROUTES: Record<string, React.ComponentType> = {
   challenges: DashboardChallengesPage,
   'coming-soon': DashboardComingSoonPage,
   freelance: DashboardFreelancePage,
+  'creator-hub': CreatorHubBrowsePage,
+  'creator-hub/upload': CreatorHubUploadPage,
+  'creator-hub/my-uploads': CreatorHubMyUploadsPage,
+  'creator-hub/saved': CreatorHubSavedPage,
   'jobs/applications': DashboardJobApplicationsPage,
   jobs: DashboardJobsPage,
   ledger: DashboardLedgerPage,
@@ -75,6 +84,19 @@ export default function DashboardCatchAllPage({ params }: { params: { slug?: str
   const DirectRoute = ROUTES[slug];
   if (DirectRoute) {
     return <DirectRoute />;
+  }
+
+  if (params.slug?.[0] === 'creator-hub') {
+    if (params.slug.length === 1) {
+      return <CreatorHubBrowsePage />;
+    }
+
+    if (params.slug.length === 2) {
+      if (params.slug[1] === 'upload') return <CreatorHubUploadPage />;
+      if (params.slug[1] === 'my-uploads') return <CreatorHubMyUploadsPage />;
+      if (params.slug[1] === 'saved') return <CreatorHubSavedPage />;
+      return <CreatorHubDetailPage />;
+    }
   }
 
   if (params.slug?.[0] === 'jobs' && params.slug.length === 2) {
