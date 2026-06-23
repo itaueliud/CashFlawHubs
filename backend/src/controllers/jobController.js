@@ -492,7 +492,14 @@ exports.getJobs = async (req, res) => {
     if (category) query.category = category;
     if (search) query.$text = { $search: search };
     const locationFilter = buildLocationFilter(location);
-    if (locationFilter) query.location = locationFilter;
+    if (locationFilter) {
+      const normalizedLocation = String(location || '').trim().toLowerCase();
+      if (normalizedLocation === 'onsite' || normalizedLocation === 'on-site' || normalizedLocation === 'on site') {
+        query.$or = [{ location: locationFilter }, { source: INTERNAL_JOB_SOURCE }];
+      } else {
+        query.location = locationFilter;
+      }
+    }
     if (sourceFilter === 'internal') {
       query.source = INTERNAL_JOB_SOURCE;
     } else if (sourceFilter === 'external') {
@@ -808,8 +815,8 @@ exports.getMyPostedJobs = async (req, res) => {
       .filter(Boolean);
 
     const query = transactionJobIds.length
-      ? { $or: [{ postedBy: userId, source: INTERNAL_JOB_SOURCE }, { _id: { $in: transactionJobIds } }] }
-      : { postedBy: userId, source: INTERNAL_JOB_SOURCE };
+      ? { $or: [{ postedBy: userId }, { _id: { $in: transactionJobIds } }] }
+      : { postedBy: userId };
 
     const [jobs, total] = await Promise.all([
       Job.find(query)
@@ -2165,3 +2172,4 @@ exports.syncJobs = async () => {
     return { success: false, synced, providers: providerStats, error: error.message };
   }
 };
+

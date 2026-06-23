@@ -98,30 +98,41 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => window.removeEventListener('focus', onFocus);
   }, [hasHydrated, refreshUser, user?.id]);
 
+  const loadMyPostsVisibility = useCallback(async () => {
+    if (!hasHydrated || !user || user.role !== 'user') {
+      setShowMyPosts(false);
+      return;
+    }
+
+    try {
+      const { data } = await api.get('/jobs/my-posts?limit=1');
+      setShowMyPosts((data?.pagination?.total || 0) > 0);
+    } catch {
+      setShowMyPosts(false);
+    }
+  }, [hasHydrated, user?.id, user?.role]);
+
   useEffect(() => {
     let cancelled = false;
 
-    const loadMyPostsVisibility = async () => {
-      if (!hasHydrated || !user || user.role !== 'user') {
-        setShowMyPosts(false);
-        return;
-      }
-
-      try {
-        const { data } = await api.get('/jobs/my-posts?limit=1');
-        if (!cancelled) {
-          setShowMyPosts((data?.pagination?.total || 0) > 0);
-        }
-      } catch {
-        if (!cancelled) setShowMyPosts(false);
-      }
+    const syncMyPostsVisibility = async () => {
+      if (cancelled) return;
+      await loadMyPostsVisibility();
     };
 
-    void loadMyPostsVisibility();
+    void syncMyPostsVisibility();
+
+    const onUpdated = () => {
+      void syncMyPostsVisibility();
+    };
+
+    window.addEventListener('dashboard-my-posts-updated', onUpdated);
+
     return () => {
       cancelled = true;
+      window.removeEventListener('dashboard-my-posts-updated', onUpdated);
     };
-  }, [hasHydrated, user?.id, user?.role]);
+  }, [loadMyPostsVisibility]);
 
   useEffect(() => {
     if (!hasHydrated || !user) return;
@@ -310,4 +321,5 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
+
 

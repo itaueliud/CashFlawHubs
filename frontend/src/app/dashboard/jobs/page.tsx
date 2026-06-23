@@ -125,6 +125,8 @@ export default function JobsPage() {
       toast.success(t('jobs.board.actions.postJob', { tokens: response.data.tokensSpent }));
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['jobs-recent'] });
+      queryClient.invalidateQueries({ queryKey: ['my-posted-jobs'] });
+      window.dispatchEvent(new Event('dashboard-my-posts-updated'));
     } catch (error: any) {
       toast.error(error.response?.data?.message || t('jobs.board.actions.postJobShort'));
     } finally {
@@ -609,3 +611,4 @@ export default function JobsPage() {
     </div>
   );
 }
+
