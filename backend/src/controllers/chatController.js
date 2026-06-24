@@ -42,6 +42,88 @@ const requireSessionMembership = async (sessionId, user) => {
 
   return { session, role };
 };
+const FRAUD_SEVERITY_RANK = { low: 1, medium: 2, high: 3, critical: 4 };
+
+const CHAT_FRAUD_RULES = [
+  {
+    severity: 'critical',
+    action: 'block',
+    description: 'Potential request for OTP, PIN, password, or verification code',
+    patterns: [
+      /\b(?:otp|one[-\s]*time\s*password|verification\s*code|security\s*code|passcode|pin|password)\b/i,
+      /\b(?:share|send|tell|provide)\s+(?:me\s+)?(?:your\s+)?(?:otp|pin|password|verification\s*code|security\s*code|passcode)\b/i,
+    ],
+  },
+  {
+    severity: 'high',
+    action: 'flag',
+    description: 'Off-platform payment or contact attempt',
+    patterns: [
+      /\b(?:pay|payment|send money|transfer money|advance fee|upfront fee|deposit)\b/i,
+      /\b(?:whatsapp|telegram|signal|crypto|bitcoin|usdt|binance|western union|moneygram)\b/i,
+      /\b(?:outside|off[-\s]*platform)\b/i,
+    ],
+  },
+  {
+    severity: 'medium',
+    action: 'flag',
+    description: 'Suspicious scam or urgency language',
+    patterns: [
+      /\b(?:scam|fraud|fake\s+payment|urgent|urgently|kindly)\b/i,
+    ],
+  },
+];
+
+const detectChatFraud = (content) => {
+  const text = String(content || '').replace(/\s+/g, ' ').trim();
+  if (!text) return null;
+
+  const matches = [];
+  for (const rule of CHAT_FRAUD_RULES) {
+    if (rule.patterns.some((pattern) => pattern.test(text))) {
+      matches.push(rule);
+    }
+  }
+
+  if (!matches.length) return null;
+
+  const strongest = matches.reduce((best, current) => {
+    if (!best) return current;
+    return FRAUD_SEVERITY_RANK[current.severity] > FRAUD_SEVERITY_RANK[best.severity] ? current : best;
+  }, null);
+
+  return {
+    action: strongest.action,
+    severity: strongest.severity,
+    description: strongest.description,
+    matchedReasons: matches.map((match) => match.description),
+  };
+};
+
+const createChatFraudAlert = async ({ session, userId, content, detection, messageId = null }) => {
+  const relatedUserIds = Array.from(new Set([
+    session.posterId,
+    session.applicantId,
+    userId,
+  ].filter(Boolean).map((value) => String(value))));
+
+  return FraudAlert.create({
+    alertType: 'chat_fraud',
+    severity: detection.severity,
+    relatedUserIds,
+    description: `Chat fraud signal detected: ${detection.description}`,
+    status: 'open',
+    metadata: {
+      sessionId: String(session._id),
+      jobId: String(session.jobId),
+      senderId: String(userId),
+      messageId: messageId ? String(messageId) : null,
+      messagePreview: String(content || '').slice(0, 280),
+      matchedReasons: detection.matchedReasons,
+      action: detection.action,
+    },
+  });
+};
 
 exports.initiateJobChat = async (req, res) => {
   try {
@@ -53,30 +135,28 @@ exports.initiateJobChat = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Job not found' });
     }
 
+    if (String(job.source || '').trim().toLowerCase() !== 'internal') {
+      return res.status(403).json({ success: false, message: 'Chat is only available for internal jobs' });
+    }
+
     const requesterId = req.user._id || req.user.id;
     const requesterIsPoster = asObjectIdString(job.postedBy) === asObjectIdString(requesterId);
 
-    let posterId = job.postedBy;
-    let applicantId = targetApplicantId || requesterId;
-
-    if (posterId && requesterIsPoster) {
-      if (!targetApplicantId) {
-        return res.status(400).json({ success: false, message: 'Applicant id is required when initiating as poster' });
-      }
-
-      const applied = await JobApplication.findOne({ jobId, userId: targetApplicantId });
-      if (!applied) {
-        return res.status(400).json({ success: false, message: 'Applicant has not applied for this job' });
-      }
-    } else if (posterId) {
-      const applied = await JobApplication.findOne({ jobId, userId: requesterId });
-      if (!applied) {
-        return res.status(403).json({ success: false, message: 'Apply to the job first to open chat' });
-      }
-      applicantId = requesterId;
-    } else {
-      applicantId = requesterId;
+    if (!requesterIsPoster) {
+      return res.status(403).json({ success: false, message: 'Only the job poster can initiate chat' });
     }
+
+    if (!targetApplicantId) {
+      return res.status(400).json({ success: false, message: 'Applicant id is required when initiating a chat' });
+    }
+
+    const applied = await JobApplication.findOne({ jobId, userId: targetApplicantId });
+    if (!applied) {
+      return res.status(400).json({ success: false, message: 'Applicant has not applied for this job' });
+    }
+
+    const posterId = job.postedBy;
+    const applicantId = targetApplicantId;
 
     const title = `${job.title} - ${job.company}`;
     const session = await ChatSession.findOneAndUpdate(
@@ -177,29 +257,91 @@ exports.sendChatMessage = async (req, res) => {
       return res.status(423).json({ success: false, message: 'Conversation is frozen by admin review' });
     }
 
+    const normalizedContent = String(content).trim();
+    const fraudSignal = detectChatFraud(normalizedContent);
+    const io = req.app.get('io');
+
+    if (fraudSignal?.action === 'block') {
+      await createChatFraudAlert({
+        session,
+        userId,
+        content: normalizedContent,
+        detection: fraudSignal,
+      });
+
+      session.moderationStatus = 'flagged';
+      session.flaggedAt = new Date();
+      session.flaggedBy = userId;
+      session.flaggedReason = fraudSignal.description;
+      await session.save();
+
+      if (io) {
+        io.to(`chat:${session._id}`).emit('chat:session-updated', { sessionId: session._id, session });
+      }
+
+      return res.status(400).json({
+        success: false,
+        code: 'FRAUD_BLOCKED',
+        message: 'This message was blocked by safety review.',
+      });
+    }
+
     const message = await ChatMessage.create({
       sessionId: session._id,
       jobId: session.jobId,
       senderId: userId,
       role,
       messageType: req.body?.messageType || 'text',
-      content: String(content).trim(),
+      content: normalizedContent,
       attachments: Array.isArray(req.body?.attachments) ? req.body.attachments : [],
       readBy: [{ userId, readAt: new Date() }],
-      metadata: req.body?.metadata || {},
+      isFlagged: Boolean(fraudSignal),
+      flaggedBy: fraudSignal ? userId : null,
+      flaggedReason: fraudSignal ? fraudSignal.description : '',
+      metadata: {
+        ...(req.body?.metadata || {}),
+        moderation: fraudSignal
+          ? {
+              autoFlagged: true,
+              severity: fraudSignal.severity,
+              matchedReasons: fraudSignal.matchedReasons,
+            }
+          : {},
+      },
     });
 
     session.lastMessageAt = new Date();
-    session.lastMessagePreview = String(content).slice(0, 140);
-    await session.save();
+    session.lastMessagePreview = normalizedContent.slice(0, 140);
+
+    if (fraudSignal) {
+      await createChatFraudAlert({
+        session,
+        userId,
+        content: normalizedContent,
+        detection: fraudSignal,
+        messageId: message._id,
+      });
+
+      session.moderationStatus = 'under_review';
+      session.flaggedAt = session.flaggedAt || new Date();
+      session.flaggedBy = userId;
+      session.flaggedReason = fraudSignal.description;
+      await session.save();
+
+      if (io) {
+        io.to(`chat:${session._id}`).emit('chat:session-updated', { sessionId: session._id, session });
+      }
+    } else {
+      await session.save();
+    }
+
     await trackEvent(userId, 'chat_message');
-    const io = req.app.get('io');
     if (io) {
       io.to(`chat:${session._id}`).emit('chat:message', { sessionId: session._id, message });
     }
 
     let aiMessage = null;
-    if (includeAi && session.aiEnabled) {
+    if (includeAi && session.aiEnabled && !fraudSignal) {
       const [history, job, applicant, poster] = await Promise.all([
         ChatMessage.find({ sessionId: session._id }).sort({ createdAt: 1 }).limit(20),
         Job.findById(session.jobId),
@@ -217,7 +359,7 @@ exports.sendChatMessage = async (req, res) => {
           posterName: poster?.name,
           ragSnippets: await retrieveRelevantContext({
             sessionId: session._id,
-            prompt: String(content),
+            prompt: normalizedContent,
             limit: 5,
           }),
         },
@@ -473,3 +615,5 @@ exports.adminModerateSession = async (req, res) => {
     return res.status(error.statusCode || 500).json({ success: false, message: error.message });
   }
 };
+
+

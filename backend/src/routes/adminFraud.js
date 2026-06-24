@@ -4,6 +4,8 @@ const { protect } = require('../middleware/auth');
 const requireAdmin = require('../middleware/requireAdmin');
 const IpLog = require('../models/IpLog');
 const FraudAlert = require('../models/FraudAlert');
+const ChatSession = require('../models/ChatSession');
+const ChatMessage = require('../models/ChatMessage');
 const User = require('../models/User');
 const { logAdminAction } = require('../utils/adminAudit');
 
@@ -37,6 +39,48 @@ router.get('/overview', protect, requireAdmin, async (req, res) => {
       },
       sharedIps,
       alerts,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.get('/chat/sessions', protect, requireAdmin, async (req, res) => {
+  try {
+    const { moderationStatus = 'flagged,under_review' } = req.query;
+    const statuses = String(moderationStatus)
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const query = statuses.length ? { moderationStatus: { $in: statuses } } : {};
+
+    const sessions = await ChatSession.find(query)
+      .sort({ flaggedAt: -1, lastMessageAt: -1 })
+      .populate('jobId', 'title company')
+      .populate('posterId', 'name email userId')
+      .populate('applicantId', 'name email userId')
+      .limit(100)
+      .lean();
+
+    const sessionIds = sessions.map((session) => session._id);
+    const flaggedCounts = sessionIds.length
+      ? await ChatMessage.aggregate([
+          { $match: { sessionId: { $in: sessionIds }, isFlagged: true } },
+          { $group: { _id: '$sessionId', count: { $sum: 1 } } },
+        ])
+      : [];
+
+    const countsBySession = flaggedCounts.reduce((acc, item) => {
+      acc[String(item._id)] = item.count;
+      return acc;
+    }, {});
+
+    res.json({
+      success: true,
+      sessions: sessions.map((session) => ({
+        ...session,
+        flaggedMessageCount: countsBySession[String(session._id)] || 0,
+      })),
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -172,10 +216,11 @@ router.delete('/ip-logs/:ip/block', protect, requireAdmin, async (req, res) => {
 
 router.get('/alerts', protect, requireAdmin, async (req, res) => {
   try {
-    const { status = 'open', severity } = req.query;
+    const { status = 'open', severity, alertType } = req.query;
     const query = {};
     if (status !== 'all') query.status = status;
     if (severity && severity !== 'all') query.severity = severity;
+    if (alertType && alertType !== 'all') query.alertType = alertType;
 
     const alerts = await FraudAlert.find(query)
       .populate('relatedUserIds', 'name email userId country activationStatus isBanned')
