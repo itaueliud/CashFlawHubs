@@ -70,10 +70,10 @@ export default function AdminLedgerPage() {
 
   return (
     <div className="dashboard-shell animate-fade-in">
-      <div className="dashboard-hero">
+      <div className="dashboard-hero p-6 sm:p-7">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-blue-300">
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">
               <Landmark size={12} /> Ledger panel
             </div>
             <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">Ledger & Operations</h1>
@@ -82,13 +82,13 @@ export default function AdminLedgerPage() {
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+            <div className="stat-card stat-card-cyan">
               <div className="text-xs text-slate-400">Total earned</div>
-              <div className="text-2xl font-black text-blue-300">${Number(ledger.totalUSD || 0).toFixed(2)}</div>
+              <div className="mt-2 text-2xl font-black text-white">${Number(ledger.totalUSD || 0).toFixed(2)}</div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+            <div className="stat-card stat-card-green">
               <div className="text-xs text-slate-400">Transactions</div>
-              <div className="text-2xl font-black text-white">{ledger.count || 0}</div>
+              <div className="mt-2 text-2xl font-black text-white">{ledger.count || 0}</div>
             </div>
           </div>
         </div>
@@ -103,7 +103,7 @@ export default function AdminLedgerPage() {
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`rounded-full px-4 py-2 text-sm font-semibold ${tab === id ? 'bg-blue-500 text-slate-950' : 'bg-slate-900 text-slate-300'}`}
+            className={`tab-pill press ${tab === id ? 'tab-pill-active' : ''}`}
           >
             {label}
           </button>
@@ -112,27 +112,25 @@ export default function AdminLedgerPage() {
 
       {tab === 'summary' && (
         <>
-          {/* Removed display-only share cards (superadmin/admin share and policy). These values remain in backend payout logic but are no longer shown in the UI. */}
-
           {ledger.totalUSD > 0 && ['ledger', 'superadmin'].includes(user?.role || '') && (
-            <div className="card">
+            <div className="card p-5">
               <button
-                  onClick={() => setShowConfirm(true)}
-                  disabled={executeMutation.isPending}
-                  className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 font-semibold text-white transition hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {executeMutation.isPending ? 'Executing payout...' : 'Execute Payout'}
-                </button>
+                onClick={() => setShowConfirm(true)}
+                disabled={executeMutation.isPending}
+                className="ledger-button press w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-3 font-semibold text-slate-950 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {executeMutation.isPending ? 'Executing payout...' : 'Execute Payout'}
+              </button>
             </div>
           )}
         </>
       )}
 
       {tab === 'staff' && (
-        <div className="card space-y-3">
+        <div className="card space-y-3 p-5">
           <h2 className="text-xl font-bold text-white">Superadmins and Admins</h2>
           {(adminsData?.admins || []).map((admin: any) => (
-            <div key={admin._id} className="rounded-2xl border border-slate-700 bg-slate-950/70 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div key={admin._id} className="inner-item flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="text-sm font-semibold text-white">{admin.name}</div>
                 <div className="text-xs text-slate-500">{admin.email} | {admin.phone}</div>
@@ -141,7 +139,7 @@ export default function AdminLedgerPage() {
                 <span className={admin.role === 'superadmin' ? 'badge-green' : 'badge-blue'}>{admin.role}</span>
                 <button
                   onClick={() => blockAdmin(admin._id, admin.isBanned)}
-                  className={`inline-flex items-center gap-1 rounded-lg px-3 py-1 text-xs font-semibold ${admin.isBanned ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'}`}
+                  className={`ledger-button press inline-flex items-center gap-1 rounded-lg px-3 py-1 text-xs font-semibold ${admin.isBanned ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'}`}
                 >
                   {admin.isBanned ? <Unlock size={12} /> : <Ban size={12} />} {admin.isBanned ? 'Unblock' : 'Block'}
                 </button>
@@ -154,30 +152,30 @@ export default function AdminLedgerPage() {
       {tab === 'b2c' && (
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="card">
+            <div className="stat-card stat-card-green">
               <div className="text-xs text-slate-400">Today Successful</div>
-              <div className="text-2xl font-black text-emerald-400">{b2cData?.b2c?.todaySuccessful || 0}</div>
+              <div className="mt-2 text-2xl font-black text-emerald-400">{b2cData?.b2c?.todaySuccessful || 0}</div>
             </div>
-            <div className="card">
+            <div className="stat-card stat-card-red">
               <div className="text-xs text-slate-400">Today Failed</div>
-              <div className="text-2xl font-black text-red-400">{b2cData?.b2c?.todayFailed || 0}</div>
+              <div className="mt-2 text-2xl font-black text-red-400">{b2cData?.b2c?.todayFailed || 0}</div>
             </div>
-            <div className="card">
+            <div className="stat-card stat-card-blue">
               <div className="text-xs text-slate-400">Pending Right Now</div>
-              <div className="text-2xl font-black text-blue-400">{b2cData?.b2c?.pendingCount || 0}</div>
+              <div className="mt-2 text-2xl font-black text-blue-400">{b2cData?.b2c?.pendingCount || 0}</div>
             </div>
-            <div className="card">
+            <div className="stat-card stat-card-amber">
               <div className="text-xs text-slate-400">Stuck (&gt;30m)</div>
-              <div className="text-2xl font-black text-orange-400">{b2cData?.b2c?.stuckWithdrawals?.length || 0}</div>
+              <div className="mt-2 text-2xl font-black text-orange-400">{b2cData?.b2c?.stuckWithdrawals?.length || 0}</div>
             </div>
           </div>
-          
+
           {b2cData?.b2c?.stuckWithdrawals?.length > 0 && (
-            <div className="card border-orange-500/30 bg-orange-500/10">
-              <div className="font-bold text-orange-400 mb-2">Stuck Withdrawals (Manual Check Required)</div>
+            <div className="card border border-orange-500/20 bg-orange-500/10 p-5">
+              <div className="mb-2 font-bold text-orange-400">Stuck Withdrawals (Manual Check Required)</div>
               <div className="space-y-2">
                 {b2cData.b2c.stuckWithdrawals.map((w: any) => (
-                  <div key={w._id} className="flex justify-between text-sm">
+                  <div key={w._id} className="inner-item flex justify-between px-4 py-3 text-sm">
                     <span className="text-slate-300">User: {w.userId}</span>
                     <span className="text-orange-300">${w.amountUSD}</span>
                   </div>
@@ -189,16 +187,16 @@ export default function AdminLedgerPage() {
       )}
 
       {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="rounded-2xl border border-slate-700 bg-slate-900 p-4 shadow-2xl w-full max-w-md mx-4 sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-[1.5rem] border border-white/8 bg-[#07101e] p-5 shadow-2xl">
             <div className="mb-4 flex items-center gap-3">
               <AlertCircle className="text-yellow-400" size={24} />
               <h3 className="text-lg font-bold text-white">Confirm Payout Execution</h3>
             </div>
-            <p className="text-sm text-slate-300 mb-5">This will distribute ledger funds to superadmin and admins for the selected period.</p>
+            <p className="mb-5 text-sm text-slate-300">This will distribute ledger funds to superadmin and admins for the selected period.</p>
             <div className="flex flex-col gap-3 sm:flex-row">
-              <button onClick={() => setShowConfirm(false)} className="flex-1 rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 font-semibold text-slate-200">Cancel</button>
-              <button onClick={() => executeMutation.mutate()} className="flex-1 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2 font-semibold text-white">Execute</button>
+              <button onClick={() => setShowConfirm(false)} className="ledger-button press flex-1 rounded-xl border border-white/8 bg-white/5 px-4 py-2 font-semibold text-slate-200">Cancel</button>
+              <button onClick={() => executeMutation.mutate()} className="ledger-button press flex-1 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2 font-semibold text-slate-950">Execute</button>
             </div>
           </div>
         </div>
@@ -206,4 +204,3 @@ export default function AdminLedgerPage() {
     </div>
   );
 }
-

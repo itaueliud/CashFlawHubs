@@ -61,27 +61,30 @@ export default function LedgerTransactionsPage() {
   if (isLoading) return <div className="card text-sm text-slate-400">Loading transactions...</div>;
 
   return (
-    <div className="dashboard-shell">
-      <div className="card space-y-3">
+    <div className="dashboard-shell animate-fade-in">
+      <div className="dashboard-hero p-6 sm:p-7 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold text-white">Ledger Explorer</h1>
-          <select className="input max-w-[140px]" value={range} onChange={(e) => setRange(e.target.value as Range)}>
+          <div>
+            <h1 className="text-2xl font-black text-white">Ledger Explorer</h1>
+            <p className="mt-1 text-sm text-slate-400">Search and audit individual ledger rows.</p>
+          </div>
+          <select className="ledger-input max-w-[180px]" value={range} onChange={(e) => setRange(e.target.value as Range)}>
             <option value="7d">Last 7 days</option>
             <option value="30d">Last 30 days</option>
             <option value="90d">Last 90 days</option>
           </select>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <input className="input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search user, id, reference" />
-          <select className="input" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+          <input className="ledger-input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search user, id, reference" />
+          <select className="ledger-input" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
             <option value="all">All types</option>
             {types.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
-          <select className="input" value={providerFilter} onChange={(e) => setProviderFilter(e.target.value)}>
+          <select className="ledger-input" value={providerFilter} onChange={(e) => setProviderFilter(e.target.value)}>
             <option value="all">All providers</option>
             {providers.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
-          <select className="input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <select className="ledger-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="all">All statuses</option>
             {statuses.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
@@ -89,13 +92,25 @@ export default function LedgerTransactionsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <div className="card"><div className="text-xs text-slate-400">Filtered rows</div><div className="text-2xl font-black text-white">{filtered.length}</div></div>
-        <div className="card"><div className="text-xs text-slate-400">High value alerts</div><div className="text-2xl font-black text-yellow-300">{highValue}</div></div>
-        <div className="card"><div className="text-xs text-slate-400">Failed</div><div className="text-2xl font-black text-red-300">{failed}</div></div>
-        <div className="card"><div className="text-xs text-slate-400">Pending</div><div className="text-2xl font-black text-blue-300">{pending}</div></div>
+        <div className="stat-card stat-card-cyan slide-up">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">Filtered rows</div>
+          <div className="mt-2 text-2xl font-black text-white">{filtered.length}</div>
+        </div>
+        <div className="stat-card stat-card-amber slide-up" style={{ animationDelay: '50ms' }}>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">High value alerts</div>
+          <div className="mt-2 text-2xl font-black text-amber-300">{highValue}</div>
+        </div>
+        <div className="stat-card stat-card-red slide-up" style={{ animationDelay: '100ms' }}>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">Failed</div>
+          <div className="mt-2 text-2xl font-black text-red-300">{failed}</div>
+        </div>
+        <div className="stat-card stat-card-blue slide-up" style={{ animationDelay: '150ms' }}>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">Pending</div>
+          <div className="mt-2 text-2xl font-black text-blue-300">{pending}</div>
+        </div>
       </div>
 
-      <div className="card border-blue-500/20 bg-blue-500/5">
+      <div className="card border border-blue-500/15 bg-blue-500/5 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-xs uppercase tracking-[0.18em] text-blue-300">Friday payout queue</div>
@@ -110,28 +125,28 @@ export default function LedgerTransactionsPage() {
         </div>
       </div>
 
-      <div className="card table-shell">
-        <table className="min-w-full text-sm">
+      <div className="card table-shell p-0">
+        <table className="ledger-table min-w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-700 text-left text-slate-400">
-              <th className="px-3 py-2">Date</th>
-              <th className="px-3 py-2">Reference</th>
-              <th className="px-3 py-2">User</th>
-              <th className="px-3 py-2">Type</th>
-              <th className="px-3 py-2">Provider</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Amount</th>
+            <tr className="text-left text-slate-400">
+              <th className="px-3 py-3">Date</th>
+              <th className="px-3 py-3">Reference</th>
+              <th className="px-3 py-3">User</th>
+              <th className="px-3 py-3">Type</th>
+              <th className="px-3 py-3">Provider</th>
+              <th className="px-3 py-3">Status</th>
+              <th className="px-3 py-3">Amount</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((tx: any) => (
-              <tr key={tx._id} className="border-b border-slate-800">
-                <td className="px-3 py-2 text-slate-300">{new Date(tx.createdAt).toLocaleString()}</td>
-                <td className="px-3 py-2 text-slate-300">{tx.reference || tx._id}</td>
-                <td className="px-3 py-2 text-slate-300">{tx.userId?.name || tx.userId?.userId || '-'}</td>
-                <td className="px-3 py-2 text-slate-300">{tx.type}</td>
-                <td className="px-3 py-2 text-slate-300">{tx.provider}</td>
-                <td className="px-3 py-2">
+              <tr key={tx._id} className="transition-colors hover:bg-white/[0.03]">
+                <td className="px-3 py-3 text-slate-300">{new Date(tx.createdAt).toLocaleString()}</td>
+                <td className="px-3 py-3 text-slate-300">{tx.reference || tx._id}</td>
+                <td className="px-3 py-3 text-slate-300">{tx.userId?.name || tx.userId?.userId || '-'}</td>
+                <td className="px-3 py-3 text-slate-300">{tx.type}</td>
+                <td className="px-3 py-3 text-slate-300">{tx.provider}</td>
+                <td className="px-3 py-3">
                   <span
                     className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
                       tx.status === 'successful'
@@ -149,7 +164,7 @@ export default function LedgerTransactionsPage() {
                     <div className="mt-1 text-[11px] text-blue-300">Friday payout queued</div>
                   )}
                 </td>
-                <td className="px-3 py-2 font-semibold text-white">${Number(tx.amountUSD || 0).toFixed(2)}</td>
+                <td className="px-3 py-3 font-semibold text-white">${Number(tx.amountUSD || 0).toFixed(2)}</td>
               </tr>
             ))}
             {filtered.length === 0 && (
@@ -163,4 +178,3 @@ export default function LedgerTransactionsPage() {
     </div>
   );
 }
-

@@ -53,22 +53,21 @@ export default function LedgerExportPage() {
   if (isLoading) return <div className="card text-sm text-slate-400">Preparing export data...</div>;
 
   return (
-    <div className="dashboard-shell">
-      <div className="card">
-        <h1 className="text-2xl font-bold text-white">Export Ledger Data</h1>
+    <div className="dashboard-shell animate-fade-in">
+      <div className="dashboard-hero p-6 sm:p-7">
+        <h1 className="text-2xl font-black text-white">Export Ledger Data</h1>
         <p className="mt-2 text-sm text-slate-400">Download transaction records for reporting and audits.</p>
       </div>
-      <div className="card space-y-4">
+      <div className="card space-y-4 p-5">
         <label className="block text-sm text-slate-300">Range</label>
-        <select className="input w-full max-w-[180px]" value={range} onChange={(e) => setRange(e.target.value as Range)}>
+        <select className="ledger-input w-full max-w-[180px]" value={range} onChange={(e) => setRange(e.target.value as Range)}>
           <option value="7d">Last 7 days</option>
           <option value="30d">Last 30 days</option>
           <option value="90d">Last 90 days</option>
         </select>
         <div className="text-sm text-slate-400">Records: {Number(data?.ledger?.transactions?.length || 0)}</div>
-        <button onClick={onExport} className="btn-primary">Export CSV</button>
+        <button onClick={onExport} className="ledger-button btn-primary press">Export CSV</button>
       </div>
     </div>
   );
 }
-
