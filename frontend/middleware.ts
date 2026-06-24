@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { collectEmbedOrigins } from '@/lib/embeds';
 
@@ -65,6 +65,23 @@ const buildConnectSrc = () => {
   return Array.from(sources).join(' ');
 };
 
+
+const buildMediaSrc = () => {
+  const sources = new Set([
+    "'self'",
+    'blob:',
+    'data:',
+    'https:',
+  ]);
+
+  const apiOrigin = getOriginFromUrl(process.env.NEXT_PUBLIC_API_URL);
+  if (apiOrigin) sources.add(apiOrigin);
+
+  const appOrigin = getOriginFromUrl(process.env.NEXT_PUBLIC_APP_URL);
+  if (appOrigin) sources.add(appOrigin);
+
+  return Array.from(sources).join(' ');
+};
 const ADS_ORIGINS = [
   'https://effectivecpmnetwork.com',
   'https://*.effectivecpmnetwork.com',
@@ -113,6 +130,7 @@ const buildContentSecurityPolicy = (nonce: string) =>
     "form-action 'self'",
     "frame-ancestors 'self'",
     "img-src 'self' data: https:",
+    `media-src ${buildMediaSrc()}`,
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
     `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://trianglerockers.com https://playabledownload.com ${ADS_ORIGINS.join(' ')}`,
@@ -177,3 +195,5 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: ['/((?!.*\\..*).*)'],
 };
+
+
