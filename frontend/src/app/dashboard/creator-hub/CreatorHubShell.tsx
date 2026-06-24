@@ -63,7 +63,7 @@ export default function CreatorHubShell({ children }: { children: React.ReactNod
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-              {user?.tokenBalance || 0} package credits
+              {user?.tokenBalance || 0} Tokens
             </div>
             <button
               onClick={() => setTheme((current) => (current === 'light' ? 'dark' : 'light'))}
