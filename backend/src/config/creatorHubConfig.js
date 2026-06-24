@@ -1,4 +1,4 @@
-﻿const CREATOR_HUB_CATEGORIES = [
+const CREATOR_HUB_CATEGORIES = [
   { value: 'services', label: 'Services' },
   { value: 'talent_skills', label: 'Talent & Skills' },
   { value: 'businesses', label: 'Businesses' },
@@ -11,7 +11,7 @@ const CREATOR_HUB_TIERS = {
   normal: {
     label: 'Normal',
     tokenCost: 5,
-    maxDurationSec: 60,
+    maxDurationSec: 300,
     maxSizeMB: 10,
     maxDescriptionChars: 500,
     badge: 'Standard visibility',
@@ -19,23 +19,23 @@ const CREATOR_HUB_TIERS = {
   plus: {
     label: 'Plus',
     tokenCost: 10,
-    maxDurationSec: 120,
+    maxDurationSec: 600,
     maxSizeMB: 25,
     maxDescriptionChars: 1000,
     badge: 'Higher visibility + basic analytics',
   },
   featured: {
     label: 'Featured',
-    tokenCost: 25,
-    maxDurationSec: 180,
+    tokenCost: 20,
+    maxDurationSec: 900,
     maxSizeMB: 50,
     maxDescriptionChars: 2000,
     badge: 'Featured placement + enhanced analytics + badge',
   },
   premium_spotlight: {
     label: 'Premium Spotlight',
-    tokenCost: 40,
-    maxDurationSec: 300,
+    tokenCost: 30,
+    maxDurationSec: 1800,
     maxSizeMB: 100,
     maxDescriptionChars: 3000,
     badge: 'Top ranking + Verified Creator badge + priority review',

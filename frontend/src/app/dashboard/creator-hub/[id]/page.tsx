@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -47,7 +47,10 @@ export default function CreatorHubDetailPage() {
           if (user && typeof data.tokenBalance === 'number') {
             setUser({ ...user, tokenBalance: data.tokenBalance });
           }
-          toast.success('Tokens received. Unlocking video...');
+          if (typeof data.walletBalanceUSD === 'number' && user) {
+            setUser({ ...user, balanceUSD: data.walletBalanceUSD });
+          }
+          toast.success('Payment received. Unlocking video...');
           await unlockWithWallet();
         }
       } catch {
@@ -68,7 +71,11 @@ export default function CreatorHubDetailPage() {
     };
   }, []);
 
-  const streamSrc = upload ? `${upload.streamUrl}?token=${encodeURIComponent(token || '')}` : '';
+  const apiOrigin = useMemo(() => api.defaults.baseURL?.replace(/\/api\/?$/, '') || '', []);
+  const streamSrc = upload ? `${apiOrigin}${upload.streamUrl}?token=${encodeURIComponent(token || '')}` : '';
+  const walletBalanceUSD = user?.balanceUSD || 0;
+  const unlockPriceUSD = upload?.priceUSD || 0;
+  const unlockPriceLocal = upload?.priceLocal || 0;
 
   const loadFreshUser = async () => {
     try {
@@ -83,8 +90,8 @@ export default function CreatorHubDetailPage() {
     setUnlocking(true);
     try {
       const { data } = await api.post(`/creator-hub/uploads/${upload._id}/unlock`);
-      if (user && typeof data.tokenBalance === 'number') {
-        setUser({ ...user, tokenBalance: data.tokenBalance });
+      if (user && typeof data.walletBalanceUSD === 'number') {
+        setUser({ ...user, balanceUSD: data.walletBalanceUSD });
       } else {
         await loadFreshUser();
       }
@@ -105,7 +112,8 @@ export default function CreatorHubDetailPage() {
     if (!upload) return;
     setUnlocking(true);
     try {
-      const { data } = await api.post('/payments/tokens/purchase', { tokens: upload.priceTokens });
+      const amountLocal = upload.priceLocal || upload.priceUSD;
+      const { data } = await api.post('/payments/deposits/initiate', { amountLocal, phoneNumber: user?.phone || '' });
       setPurchaseReference(data.reference || '');
       setPayMode('mobile');
       toast.success(data.message || 'Payment started. Waiting for confirmation...');
@@ -144,124 +152,129 @@ export default function CreatorHubDetailPage() {
 
   return (
     <CreatorHubShell>
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <button onClick={() => router.push('/dashboard/creator-hub')} className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-emerald-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-          <ArrowLeft size={16} /> Back
-        </button>
-        <button onClick={toggleSave} disabled={saving} className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-emerald-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 disabled:opacity-50">
-          {upload.isSaved ? <BookmarkCheck size={16} className="text-emerald-600" /> : <Bookmark size={16} />}
-          {upload.isSaved ? 'Saved' : 'Save'}
-        </button>
-      </div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between gap-3">
+          <button onClick={() => router.push('/dashboard/creator-hub')} className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-emerald-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+            <ArrowLeft size={16} /> Back
+          </button>
+          <button onClick={toggleSave} disabled={saving} className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-emerald-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 disabled:opacity-50">
+            {upload.isSaved ? <BookmarkCheck size={16} className="text-emerald-600" /> : <Bookmark size={16} />}
+            {upload.isSaved ? 'Saved' : 'Save'}
+          </button>
+        </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
-        <div className="space-y-4">
-          <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-slate-950 shadow-xl dark:border-slate-800">
-            {upload.isLocked ? (
-              <div className="flex aspect-video flex-col items-center justify-center gap-3 bg-gradient-to-br from-slate-800 to-slate-950 text-white">
-                <Lock size={34} />
-                <div className="text-center">
-                  <p className="text-lg font-bold">Premium video locked</p>
-                  <p className="text-sm text-slate-300">{upload.priceTokens} Tokens to unlock</p>
+        <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-slate-950 shadow-xl dark:border-slate-800">
+              {upload.isLocked ? (
+                <div className="flex aspect-video flex-col items-center justify-center gap-3 bg-gradient-to-br from-slate-800 to-slate-950 text-white">
+                  <Lock size={34} />
+                  <div className="text-center">
+                    <p className="text-lg font-bold">Premium video locked</p>
+                    <p className="text-sm text-slate-300">${unlockPriceUSD.toFixed(2)} USD to unlock</p>
+                    {unlockPriceLocal > 0 && (
+                      <p className="mt-1 text-xs text-slate-400">or about {unlockPriceLocal.toFixed(2)} {upload.priceCurrency || 'local currency'} via mobile money</p>
+                    )}
+                  </div>
+                  <button onClick={openPaywall} className="rounded-2xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-600">
+                    Unlock Video
+                  </button>
                 </div>
-                <button onClick={openPaywall} className="rounded-2xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-600">
-                  Unlock Video
-                </button>
+              ) : (
+                <video src={streamSrc} controls playsInline crossOrigin="anonymous" preload="metadata" className="aspect-video w-full bg-black" />
+              )}
+            </div>
+
+            <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">{upload.badge || 'Creator'}</span>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{upload.category.replace('_', ' ')}</span>
+                    {upload.isPremium && <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">Premium</span>}
+                  </div>
+                  <h1 className="mt-3 text-2xl font-black tracking-tight text-slate-900 dark:text-white">{upload.title}</h1>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">by {upload.creator?.name || 'Creator'}{upload.creator?.country ? ` � ${upload.creator.country}` : ''}</p>
+                </div>
+                <div className="flex gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800"><Eye size={12} /> {upload.views}</span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800"><Flame size={12} /> {upload.unlocks}</span>
+                </div>
               </div>
-            ) : (
-              <video src={streamSrc} controls playsInline className="aspect-video w-full bg-black" />
+              <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-slate-300">{upload.description}</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <h2 className="font-bold">Contact</h2>
+              <div className="mt-3 space-y-3 text-sm text-slate-600 dark:text-slate-300">
+                {upload.contact?.phone && <div className="flex items-center gap-2"><Smartphone size={16} /> {upload.contact.phone}</div>}
+                {upload.contact?.email && <div className="flex items-center gap-2"><Mail size={16} /> {upload.contact.email}</div>}
+                {upload.contact?.whatsapp && <div className="flex items-center gap-2"><MessageCircle size={16} /> {upload.contact.whatsapp}</div>}
+                {upload.contact?.website && <div className="flex items-center gap-2"><Globe size={16} /> {upload.contact.website}</div>}
+              </div>
+            </div>
+
+            {upload.isLocked && (
+              <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <h2 className="font-bold">Unlock options</h2>
+                <div className="mt-3 space-y-3">
+                  <button onClick={unlockWithWallet} disabled={walletBalanceUSD < unlockPriceUSD || unlocking} className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 p-4 text-left transition hover:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700">
+                    <Wallet size={20} />
+                    <div>
+                      <div className="font-semibold">Wallet</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">Balance: ${walletBalanceUSD.toFixed(2)} USD</div>
+                    </div>
+                  </button>
+                  <button onClick={startMobileMoney} disabled={unlocking} className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 p-4 text-left transition hover:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700">
+                    <Smartphone size={20} />
+                    <div>
+                      <div className="font-semibold">Mobile Money</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">Top up {unlockPriceLocal > 0 ? `${unlockPriceLocal.toFixed(2)} ${upload.priceCurrency || 'local currency'}` : `about $${unlockPriceUSD.toFixed(2)}`}, then auto-unlock</div>
+                    </div>
+                  </button>
+                  <button onClick={() => setPayMode(null)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 transition hover:border-emerald-400 dark:border-slate-700 dark:text-slate-300">
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {upload.isLocked && payMode === 'mobile' && (
+              <div className="rounded-[24px] border border-emerald-500/20 bg-emerald-50 p-5 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200">
+                Waiting for payment confirmation. We will unlock the video automatically once the payment verifies.
+                <div className="mt-2 text-xs opacity-80">Reference: {purchaseReference || 'pending'}</div>
+              </div>
             )}
           </div>
-
-          <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <div className="flex flex-wrap gap-2">
-                  <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">{upload.badge || 'Creator'}</span>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{upload.category.replace('_', ' ')}</span>
-                  {upload.isPremium && <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">Premium</span>}
-                </div>
-                <h1 className="mt-3 text-2xl font-black tracking-tight text-slate-900 dark:text-white">{upload.title}</h1>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">by {upload.creator?.name || 'Creator'}{upload.creator?.country ? ` · ${upload.creator.country}` : ''}</p>
-              </div>
-              <div className="flex gap-2 text-xs text-slate-500 dark:text-slate-400">
-                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800"><Eye size={12} /> {upload.views}</span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800"><Flame size={12} /> {upload.unlocks}</span>
-              </div>
-            </div>
-            <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-slate-300">{upload.description}</p>
-          </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <h2 className="font-bold">Contact</h2>
-            <div className="mt-3 space-y-3 text-sm text-slate-600 dark:text-slate-300">
-              {upload.contact?.phone && <div className="flex items-center gap-2"><Smartphone size={16} /> {upload.contact.phone}</div>}
-              {upload.contact?.email && <div className="flex items-center gap-2"><Mail size={16} /> {upload.contact.email}</div>}
-              {upload.contact?.whatsapp && <div className="flex items-center gap-2"><MessageCircle size={16} /> {upload.contact.whatsapp}</div>}
-              {upload.contact?.website && <div className="flex items-center gap-2"><Globe size={16} /> {upload.contact.website}</div>}
+        {upload.isLocked && payMode === 'choose' && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="w-full max-w-md rounded-[28px] bg-white p-5 shadow-2xl dark:bg-slate-900">
+              <h3 className="text-lg font-bold">Choose how to pay</h3>
+              <div className="mt-4 space-y-3">
+                <button onClick={unlockWithWallet} disabled={walletBalanceUSD < unlockPriceUSD || unlocking} className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 p-4 text-left disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700">
+                  <Wallet size={20} />
+                  <div>
+                    <div className="font-semibold">Wallet (USD)</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">Balance: ${walletBalanceUSD.toFixed(2)} USD</div>
+                  </div>
+                </button>
+                <button onClick={startMobileMoney} disabled={unlocking} className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 p-4 text-left disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700">
+                  <Smartphone size={20} />
+                  <div>
+                    <div className="font-semibold">Mobile Money</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">Pay the exact USD amount needed to unlock</div>
+                  </div>
+                </button>
+                <button onClick={() => setPayMode(null)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium dark:border-slate-700">Cancel</button>
+              </div>
             </div>
           </div>
-
-          <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <h2 className="font-bold">Unlock options</h2>
-            <div className="mt-3 space-y-3">
-              <button onClick={unlockWithWallet} disabled={(user?.tokenBalance || 0) < upload.priceTokens || unlocking} className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 p-4 text-left transition hover:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700">
-                <Wallet size={20} />
-                <div>
-                  <div className="font-semibold">Wallet</div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">Balance: {user?.tokenBalance || 0} Tokens</div>
-                </div>
-              </button>
-              <button onClick={startMobileMoney} disabled={unlocking} className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 p-4 text-left transition hover:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700">
-                <Smartphone size={20} />
-                <div>
-                  <div className="font-semibold">Mobile Money</div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">Top up exactly what you need, then auto-unlock</div>
-                </div>
-              </button>
-              <button onClick={() => setPayMode(null)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 transition hover:border-emerald-400 dark:border-slate-700 dark:text-slate-300">
-                Close
-              </button>
-            </div>
-          </div>
-
-          {payMode === 'mobile' && (
-            <div className="rounded-[24px] border border-emerald-500/20 bg-emerald-50 p-5 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200">
-              Waiting for payment confirmation. We will unlock the video automatically once the payment verifies.
-              <div className="mt-2 text-xs opacity-80">Reference: {purchaseReference || 'pending'}</div>
-            </div>
-          )}
-        </div>
+        )}
       </div>
-
-      {payMode === 'choose' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-[28px] bg-white p-5 shadow-2xl dark:bg-slate-900">
-            <h3 className="text-lg font-bold">Choose how to pay</h3>
-            <div className="mt-4 space-y-3">
-              <button onClick={unlockWithWallet} disabled={(user?.tokenBalance || 0) < upload.priceTokens || unlocking} className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 p-4 text-left disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700">
-                <Wallet size={20} />
-                <div>
-                  <div className="font-semibold">Wallet (Tokens)</div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">Balance: {user?.tokenBalance || 0} Tokens</div>
-                </div>
-              </button>
-              <button onClick={startMobileMoney} disabled={unlocking} className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 p-4 text-left disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700">
-                <Smartphone size={20} />
-                <div>
-                  <div className="font-semibold">Mobile Money</div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">Pay only for the tokens needed to unlock</div>
-                </div>
-              </button>
-              <button onClick={() => setPayMode(null)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium dark:border-slate-700">Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
     </CreatorHubShell>
   );
 }

@@ -1,4 +1,4 @@
-﻿export interface CreatorHubCategory {
+export interface CreatorHubCategory {
   value: string;
   label: string;
 }
@@ -35,7 +35,9 @@ export interface CreatorUploadItem {
   isLocked: boolean;
   isOwner?: boolean;
   isSaved?: boolean;
-  priceTokens: number;
+  priceUSD: number;
+  priceLocal?: number;
+  priceCurrency?: string;
   streamUrl: string;
   contact?: {
     phone?: string;
@@ -61,7 +63,7 @@ export interface MyUploadItem {
   tier: string;
   badge?: string;
   isPremium: boolean;
-  pricing: null | { defaultTokens: number; byCountry: Record<string, number> };
+  pricing: null | { defaultUSD: number; defaultTokens?: number; byCountry: Record<string, number> };
   contact?: {
     phone?: string;
     email?: string;

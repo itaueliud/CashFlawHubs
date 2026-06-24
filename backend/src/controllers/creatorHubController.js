@@ -29,14 +29,14 @@ const safeUnlink = (filePath) => {
 
 const getVideoDurationSeconds = async () => null;
 
-const resolvePrice = (upload, countryCode) => {
+const resolvePremiumPriceUSD = (upload, countryCode) => {
   if (!upload.isPremium) return 0;
   const byCountry = upload.pricing?.byCountry;
   if (byCountry) {
-    if (typeof byCountry.get === 'function' && byCountry.has(countryCode)) return byCountry.get(countryCode);
-    if (byCountry[countryCode] !== undefined) return byCountry[countryCode];
+    if (typeof byCountry.get === 'function' && byCountry.has(countryCode)) return Number(byCountry.get(countryCode)) || 0;
+    if (byCountry[countryCode] !== undefined) return Number(byCountry[countryCode]) || 0;
   }
-  return upload.pricing?.defaultTokens || DEFAULT_PREMIUM_PRICE_BY_COUNTRY[countryCode] || FALLBACK_PREMIUM_PRICE;
+  return Number(upload.pricing?.defaultUSD || upload.pricing?.defaultTokens || DEFAULT_PREMIUM_PRICE_BY_COUNTRY[countryCode] || FALLBACK_PREMIUM_PRICE) || 0;
 };
 const normalizeCreatorHubTransactionType = (type) => {
   switch (String(type || '')) {
@@ -82,17 +82,29 @@ const createCreatorHubTransactions = async (docs) => {
   }
 };
 
-const calculateUnlockUsd = async (tokenAmount) => {
-  const kesRate = await getCurrencyRate('KES');
-  const grossUsd = ((Number(tokenAmount) || 0) * KES_PER_TOKEN) / kesRate;
+const calculateUnlockUsd = async (priceUSD) => {
+  const grossUsd = Number(priceUSD) || 0;
   const netUsd = grossUsd * (1 - CREATOR_HUB_PLATFORM_FEE_PERCENT);
   return Number(netUsd.toFixed(4));
 };
 
-const serializeUpload = (doc, viewer, unlockedSet, savedSet) => {
+const resolveCountryCurrency = (countryCode) => COUNTRIES[countryCode]?.currency || 'USD';
+
+const resolveUploadPriceLocal = async (upload, countryCode) => {
+  const priceUSD = resolvePremiumPriceUSD(upload, countryCode);
+  if (!priceUSD) return 0;
+  const currency = resolveCountryCurrency(countryCode);
+  if (currency === 'USD') return Number(priceUSD.toFixed(2));
+  const rate = await getCurrencyRate(currency);
+  return Number((priceUSD * rate).toFixed(2));
+};
+
+const serializeUpload = async (doc, viewer, unlockedSet, savedSet) => {
   const creatorIdStr = String(doc.creatorId?._id || doc.creatorId);
   const isOwner = creatorIdStr === String(viewer.id);
   const unlocked = isOwner || unlockedSet.has(doc._id.toString());
+  const priceUSD = doc.isPremium ? resolvePremiumPriceUSD(doc, viewer.country) : 0;
+  const priceLocal = doc.isPremium ? await resolveUploadPriceLocal(doc, viewer.country) : 0;
   return {
     _id: doc._id,
     title: doc.title,
@@ -101,7 +113,9 @@ const serializeUpload = (doc, viewer, unlockedSet, savedSet) => {
     tier: doc.tier,
     badge: CREATOR_HUB_TIERS[doc.tier]?.badge,
     isPremium: doc.isPremium,
-    priceTokens: doc.isPremium ? resolvePrice(doc, viewer.country) : 0,
+    priceUSD,
+    priceLocal,
+    priceCurrency: resolveCountryCurrency(viewer.country),
     isLocked: doc.isPremium && !unlocked,
     isOwner,
     isSaved: savedSet ? savedSet.has(doc._id.toString()) : false,
@@ -180,9 +194,11 @@ exports.listUploads = async (req, res) => {
     const unlockedSet = new Set(myUnlocks.map((u) => u.uploadId.toString()));
     const savedSet = new Set(mySaves.map((s) => s.uploadId.toString()));
 
+    const uploads = await Promise.all(items.map((doc) => serializeUpload(doc, req.user, unlockedSet, savedSet)));
+
     res.json({
       success: true,
-      uploads: items.map((doc) => serializeUpload(doc, req.user, unlockedSet, savedSet)),
+      uploads,
       pagination: { total, page: pageNumber, pages: Math.max(1, Math.ceil(total / pageSize)) },
       categories: CREATOR_HUB_CATEGORIES,
     });
@@ -202,7 +218,7 @@ exports.getUploadById = async (req, res) => {
 
     res.json({
       success: true,
-      upload: serializeUpload(
+      upload: await serializeUpload(
         doc,
         req.user,
         new Set(unlocked ? [doc._id.toString()] : []),
@@ -228,7 +244,10 @@ exports.myUploads = async (req, res) => {
         badge: CREATOR_HUB_TIERS[doc.tier]?.badge,
         isPremium: doc.isPremium,
         pricing: doc.isPremium
-          ? { defaultTokens: doc.pricing.defaultTokens, byCountry: Object.fromEntries(doc.pricing.byCountry || new Map()) }
+          ? {
+              defaultUSD: Number(doc.pricing.defaultUSD || doc.pricing.defaultTokens || FALLBACK_PREMIUM_PRICE),
+              byCountry: Object.fromEntries(doc.pricing.byCountry || new Map()),
+            }
           : null,
         contact: doc.contact,
         status: doc.status,
@@ -279,7 +298,7 @@ exports.saveUpload = async (req, res) => {
           success: false,
           message: 'This is a premium video. Unlock it before saving it to your list.',
           locked: true,
-          priceTokens: resolvePrice(upload, req.user.country),
+          priceUSD: resolvePremiumPriceUSD(upload, req.user.country),
         });
       }
     }
@@ -308,7 +327,7 @@ exports.unsaveUpload = async (req, res) => {
 exports.createUpload = async (req, res) => {
   const session = await User.db.startSession();
   try {
-    const { title, description, category, tier, isPremium, defaultPriceTokens, countryPrices, phone, email, whatsapp, website } = req.body;
+    const { title, description, category, tier, isPremium, defaultPriceUSD, defaultPriceTokens, countryPrices, phone, email, whatsapp, website } = req.body;
 
     if (!req.file) return res.status(400).json({ success: false, message: 'A video file is required' });
 
@@ -363,10 +382,11 @@ exports.createUpload = async (req, res) => {
     const premiumFlag = String(isPremium) === 'true' || isPremium === true;
     const pricing = premiumFlag
       ? {
-          defaultTokens: Math.max(Number(defaultPriceTokens) || FALLBACK_PREMIUM_PRICE, 1),
+          defaultUSD: Math.max(Number(defaultPriceUSD || defaultPriceTokens) || FALLBACK_PREMIUM_PRICE, 1),
+          defaultTokens: Math.max(Number(defaultPriceUSD || defaultPriceTokens) || FALLBACK_PREMIUM_PRICE, 1),
           byCountry: parseCountryPrices(countryPrices),
         }
-      : { defaultTokens: 0, byCountry: {} };
+      : { defaultUSD: 0, defaultTokens: 0, byCountry: {} };
 
     session.startTransaction();
 
@@ -469,30 +489,33 @@ exports.unlockUploadWithWallet = async (req, res) => {
       return res.json({ success: true, unlocked: true, alreadyUnlocked: true });
     }
 
-    const priceTokens = resolvePrice(upload, req.user.country);
+    const priceUSD = resolvePremiumPriceUSD(upload, req.user.country);
 
     session.startTransaction();
-    const viewer = await User.findOneAndUpdate(
-      { _id: req.user.id, tokenBalance: { $gte: priceTokens } },
-      { $inc: { tokenBalance: -priceTokens, totalTokensSpent: priceTokens } },
-      { new: true, session },
-    );
-
-    if (!viewer) {
+    const wallet = await Wallet.findOne({ userId: req.user.id }).session(session);
+    if (!wallet || Number(wallet.balanceUSD || 0) < priceUSD) {
       await session.abortTransaction();
       session.endSession();
-      const currentUser = await User.findById(req.user.id).select('tokenBalance');
-      const shortBy = Math.max(priceTokens - Number(currentUser?.tokenBalance || 0), 1);
-      return respondInsufficientTokens(res, shortBy);
+      const shortBy = Math.max(priceUSD - Number(wallet?.balanceUSD || 0), 0.01);
+      return res.status(402).json({
+        success: false,
+        message: `you need $${shortBy.toFixed(2)} more USD`,
+        shortBy: Number(shortBy.toFixed(4)),
+      });
     }
 
+    wallet.balanceUSD = Number((Number(wallet.balanceUSD || 0) - priceUSD).toFixed(4));
+    await wallet.save({ session });
+
     const creatorId = upload.creatorId?._id || upload.creatorId;
-    const netUsd = await calculateUnlockUsd(priceTokens);
+    const netUsd = await calculateUnlockUsd(priceUSD);
 
     await CreatorPurchase.create([{
-      userId: viewer._id,
+      userId: req.user.id,
       uploadId: upload._id,
-      tokenAmount: priceTokens,
+      tokenAmount: priceUSD,
+      amountUSD: priceUSD,
+      currency: 'USD',
       country: req.user.country,
       unlockedAt: new Date(),
     }], { session });
@@ -500,7 +523,6 @@ exports.unlockUploadWithWallet = async (req, res) => {
     await CreatorUpload.findByIdAndUpdate(upload._id, {
       $inc: {
         unlocks: 1,
-        tokensEarned: priceTokens,
         usdEarned: netUsd,
       },
     }, { session });
@@ -520,11 +542,11 @@ exports.unlockUploadWithWallet = async (req, res) => {
     session.endSession();
 
     const auditLogResult = await createCreatorHubTransactions([{
-      userId: viewer._id,
+      userId: req.user.id,
       type: 'creator_hub_purchase',
-      amountLocal: priceTokens,
-      amountUSD: netUsd,
-      currency: 'TOKEN',
+      amountLocal: priceUSD,
+      amountUSD: priceUSD,
+      currency: 'USD',
       country: req.user.country,
       provider: 'internal',
       direction: 'debit',
@@ -534,14 +556,14 @@ exports.unlockUploadWithWallet = async (req, res) => {
         uploadId: upload._id.toString(),
         creatorId: String(creatorId),
         method: 'wallet',
-        tokenAmount: priceTokens,
+        amountUSD: priceUSD,
       },
     }, {
       userId: creatorId,
       type: 'creator_hub_earning',
-      amountLocal: priceTokens,
+      amountLocal: priceUSD,
       amountUSD: netUsd,
-      currency: 'TOKEN',
+      currency: 'USD',
       country: creatorCountry,
       provider: 'internal',
       direction: 'credit',
@@ -549,18 +571,18 @@ exports.unlockUploadWithWallet = async (req, res) => {
       processedAt: new Date(),
       metadata: {
         uploadId: upload._id.toString(),
-        purchaserId: viewer._id.toString(),
+        purchaserId: req.user.id.toString(),
         platformFeePercent: CREATOR_HUB_PLATFORM_FEE_PERCENT,
-        tokenAmount: priceTokens,
+        amountUSD: priceUSD,
       },
     }]);
 
-    const refreshedUser = await User.findById(viewer._id).select('tokenBalance totalTokensSpent');
+    const refreshedWallet = await Wallet.findOne({ userId: req.user.id }).select('balanceUSD');
     return res.json({
       success: true,
       unlocked: true,
-      tokenAmount: priceTokens,
-      tokenBalance: refreshedUser?.tokenBalance ?? viewer.tokenBalance,
+      amountUSD: priceUSD,
+      walletBalanceUSD: refreshedWallet?.balanceUSD ?? wallet.balanceUSD,
       usdEarned: netUsd,
       auditLogWarning: auditLogResult.warning,
     });

@@ -1,4 +1,4 @@
-﻿const mongoose = require('mongoose');
+const mongoose = require('mongoose');
 
 const creatorUploadSchema = new mongoose.Schema({
   creatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -28,6 +28,7 @@ const creatorUploadSchema = new mongoose.Schema({
   },
   isPremium: { type: Boolean, default: false },
   pricing: {
+    defaultUSD: { type: Number, default: 0, min: 0 },
     defaultTokens: { type: Number, default: 0, min: 0 },
     byCountry: { type: Map, of: Number, default: {} },
   },
