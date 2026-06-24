@@ -2,7 +2,7 @@
 const path = require('path');
 const multer = require('multer');
 
-const uploadRoot = path.join(__dirname, '..', '..', 'uploads-private', 'creator-hub');
+const uploadRoot = path.resolve(process.env.CREATOR_HUB_UPLOAD_ROOT || path.join(__dirname, '..', '..', 'uploads-private', 'creator-hub'));
 fs.mkdirSync(uploadRoot, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -27,3 +27,4 @@ module.exports = multer({
   fileFilter,
   limits: { fileSize: 100 * 1024 * 1024 },
 });
+

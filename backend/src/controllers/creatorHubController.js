@@ -1,4 +1,4 @@
-const fs = require('fs');
+﻿const fs = require('fs');
 const path = require('path');
 
 const User = require('../models/User');
@@ -25,6 +25,27 @@ const safeUnlink = (filePath) => {
   } catch (_) {
     // noop
   }
+};
+
+const resolveCreatorHubVideoPath = (doc) => {
+  const storedPath = doc?.videoFilePath || '';
+  if (storedPath && fs.existsSync(storedPath)) return storedPath;
+
+  const fileName = path.basename(storedPath || doc?.videoFileName || '');
+  if (!fileName) return '';
+
+  const configuredRoot = process.env.CREATOR_HUB_UPLOAD_ROOT;
+  const defaultRoot = path.join(__dirname, '..', '..', 'uploads-private', 'creator-hub');
+  const candidates = [
+    configuredRoot ? path.join(configuredRoot, fileName) : '',
+    path.join(defaultRoot, fileName),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  return '';
 };
 
 const getVideoDurationSeconds = async () => null;
@@ -613,13 +634,14 @@ exports.streamUpload = async (req, res) => {
       return res.status(402).json({ success: false, message: 'Unlock this premium video before streaming it.', locked: true });
     }
 
-    if (!doc.videoFilePath || !fs.existsSync(doc.videoFilePath)) {
+    const videoFilePath = resolveCreatorHubVideoPath(doc);
+    if (!videoFilePath) {
       return res.status(404).json({ success: false, message: 'Video file unavailable' });
     }
 
     await CreatorUpload.findByIdAndUpdate(doc._id, { $inc: { views: 1 } });
 
-    const stat = fs.statSync(doc.videoFilePath);
+    const stat = fs.statSync(videoFilePath);
     const range = req.headers.range;
     const mimeType = doc.videoMimeType || 'video/mp4';
     if (range) {
@@ -627,7 +649,7 @@ exports.streamUpload = async (req, res) => {
       const start = parseInt(parts[0], 10);
       const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
       const chunkSize = (end - start) + 1;
-      const file = fs.createReadStream(doc.videoFilePath, { start, end });
+      const file = fs.createReadStream(videoFilePath, { start, end });
       res.writeHead(206, {
         'Content-Range': `bytes ${start}-${end}/${stat.size}`,
         'Accept-Ranges': 'bytes',
@@ -643,7 +665,7 @@ exports.streamUpload = async (req, res) => {
       'Content-Type': mimeType,
       'Accept-Ranges': 'bytes',
     });
-    fs.createReadStream(doc.videoFilePath).pipe(res);
+    fs.createReadStream(videoFilePath).pipe(res);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -667,3 +689,4 @@ exports.deleteUpload = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
