@@ -797,7 +797,9 @@ exports.getCategories = async (req, res) => {
 // @GET /api/jobs/my-posts
 exports.getMyPostedJobs = async (req, res) => {
   try {
-    const userId = req.user._id || req.user.id;
+    const user = req.user || {};
+    const userId = user._id || user.id;
+    const ownerUserId = String(user.userId || '').trim();
     const pageNumber = Math.max(Number(req.query.page) || 1, 1);
     const pageSize = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
     const skip = (pageNumber - 1) * pageSize;
@@ -854,10 +856,23 @@ exports.getMyPostedJobs = async (req, res) => {
       }).filter(Boolean);
     }
 
+    const ownerExternalIdRegex = ownerUserId
+      ? new RegExp('^internal-.*-' + ownerUserId.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&') + '$', 'i')
+      : null;
+
     const jobIdsToShow = [...new Set([...transactionJobIds, ...recoveredLegacyJobIds])];
-    const query = jobIdsToShow.length
-      ? { $or: [{ postedBy: userId }, { _id: { $in: jobIdsToShow } }] }
-      : { postedBy: userId };
+    const ownerConditions = [
+      { postedBy: userId },
+      { claimedBy: userId },
+    ];
+    if (ownerExternalIdRegex) {
+      ownerConditions.push({ externalId: ownerExternalIdRegex });
+    }
+    if (jobIdsToShow.length) {
+      ownerConditions.push({ _id: { $in: jobIdsToShow } });
+    }
+
+    const query = { $or: ownerConditions };
 
     const [jobs, total] = await Promise.all([
       Job.find(query)
@@ -868,11 +883,23 @@ exports.getMyPostedJobs = async (req, res) => {
       Job.countDocuments(query),
     ]);
 
-    if (jobIdsToShow.length) {
-      await Job.updateMany(
-        { _id: { $in: jobIdsToShow }, postedBy: null, source: INTERNAL_JOB_SOURCE },
-        { $set: { postedBy: userId } }
-      );
+    if (jobIdsToShow.length || ownerExternalIdRegex) {
+      const recoverQuery = {
+        source: INTERNAL_JOB_SOURCE,
+        postedBy: null,
+        $or: [],
+      };
+
+      if (jobIdsToShow.length) {
+        recoverQuery.$or.push({ _id: { $in: jobIdsToShow } });
+      }
+      if (ownerExternalIdRegex) {
+        recoverQuery.$or.push({ externalId: ownerExternalIdRegex });
+      }
+
+      if (recoverQuery.$or.length) {
+        await Job.updateMany(recoverQuery, { $set: { postedBy: userId } });
+      }
     }
 
     const jobIds = jobs.map((job) => job._id);
@@ -904,8 +931,7 @@ exports.getMyPostedJobs = async (req, res) => {
     logger.error(`getMyPostedJobs error: ${error.message}`);
     return res.status(500).json({ success: false, message: error.message });
   }
-};
-// @GET /api/jobs/:id
+};// @GET /api/jobs/:id
 exports.getJob = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
@@ -2242,6 +2268,5 @@ exports.syncJobs = async () => {
     return { success: false, synced, providers: providerStats, error: error.message };
   }
 };
-
 
 
