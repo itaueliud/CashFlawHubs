@@ -651,7 +651,7 @@ exports.unlockUploadWithWallet = async (req, res) => {
 exports.streamUpload = async (req, res) => {
   try {
     const doc = await CreatorUpload.findById(req.params.id)
-      .select('+videoFilePath +videoMimeType +videoFileName +videoSizeBytes creatorId isPremium pricing status title description category tier views unlocks tokensEarned usdEarned contact')
+      .select('+videoFilePath +videoMimeType +videoFileName +videoSizeBytes +videoStorageProvider +videoStorageKey creatorId isPremium pricing status title description category tier views unlocks tokensEarned usdEarned contact')
       .populate('creatorId', 'name country');
 
     if (!doc || doc.status !== 'published') {
