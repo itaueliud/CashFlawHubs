@@ -35,12 +35,9 @@ html {
 }
 
 body {
+  background: #0a0f1a;
+  color: #fff;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(56, 189, 248, 0.10), transparent 28%),
-    radial-gradient(circle at top right, rgba(52, 211, 153, 0.08), transparent 24%),
-    linear-gradient(180deg, #09111f 0%, #060b17 100%);
-  color: var(--text-primary);
 }
 
 ::selection {
@@ -69,13 +66,48 @@ body {
 }
 
 @layer components {
-  .dashboard-shell {
+  /* App-wide defaults that existed before the ledger polish. */
+  .card {
+    @apply rounded-2xl border border-slate-800 bg-[#111827] p-5;
+  }
+
+  .btn-primary {
+    @apply rounded-xl bg-amber-500 px-5 py-2.5 font-semibold text-slate-950 transition-all duration-200 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply rounded-xl bg-slate-800 px-5 py-2.5 font-medium text-white transition-all duration-200 hover:bg-slate-700;
+  }
+
+  .btn-outline {
+    @apply rounded-xl border border-slate-700 px-5 py-2.5 font-medium text-slate-300 transition-all duration-200 hover:border-amber-500 hover:text-amber-400;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white placeholder-slate-400 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-amber-500;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+
+  .badge-green { @apply inline-flex items-center gap-1 rounded-full bg-green-500/20 px-2.5 py-1 text-xs font-medium text-green-400; }
+  .badge-yellow { @apply inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2.5 py-1 text-xs font-medium text-amber-400; }
+  .badge-blue { @apply inline-flex items-center gap-1 rounded-full bg-blue-500/20 px-2.5 py-1 text-xs font-medium text-blue-400; }
+  .badge-red { @apply inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2.5 py-1 text-xs font-medium text-red-400; }
+
+  .stat-card {
+    @apply flex flex-col gap-1 rounded-2xl border border-slate-800 bg-[#111827] p-5;
+  }
+
+  /* Ledger-only polish. */
+  .ledger-scope .dashboard-shell {
     @apply mx-auto w-full max-w-[1280px] space-y-5 px-4 pb-8 pt-4 sm:px-5 lg:px-6;
   }
 
-  .dashboard-hero,
-  .card,
-  .card-surface {
+  .ledger-scope .dashboard-hero,
+  .ledger-scope .card,
+  .ledger-scope .card-surface {
     position: relative;
     overflow: hidden;
     border-radius: 1.5rem;
@@ -85,15 +117,15 @@ body {
     backdrop-filter: blur(16px);
   }
 
-  .dashboard-hero {
+  .ledger-scope .dashboard-hero {
     background: linear-gradient(135deg, rgba(8, 17, 31, 0.98), rgba(7, 13, 25, 0.96));
     border-color: rgba(255, 255, 255, 0.07);
     box-shadow: 0 30px 110px rgba(2, 8, 23, 0.45), var(--shadow-glow);
   }
 
-  .dashboard-hero::before,
-  .card::before,
-  .card-surface::before {
+  .ledger-scope .dashboard-hero::before,
+  .ledger-scope .card::before,
+  .ledger-scope .card-surface::before {
     content: '';
     position: absolute;
     inset: 0 auto auto 0;
@@ -104,30 +136,30 @@ body {
     pointer-events: none;
   }
 
-  .dashboard-toolbar {
+  .ledger-scope .dashboard-toolbar {
     @apply flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between;
   }
 
-  .dashboard-controls {
+  .ledger-scope .dashboard-controls {
     @apply flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center;
   }
 
-  .dashboard-tablist {
+  .ledger-scope .dashboard-tablist {
     @apply flex gap-2 overflow-x-auto pb-1;
   }
 
-  .tab-pill {
+  .ledger-scope .tab-pill {
     @apply rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200;
     background: var(--bg-elevated);
     color: var(--text-muted);
   }
 
-  .tab-pill-active {
+  .ledger-scope .tab-pill-active {
     background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(59, 130, 246, 0.22));
     color: var(--text-primary);
   }
 
-  .stat-card {
+  .ledger-scope .stat-card {
     position: relative;
     overflow: hidden;
     border-radius: 1rem;
@@ -137,7 +169,7 @@ body {
     box-shadow: var(--shadow-soft);
   }
 
-  .stat-card::before {
+  .ledger-scope .stat-card::before {
     content: '';
     position: absolute;
     top: 0;
@@ -148,15 +180,15 @@ body {
     background: var(--stat-accent, var(--accent-blue));
   }
 
-  .stat-card-cyan { --stat-accent: var(--accent-cyan); }
-  .stat-card-green { --stat-accent: var(--accent-green); }
-  .stat-card-amber { --stat-accent: var(--accent-amber); }
-  .stat-card-violet { --stat-accent: var(--accent-violet); }
-  .stat-card-red { --stat-accent: var(--accent-red); }
-  .stat-card-blue { --stat-accent: var(--accent-blue); }
+  .ledger-scope .stat-card-cyan { --stat-accent: var(--accent-cyan); }
+  .ledger-scope .stat-card-green { --stat-accent: var(--accent-green); }
+  .ledger-scope .stat-card-amber { --stat-accent: var(--accent-amber); }
+  .ledger-scope .stat-card-violet { --stat-accent: var(--accent-violet); }
+  .ledger-scope .stat-card-red { --stat-accent: var(--accent-red); }
+  .ledger-scope .stat-card-blue { --stat-accent: var(--accent-blue); }
 
-  .quick-link,
-  .inner-item {
+  .ledger-scope .quick-link,
+  .ledger-scope .inner-item {
     display: block;
     border-radius: 0.85rem;
     background: var(--bg-elevated);
@@ -165,29 +197,29 @@ body {
     transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
   }
 
-  .quick-link {
+  .ledger-scope .quick-link {
     padding: 0.95rem 1rem;
     text-align: left;
   }
 
-  .quick-link:hover,
-  .inner-item:hover {
+  .ledger-scope .quick-link:hover,
+  .ledger-scope .inner-item:hover {
     transform: translateY(-1px);
     background: rgba(56, 189, 248, 0.08);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 24px rgba(2, 8, 23, 0.18);
   }
 
-  .nav-item {
+  .ledger-scope .nav-item {
     position: relative;
     transition: background 160ms ease, transform 160ms ease, color 160ms ease;
   }
 
-  .nav-item.active {
+  .ledger-scope .nav-item.active {
     background: rgba(56, 189, 248, 0.08);
     color: var(--text-primary);
   }
 
-  .nav-item.active::before {
+  .ledger-scope .nav-item.active::before {
     content: '';
     position: absolute;
     left: 0;
@@ -198,8 +230,8 @@ body {
     background: var(--accent-cyan);
   }
 
-  .ledger-input,
-  .input {
+  .ledger-scope .ledger-input,
+  .ledger-scope .input {
     width: 100%;
     border-radius: 0.95rem;
     border: 0.5px solid rgba(255, 255, 255, 0.10);
@@ -208,141 +240,141 @@ body {
     transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease, transform 150ms ease;
   }
 
-  .ledger-input,
-  .input,
-  input.ledger-input,
-  textarea.ledger-input,
-  select.ledger-input,
-  input.input,
-  textarea.input,
-  select.input {
+  .ledger-scope .ledger-input,
+  .ledger-scope .input,
+  .ledger-scope input.ledger-input,
+  .ledger-scope textarea.ledger-input,
+  .ledger-scope select.ledger-input,
+  .ledger-scope input.input,
+  .ledger-scope textarea.input,
+  .ledger-scope select.input {
     @apply px-4 py-3 text-sm;
   }
 
-  .ledger-input::placeholder,
-  .input::placeholder {
+  .ledger-scope .ledger-input::placeholder,
+  .ledger-scope .input::placeholder {
     color: var(--text-subtle);
   }
 
-  .ledger-input:focus,
-  .input:focus {
+  .ledger-scope .ledger-input:focus,
+  .ledger-scope .input:focus {
     outline: none;
     border-color: rgba(56, 189, 248, 0.35);
     box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.10);
   }
 
-  .ledger-button,
-  .btn-primary,
-  .btn-secondary,
-  .btn-outline {
+  .ledger-scope .ledger-button,
+  .ledger-scope .btn-primary,
+  .ledger-scope .btn-secondary,
+  .ledger-scope .btn-outline {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all duration-200;
   }
 
-  .ledger-button:active,
-  .btn-primary:active,
-  .btn-secondary:active,
-  .btn-outline:active,
-  .quick-link:active,
-  .nav-item:active {
+  .ledger-scope .ledger-button:active,
+  .ledger-scope .btn-primary:active,
+  .ledger-scope .btn-secondary:active,
+  .ledger-scope .btn-outline:active,
+  .ledger-scope .quick-link:active,
+  .ledger-scope .nav-item:active {
     transform: scale(0.97);
   }
 
-  .btn-primary {
+  .ledger-scope .btn-primary {
     background: linear-gradient(135deg, rgba(56, 189, 248, 0.95), rgba(59, 130, 246, 0.92));
     color: #08111f;
     box-shadow: 0 14px 36px rgba(56, 189, 248, 0.18);
   }
 
-  .btn-primary:hover {
+  .ledger-scope .btn-primary:hover {
     filter: brightness(1.04);
   }
 
-  .btn-secondary {
+  .ledger-scope .btn-secondary {
     background: var(--bg-elevated);
     color: var(--text-primary);
   }
 
-  .btn-secondary:hover,
-  .btn-outline:hover {
+  .ledger-scope .btn-secondary:hover,
+  .ledger-scope .btn-outline:hover {
     background: rgba(255, 255, 255, 0.06);
   }
 
-  .btn-outline {
+  .ledger-scope .btn-outline {
     border: 0.5px solid rgba(255, 255, 255, 0.10);
     color: var(--text-muted);
   }
 
-  .badge,
-  .badge-blue,
-  .badge-green,
-  .badge-yellow,
-  .badge-red {
+  .ledger-scope .badge,
+  .ledger-scope .badge-blue,
+  .ledger-scope .badge-green,
+  .ledger-scope .badge-yellow,
+  .ledger-scope .badge-red {
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium;
   }
 
-  .badge-blue { background: rgba(56, 189, 248, 0.12); color: var(--accent-cyan); }
-  .badge-green { background: rgba(52, 211, 153, 0.12); color: var(--accent-green); }
-  .badge-yellow { background: rgba(245, 158, 11, 0.12); color: var(--accent-amber); }
-  .badge-red { background: rgba(248, 113, 113, 0.12); color: var(--accent-red); }
+  .ledger-scope .badge-blue { background: rgba(56, 189, 248, 0.12); color: var(--accent-cyan); }
+  .ledger-scope .badge-green { background: rgba(52, 211, 153, 0.12); color: var(--accent-green); }
+  .ledger-scope .badge-yellow { background: rgba(245, 158, 11, 0.12); color: var(--accent-amber); }
+  .ledger-scope .badge-red { background: rgba(248, 113, 113, 0.12); color: var(--accent-red); }
 
-  .ledger-table {
+  .ledger-scope .ledger-table {
     width: 100%;
     border-collapse: collapse;
   }
 
-  .ledger-table thead th {
+  .ledger-scope .ledger-table thead th {
     border-bottom: 0.5px solid var(--border-soft);
   }
 
-  .ledger-table tbody tr {
+  .ledger-scope .ledger-table tbody tr {
     border-bottom: 0.5px solid var(--border-subtle);
   }
 
-  .ledger-table tbody tr:last-child {
+  .ledger-scope .ledger-table tbody tr:last-child {
     border-bottom: none;
   }
 
-  .ledger-table td,
-  .ledger-table th {
+  .ledger-scope .ledger-table td,
+  .ledger-scope .ledger-table th {
     border-left: none;
     border-right: none;
   }
 
-  .table-shell {
+  .ledger-scope .table-shell {
     @apply -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0;
   }
 
-  .press,
-  .hover-lift,
-  .fade-in,
-  .slide-up,
-  .stat-pop,
-  .skeleton-pulse {
+  .ledger-scope .press,
+  .ledger-scope .hover-lift,
+  .ledger-scope .fade-in,
+  .ledger-scope .slide-up,
+  .ledger-scope .stat-pop,
+  .ledger-scope .skeleton-pulse {
     will-change: transform, opacity;
   }
 
-  .hover-lift {
+  .ledger-scope .hover-lift {
     transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
   }
 
-  .hover-lift:hover {
+  .ledger-scope .hover-lift:hover {
     transform: translateY(-1px);
   }
 
-  .fade-in {
+  .ledger-scope .fade-in {
     animation: fade-in 200ms ease-out both;
   }
 
-  .slide-up {
+  .ledger-scope .slide-up {
     animation: slide-up 260ms ease-out both;
   }
 
-  .stat-pop {
+  .ledger-scope .stat-pop {
     animation: stat-pop 360ms ease-out both;
   }
 
-  .skeleton,
-  .skeleton-pulse {
+  .ledger-scope .skeleton,
+  .ledger-scope .skeleton-pulse {
     border-radius: 0.75rem;
     background: var(--bg-elevated);
     animation: skeleton-pulse 1.5s ease-in-out infinite;
@@ -371,14 +403,14 @@ body {
 }
 
 @media (max-width: 640px) {
-  .dashboard-shell {
+  .ledger-scope .dashboard-shell {
     @apply px-3 pb-6 pt-3;
   }
 
-  .btn-primary,
-  .btn-secondary,
-  .btn-outline,
-  .ledger-button {
+  .ledger-scope .btn-primary,
+  .ledger-scope .btn-secondary,
+  .ledger-scope .btn-outline,
+  .ledger-scope .ledger-button {
     @apply w-full justify-center;
   }
 }
