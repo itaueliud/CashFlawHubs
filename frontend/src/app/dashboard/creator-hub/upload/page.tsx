@@ -38,7 +38,7 @@ export default function CreatorHubUploadPage() {
     if (!file) return toast.error('Choose a video file');
     if (!title.trim()) return toast.error('Title is required');
     if (!category) return toast.error('Choose a category');
-    if (!canAfford) return toast.error(`You need ${tierConfig?.tokenCost} Tokens for ${tierConfig?.label}`);
+    if (!canAfford) return toast.error(`You need ${tierConfig?.tokenCost} package credits for ${tierConfig?.label}`);
 
     const form = new FormData();
     form.append('title', title);
@@ -89,7 +89,7 @@ export default function CreatorHubUploadPage() {
             <p className="text-sm text-slate-500 dark:text-slate-400">Pick a package, add a title, attach a video, and publish.</p>
           </div>
           <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-            Your balance: <strong>{user?.tokenBalance || 0} Tokens</strong>
+            Your balance: <strong>{user?.tokenBalance || 0} package credits</strong>
           </div>
         </div>
 
@@ -106,14 +106,14 @@ export default function CreatorHubUploadPage() {
                   className={`rounded-2xl border p-4 text-left transition ${tier === key ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20 dark:bg-emerald-500/10' : 'border-slate-200 bg-white hover:border-emerald-400 dark:border-slate-800 dark:bg-slate-900'}`}
                 >
                   <div className="font-bold">{value.label}</div>
-                  <div className="mt-1 text-sm text-emerald-600 dark:text-emerald-300">{value.tokenCost} Tokens</div>
+                  <div className="mt-1 text-sm text-emerald-600 dark:text-emerald-300">{value.tokenCost} package credits</div>
                   <div className="mt-1 text-xs text-slate-500">up to {value.maxSizeMB}MB - {durationMins} mins</div>
                 </button>
               );
             })}
           </div>
           {tierConfig && !canAfford && (
-            <p className="mt-2 text-xs text-red-500">You need {tierConfig.tokenCost - (user?.tokenBalance || 0)} more Tokens for this package.</p>
+            <p className="mt-2 text-xs text-red-500">You need {tierConfig.tokenCost - (user?.tokenBalance || 0)} more package credits for this package.</p>
           )}
         </div>
 
@@ -168,7 +168,7 @@ export default function CreatorHubUploadPage() {
         </div>
 
         <button onClick={handleSubmit} disabled={submitting || !canAfford} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50">
-          {submitting ? 'Publishing...' : `Publish (${tierConfig?.tokenCost || 0} Tokens)`}
+          {submitting ? 'Publishing...' : `Publish (${tierConfig?.tokenCost || 0} package credits)`}
         </button>
       </div>
     </CreatorHubShell>
