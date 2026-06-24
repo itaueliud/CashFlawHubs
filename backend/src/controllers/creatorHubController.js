@@ -1,5 +1,6 @@
 ﻿const fs = require('fs');
 const path = require('path');
+const { buildCreatorHubKey, uploadCreatorVideo, deleteCreatorVideo, getCreatorVideoObject } = require('../services/r2Storage');
 
 const User = require('../models/User');
 const Wallet = require('../models/Wallet');
@@ -347,6 +348,7 @@ exports.unsaveUpload = async (req, res) => {
 
 exports.createUpload = async (req, res) => {
   const session = await User.db.startSession();
+  let r2Key = '';
   try {
     const { title, description, category, tier, isPremium, defaultPriceUSD, defaultPriceTokens, countryPrices, phone, email, whatsapp, website } = req.body;
 
@@ -409,6 +411,43 @@ exports.createUpload = async (req, res) => {
         }
       : { defaultUSD: 0, defaultTokens: 0, byCountry: {} };
 
+    const uploadDoc = new CreatorUpload({
+      title: cleanTitle,
+      description: cleanDescription,
+      category,
+      tier,
+      tokenCostPaid: tierConfig.tokenCost,
+      videoFilePath: '',
+      videoMimeType: req.file.mimetype || 'video/mp4',
+      videoFileName: req.file.originalname || path.basename(req.file.path),
+      videoSizeBytes: req.file.size,
+      videoStorageProvider: 'r2',
+      videoStorageKey: '',
+      videoPublicUrl: '',
+      contact: {
+        phone: String(phone || '').trim(),
+        email: String(email || '').trim(),
+        whatsapp: String(whatsapp || '').trim(),
+        website: String(website || '').trim(),
+      },
+      isPremium: premiumFlag,
+      pricing,
+      status: 'published',
+    });
+
+    const storageKey = buildCreatorHubKey({
+      uploadId: uploadDoc._id.toString(),
+      fileName: uploadDoc.videoFileName,
+    });
+
+    await uploadCreatorVideo({
+      key: storageKey,
+      body: fs.createReadStream(req.file.path),
+      contentType: uploadDoc.videoMimeType,
+      contentLength: req.file.size,
+    });
+    r2Key = storageKey;
+
     session.startTransaction();
 
     const creator = await User.findOneAndUpdate(
@@ -420,36 +459,24 @@ exports.createUpload = async (req, res) => {
     if (!creator) {
       await session.abortTransaction();
       session.endSession();
+      await deleteCreatorVideo(r2Key);
       safeUnlink(req.file.path);
       const currentUser = await User.findById(req.user.id).select('tokenBalance');
       const shortBy = Math.max(tierConfig.tokenCost - Number(currentUser?.tokenBalance || 0), 1);
       return respondInsufficientTokens(res, shortBy);
     }
 
-    const uploadDoc = await CreatorUpload.create([{
-      creatorId: creator._id,
-      title: cleanTitle,
-      description: cleanDescription,
-      category,
-      tier,
-      tokenCostPaid: tierConfig.tokenCost,
-      videoFilePath: req.file.path,
-      videoMimeType: req.file.mimetype || 'video/mp4',
-      videoFileName: req.file.originalname || path.basename(req.file.path),
-      videoSizeBytes: req.file.size,
-      contact: {
-        phone: String(phone || '').trim(),
-        email: String(email || '').trim(),
-        whatsapp: String(whatsapp || '').trim(),
-        website: String(website || '').trim(),
-      },
-      isPremium: premiumFlag,
-      pricing,
-      status: 'published',
-    }], { session });
+    uploadDoc.creatorId = creator._id;
+    uploadDoc.videoFilePath = `r2://${process.env.R2_BUCKET_NAME || 'creator-hub'}/${storageKey}`;
+    uploadDoc.videoStorageKey = storageKey;
+    uploadDoc.videoPublicUrl = process.env.R2_PUBLIC_URL ? `${String(process.env.R2_PUBLIC_URL).replace(/\/+$/, '')}/${storageKey}` : '';
+
+    await uploadDoc.save({ session });
 
     await session.commitTransaction();
     session.endSession();
+
+    safeUnlink(req.file.path);
 
     const auditLogResult = await createCreatorHubTransactions([{
       userId: creator._id,
@@ -463,10 +490,12 @@ exports.createUpload = async (req, res) => {
       status: 'successful',
       processedAt: new Date(),
       metadata: {
-        creatorUploadId: uploadDoc[0]._id.toString(),
+        creatorUploadId: uploadDoc._id.toString(),
         tier,
         category,
         tokenCost: tierConfig.tokenCost,
+        storageProvider: 'r2',
+        storageKey,
       },
     }]);
 
@@ -476,9 +505,9 @@ exports.createUpload = async (req, res) => {
       message: 'Upload published successfully',
       auditLogWarning: auditLogResult.warning,
       upload: {
-        _id: uploadDoc[0]._id,
-        title: uploadDoc[0].title,
-        tier: uploadDoc[0].tier,
+        _id: uploadDoc._id,
+        title: uploadDoc.title,
+        tier: uploadDoc.tier,
       },
       tokenBalance: refreshedUser?.tokenBalance ?? creator.tokenBalance,
     });
@@ -489,6 +518,7 @@ exports.createUpload = async (req, res) => {
       // noop
     }
     session.endSession();
+    await deleteCreatorVideo(r2Key);
     safeUnlink(req.file?.path);
     res.status(error.status || 500).json({ success: false, message: error.message });
   }
@@ -634,16 +664,35 @@ exports.streamUpload = async (req, res) => {
       return res.status(402).json({ success: false, message: 'Unlock this premium video before streaming it.', locked: true });
     }
 
+    await CreatorUpload.findByIdAndUpdate(doc._id, { $inc: { views: 1 } });
+
+    const range = req.headers.range;
+    const mimeType = doc.videoMimeType || 'video/mp4';
+    if (doc.videoStorageProvider === 'r2' && doc.videoStorageKey) {
+      const object = await getCreatorVideoObject({ key: doc.videoStorageKey, range });
+      const body = object.Body;
+      if (!body) {
+        return res.status(404).json({ success: false, message: 'Video file unavailable' });
+      }
+
+      const headers = {
+        'Accept-Ranges': 'bytes',
+        'Content-Type': object.ContentType || mimeType,
+      };
+      if (object.ContentLength !== undefined) headers['Content-Length'] = object.ContentLength;
+      if (object.ContentRange) headers['Content-Range'] = object.ContentRange;
+
+      res.writeHead(range ? 206 : 200, headers);
+      body.pipe(res);
+      return;
+    }
+
     const videoFilePath = resolveCreatorHubVideoPath(doc);
     if (!videoFilePath) {
       return res.status(404).json({ success: false, message: 'Video file unavailable' });
     }
 
-    await CreatorUpload.findByIdAndUpdate(doc._id, { $inc: { views: 1 } });
-
     const stat = fs.statSync(videoFilePath);
-    const range = req.headers.range;
-    const mimeType = doc.videoMimeType || 'video/mp4';
     if (range) {
       const parts = range.replace(/bytes=/, '').split('-');
       const start = parseInt(parts[0], 10);
@@ -651,7 +700,7 @@ exports.streamUpload = async (req, res) => {
       const chunkSize = (end - start) + 1;
       const file = fs.createReadStream(videoFilePath, { start, end });
       res.writeHead(206, {
-        'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+        'Content-Range': 'bytes ' + start + '-' + end + '/' + stat.size,
         'Accept-Ranges': 'bytes',
         'Content-Length': chunkSize,
         'Content-Type': mimeType,
@@ -673,7 +722,7 @@ exports.streamUpload = async (req, res) => {
 
 exports.deleteUpload = async (req, res) => {
   try {
-    const upload = await CreatorUpload.findOne({ _id: req.params.id, creatorId: req.user.id }).select('+videoFilePath');
+    const upload = await CreatorUpload.findOne({ _id: req.params.id, creatorId: req.user.id }).select('+videoFilePath +videoStorageKey +videoStorageProvider');
     if (!upload) return res.status(404).json({ success: false, message: 'Not found' });
 
     const filePath = upload.videoFilePath;
@@ -682,11 +731,22 @@ exports.deleteUpload = async (req, res) => {
       CreatorSavedVideo.deleteMany({ uploadId: upload._id }),
       CreatorUpload.deleteOne({ _id: upload._id }),
     ]);
-    safeUnlink(filePath);
-
+    if (upload.videoStorageProvider === 'r2' && upload.videoStorageKey) {
+      await deleteCreatorVideo(upload.videoStorageKey);
+    } else {
+      safeUnlink(filePath);
+    }
     res.json({ success: true, deleted: true });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+
+
+
+
+
+
+
 
