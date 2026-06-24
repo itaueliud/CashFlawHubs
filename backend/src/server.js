@@ -1,4 +1,4 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
@@ -132,7 +132,7 @@ connectDB();
 connectRedis();
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(mongoSanitize());
 app.use(hpp());
 
@@ -298,6 +298,7 @@ server.listen(PORT, () => {
 });
 
 module.exports = app;
+
 
 
 
