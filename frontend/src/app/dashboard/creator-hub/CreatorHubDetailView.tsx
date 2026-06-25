@@ -1,11 +1,11 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/store/authStore';
-import { ArrowLeft, Bookmark, BookmarkCheck, Globe, Lock, Mail, MessageCircle, Smartphone, Wallet, Eye, Flame } from 'lucide-react';
+import { ArrowLeft, Bookmark, BookmarkCheck, Eye, Flame, Lock, MessageSquare, Smartphone, Wallet } from 'lucide-react';
 import { CreatorUploadItem } from './types';
 import CreatorHubShell from './CreatorHubShell';
 
@@ -18,6 +18,7 @@ export default function CreatorHubDetailView({ uploadId }: { uploadId?: string }
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const [initiatingChat, setInitiatingChat] = useState(false);
   const [payMode, setPayMode] = useState<'choose' | 'mobile' | null>(null);
   const [purchaseReference, setPurchaseReference] = useState('');
   const pollRef = useRef<number | null>(null);
@@ -151,6 +152,18 @@ export default function CreatorHubDetailView({ uploadId }: { uploadId?: string }
     }
   };
 
+  const initiateCreatorChat = async () => {
+    if (!upload) return;
+    setInitiatingChat(true);
+    try {
+      const { data } = await api.post(`/chat/creator-hub/${upload._id}/initiate`);
+      router.push(`/dashboard/chat?sessionId=${data.session._id}`);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Could not open chat');
+    } finally {
+      setInitiatingChat(false);
+    }
+  };
   if (loading || !upload) {
     return <div className="py-20 text-center text-slate-500">Loading...</div>;
   }
@@ -211,15 +224,22 @@ export default function CreatorHubDetailView({ uploadId }: { uploadId?: string }
           </div>
 
           <div className="space-y-4">
-            <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <h2 className="font-bold">Contact</h2>
-              <div className="mt-3 space-y-3 text-sm text-slate-600 dark:text-slate-300">
-                {upload.contact?.phone && <div className="flex items-center gap-2"><Smartphone size={16} /> {upload.contact.phone}</div>}
-                {upload.contact?.email && <div className="flex items-center gap-2"><Mail size={16} /> {upload.contact.email}</div>}
-                {upload.contact?.whatsapp && <div className="flex items-center gap-2"><MessageCircle size={16} /> {upload.contact.whatsapp}</div>}
-                {upload.contact?.website && <div className="flex items-center gap-2"><Globe size={16} /> {upload.contact.website}</div>}
+            {!upload.isOwner && (
+              <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <h2 className="font-bold text-slate-900 dark:text-white">Interested?</h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  Send a message directly to the creator about this video.
+                </p>
+                <button
+                  onClick={initiateCreatorChat}
+                  disabled={initiatingChat}
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:opacity-50"
+                >
+                  <MessageSquare size={16} />
+                  {initiatingChat ? 'Opening chat...' : 'Message Creator'}
+                </button>
               </div>
-            </div>
+            )}
 
             {upload.isLocked && (
               <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -283,6 +303,3 @@ export default function CreatorHubDetailView({ uploadId }: { uploadId?: string }
     </CreatorHubShell>
   );
 }
-
-
-

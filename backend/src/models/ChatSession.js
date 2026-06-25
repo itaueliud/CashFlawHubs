@@ -1,7 +1,14 @@
 const mongoose = require('mongoose');
 
 const chatSessionSchema = new mongoose.Schema({
-  jobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', required: true, index: true },
+  sessionType: {
+    type: String,
+    enum: ['job', 'creator_hub'],
+    default: 'job',
+    index: true,
+  },
+  jobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', default: null, index: true },
+  uploadId: { type: mongoose.Schema.Types.ObjectId, ref: 'CreatorUpload', default: null, index: true },
   posterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null, index: true },
   applicantId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   title: { type: String, default: '' },
@@ -20,6 +27,14 @@ const chatSessionSchema = new mongoose.Schema({
   lastMessageAt: { type: Date, default: Date.now },
 }, { timestamps: true });
 
-chatSessionSchema.index({ jobId: 1, posterId: 1, applicantId: 1 }, { unique: true });
+chatSessionSchema.index(
+  { jobId: 1, posterId: 1, applicantId: 1 },
+  { unique: true, partialFilterExpression: { sessionType: 'job' } }
+);
+
+chatSessionSchema.index(
+  { uploadId: 1, applicantId: 1 },
+  { unique: true, partialFilterExpression: { sessionType: 'creator_hub' } }
+);
 
 module.exports = mongoose.model('ChatSession', chatSessionSchema);

@@ -5,6 +5,7 @@ const { protect } = require('../middleware/auth');
 const { moderateChatPayload } = require('../middleware/chatModeration');
 const {
   initiateJobChat,
+  initiateCreatorHubChat,
   listMyChatSessions,
   getChatHistory,
   sendChatMessage,
@@ -30,6 +31,7 @@ const chatLimiter = rateLimit({
 router.use(chatLimiter);
 
 router.post('/jobs/:jobId/initiate', initiateJobChat);
+router.post('/creator-hub/:uploadId/initiate', initiateCreatorHubChat);
 router.get('/sessions', listMyChatSessions);
 router.get('/sessions/:sessionId/history', getChatHistory);
 router.post('/sessions/:sessionId/messages', moderateChatPayload, sendChatMessage);

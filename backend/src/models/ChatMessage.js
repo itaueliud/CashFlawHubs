@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const chatMessageSchema = new mongoose.Schema({
   sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'ChatSession', required: true, index: true },
-  jobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', required: true, index: true },
+  jobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', default: null, index: true },
   senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   role: { type: String, enum: ['poster', 'applicant', 'assistant', 'system', 'admin'], required: true },
   messageType: { type: String, enum: ['text', 'offer', 'admin_notice'], default: 'text' },

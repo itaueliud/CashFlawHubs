@@ -1,5 +1,7 @@
 const ChatSession = require('../models/ChatSession');
 const ChatMessage = require('../models/ChatMessage');
+const CreatorUpload = require('../models/CreatorUpload');
+const FraudAlert = require('../models/FraudAlert');
 const Job = require('../models/Job');
 const JobApplication = require('../models/JobApplication');
 const User = require('../models/User');
@@ -10,6 +12,12 @@ const { trackEvent } = require('../services/eventTracker');
 const asObjectIdString = (value) => String(value || '');
 
 const determineRole = (session, userId) => {
+  if (session.sessionType === 'creator_hub') {
+    if (session.posterId && asObjectIdString(session.posterId) === asObjectIdString(userId)) return 'poster';
+    if (asObjectIdString(session.applicantId) === asObjectIdString(userId)) return 'applicant';
+    return null;
+  }
+
   if (session.posterId && asObjectIdString(session.posterId) === asObjectIdString(userId)) return 'poster';
   if (asObjectIdString(session.applicantId) === asObjectIdString(userId)) return 'applicant';
   return null;
@@ -115,7 +123,7 @@ const createChatFraudAlert = async ({ session, userId, content, detection, messa
     status: 'open',
     metadata: {
       sessionId: String(session._id),
-      jobId: String(session.jobId),
+      jobId: session.jobId ? String(session.jobId) : null,
       senderId: String(userId),
       messageId: messageId ? String(messageId) : null,
       messagePreview: String(content || '').slice(0, 280),
@@ -177,6 +185,45 @@ exports.initiateJobChat = async (req, res) => {
   }
 };
 
+exports.initiateCreatorHubChat = async (req, res) => {
+  try {
+    const { uploadId } = req.params;
+    const viewerId = req.user._id || req.user.id;
+
+    const upload = await CreatorUpload.findById(uploadId).select('creatorId title status');
+    if (!upload || upload.status !== 'published') {
+      return res.status(404).json({ success: false, message: 'Video not found' });
+    }
+
+    const creatorId = upload.creatorId;
+    if (asObjectIdString(creatorId) === asObjectIdString(viewerId)) {
+      return res.status(400).json({ success: false, message: 'You cannot chat with yourself' });
+    }
+
+    const title = `Re: ${upload.title}`;
+    const session = await ChatSession.findOneAndUpdate(
+      { sessionType: 'creator_hub', uploadId: upload._id, applicantId: viewerId },
+      {
+        $setOnInsert: {
+          sessionType: 'creator_hub',
+          uploadId: upload._id,
+          posterId: creatorId,
+          applicantId: viewerId,
+          title,
+          status: 'open',
+          aiEnabled: false,
+          metadata: { uploadId: String(upload._id), uploadTitle: upload.title },
+        },
+      },
+      { upsert: true, new: true }
+    );
+
+    return res.json({ success: true, session });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 exports.listMyChatSessions = async (req, res) => {
   try {
     const userId = req.user._id || req.user.id;
@@ -187,6 +234,7 @@ exports.listMyChatSessions = async (req, res) => {
     const sessions = await ChatSession.find(query)
       .sort({ lastMessageAt: -1 })
       .populate('jobId', 'title company location')
+      .populate('uploadId', 'title category')
       .populate('posterId', 'name userId role')
       .populate('applicantId', 'name userId role');
 
@@ -288,7 +336,7 @@ exports.sendChatMessage = async (req, res) => {
 
     const message = await ChatMessage.create({
       sessionId: session._id,
-      jobId: session.jobId,
+      jobId: session.jobId || null,
       senderId: userId,
       role,
       messageType: req.body?.messageType || 'text',
@@ -374,7 +422,7 @@ exports.sendChatMessage = async (req, res) => {
 
       aiMessage = await ChatMessage.create({
         sessionId: session._id,
-        jobId: session.jobId,
+        jobId: session.jobId || null,
         senderId: userId,
         role: 'assistant',
         content: aiContent,
@@ -434,7 +482,7 @@ exports.setSessionStatus = async (req, res) => {
 
     await ChatMessage.create({
       sessionId: session._id,
-      jobId: session.jobId,
+      jobId: session.jobId || null,
       senderId: userId,
       role: role === 'admin' ? 'admin' : 'system',
       messageType: 'admin_notice',
@@ -491,7 +539,7 @@ exports.createOfferMessage = async (req, res) => {
     const content = `Offer: ${terms}`;
     const message = await ChatMessage.create({
       sessionId: session._id,
-      jobId: session.jobId,
+      jobId: session.jobId || null,
       senderId: userId,
       role,
       messageType: 'offer',
@@ -597,7 +645,7 @@ exports.adminModerateSession = async (req, res) => {
       : `Admin action: ${action}${reason ? ` (${reason})` : ''}`;
     const adminMsg = await ChatMessage.create({
       sessionId: session._id,
-      jobId: session.jobId,
+      jobId: session.jobId || null,
       senderId: adminUserId,
       role: 'admin',
       messageType: 'admin_notice',
@@ -615,5 +663,3 @@ exports.adminModerateSession = async (req, res) => {
     return res.status(error.statusCode || 500).json({ success: false, message: error.message });
   }
 };
-
-
