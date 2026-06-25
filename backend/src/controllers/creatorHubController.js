@@ -1,4 +1,4 @@
-﻿const fs = require('fs');
+const fs = require('fs');
 const path = require('path');
 const { buildCreatorHubKey, uploadCreatorVideo, deleteCreatorVideo, getCreatorVideoObject } = require('../services/r2Storage');
 
@@ -142,6 +142,7 @@ const serializeUpload = async (doc, viewer, unlockedSet, savedSet) => {
     isOwner,
     isSaved: savedSet ? savedSet.has(doc._id.toString()) : false,
     streamUrl: `/api/creator-hub/uploads/${doc._id}/stream`,
+    videoPublicUrl: doc.videoPublicUrl || '',
     contact: doc.contact,
     creator: doc.creatorId?.name ? { _id: creatorIdStr, name: doc.creatorId.name, country: doc.creatorId.country } : undefined,
     views: doc.views,
@@ -278,6 +279,7 @@ exports.myUploads = async (req, res) => {
         tokensEarned: doc.tokensEarned,
         usdEarned: doc.usdEarned,
         streamUrl: `/api/creator-hub/uploads/${doc._id}/stream`,
+        videoPublicUrl: doc.videoPublicUrl || '',
         createdAt: doc.createdAt,
       })),
     });
@@ -741,9 +743,6 @@ exports.deleteUpload = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
-
 
 
 

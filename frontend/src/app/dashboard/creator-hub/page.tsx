@@ -66,7 +66,7 @@ export default function CreatorHubBrowsePage() {
     unlocked: uploads.filter((item) => item.isPremium && !item.isLocked).length,
   }), [uploads]);
 
-  const videoSrc = (item: CreatorUploadItem) => `${apiOrigin}${item.streamUrl}?token=${encodeURIComponent(token || '')}`;
+  const videoSrc = (item: CreatorUploadItem) => item.videoPublicUrl || `${apiOrigin}${item.streamUrl}?token=${encodeURIComponent(token || '')}`;
 
   const toggleSave = async (item: CreatorUploadItem) => {
     setSavingId(item._id);
@@ -192,7 +192,6 @@ export default function CreatorHubBrowsePage() {
                         loop
                         playsInline
                         preload="metadata"
-                        crossOrigin="anonymous"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-700 to-slate-900 text-white">

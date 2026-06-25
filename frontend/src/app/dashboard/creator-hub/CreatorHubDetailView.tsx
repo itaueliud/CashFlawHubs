@@ -78,7 +78,7 @@ export default function CreatorHubDetailView({ uploadId }: { uploadId?: string }
   }, []);
 
   const apiOrigin = useMemo(() => api.defaults.baseURL?.replace(/\/api\/?$/, '') || '', []);
-  const streamSrc = upload ? `${apiOrigin}${upload.streamUrl}?token=${encodeURIComponent(token || '')}` : '';
+  const streamSrc = upload ? (upload.videoPublicUrl || `${apiOrigin}${upload.streamUrl}?token=${encodeURIComponent(token || '')}`) : '';
   const walletBalanceUSD = user?.balanceUSD || 0;
   const unlockPriceUSD = upload?.priceUSD || 0;
   const unlockPriceLocal = upload?.priceLocal || 0;
@@ -199,7 +199,7 @@ export default function CreatorHubDetailView({ uploadId }: { uploadId?: string }
                   </button>
                 </div>
               ) : (
-                <video src={streamSrc} controls playsInline crossOrigin="anonymous" preload="metadata" className="aspect-video w-full bg-black" />
+                <video key={streamSrc} src={streamSrc} controls playsInline preload="metadata" className="aspect-video w-full bg-black" onError={() => toast.error('Video playback failed. Please try opening the raw stream link.')} />
               )}
             </div>
 
@@ -212,7 +212,7 @@ export default function CreatorHubDetailView({ uploadId }: { uploadId?: string }
                     {upload.isPremium && <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">Premium</span>}
                   </div>
                   <h1 className="mt-3 text-2xl font-black tracking-tight text-slate-900 dark:text-white">{upload.title}</h1>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">by {upload.creator?.name || 'Creator'}{upload.creator?.country ? ` Â· ${upload.creator.country}` : ''}</p>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">by {upload.creator?.name || 'Creator'}{upload.creator?.country ? ` - ${upload.creator.country}` : ''}</p>
                 </div>
                 <div className="flex gap-2 text-xs text-slate-500 dark:text-slate-400">
                   <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800"><Eye size={12} /> {upload.views}</span>

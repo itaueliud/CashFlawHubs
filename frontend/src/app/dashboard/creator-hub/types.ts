@@ -39,6 +39,7 @@ export interface CreatorUploadItem {
   priceLocal?: number;
   priceCurrency?: string;
   streamUrl: string;
+  videoPublicUrl?: string;
   contact?: {
     phone?: string;
     email?: string;
@@ -76,5 +77,6 @@ export interface MyUploadItem {
   tokensEarned: number;
   usdEarned: number;
   streamUrl: string;
+  videoPublicUrl?: string;
   createdAt: string;
 }
