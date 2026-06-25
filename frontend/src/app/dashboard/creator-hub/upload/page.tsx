@@ -19,7 +19,7 @@ export default function CreatorHubUploadPage() {
   const [tier, setTier] = useState('normal');
   const [file, setFile] = useState<File | null>(null);
   const [isPremium, setIsPremium] = useState(false);
-  const [defaultPriceUSD, setDefaultPriceUSD] = useState(15);
+  const [defaultPriceUSD, setDefaultPriceUSD] = useState('');
 
   const [phone, setPhone] = useState(user?.phone || '');
   const [email, setEmail] = useState(user?.email || '');
@@ -46,8 +46,8 @@ export default function CreatorHubUploadPage() {
     form.append('category', category);
     form.append('tier', tier);
     form.append('isPremium', String(isPremium));
-    if (isPremium) {
-      form.append('defaultPriceUSD', String(defaultPriceUSD));
+    if (isPremium && defaultPriceUSD.trim()) {
+      form.append('defaultPriceUSD', defaultPriceUSD.trim());
     }
     form.append('phone', phone);
     form.append('email', email);
@@ -154,7 +154,7 @@ export default function CreatorHubUploadPage() {
             <div className="mt-4 space-y-4">
               <div>
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Premium price (USD)</label>
-                <input type="number" min={1} value={defaultPriceUSD} onChange={(e) => setDefaultPriceUSD(Number(e.target.value))} className="w-36 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-900" />
+                <input type="number" min={1} value={defaultPriceUSD} onChange={(e) => setDefaultPriceUSD(e.target.value)} className="w-36 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-900" />
               </div>
             </div>
           )}
