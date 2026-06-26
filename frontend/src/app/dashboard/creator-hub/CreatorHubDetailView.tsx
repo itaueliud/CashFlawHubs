@@ -9,6 +9,9 @@ import { ArrowLeft, Bookmark, BookmarkCheck, Eye, Flame, Lock, MessageSquare, Sm
 import { CreatorUploadItem } from './types';
 import CreatorHubShell from './CreatorHubShell';
 
+type ApiError = { response?: { data?: { message?: string } } };
+const getApiErrorMessage = (error: unknown, fallback: string) => (error as ApiError)?.response?.data?.message || fallback;
+
 export default function CreatorHubDetailView({ uploadId }: { uploadId?: string } = {}) {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -30,7 +33,7 @@ export default function CreatorHubDetailView({ uploadId }: { uploadId?: string }
       return;
     }
     let cancelled = false;
-    api.get(`/creator-hub/uploads/${id}`).then(({ data }) => {
+    api.get(`/creator-hub/uploads/${id}`, { timeout: 30000 }).then(({ data }) => {
       if (!cancelled) setUpload(data.upload);
     }).catch((error) => {
       toast.error(error?.response?.data?.message || 'Video not found');
@@ -105,8 +108,8 @@ export default function CreatorHubDetailView({ uploadId }: { uploadId?: string }
       setUpload((current) => current ? { ...current, isLocked: false } : current);
       setPayMode(null);
       setPurchaseReference('');
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Unlock failed');
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, 'Unlock failed'));
     } finally {
       setUnlocking(false);
     }
@@ -123,8 +126,8 @@ export default function CreatorHubDetailView({ uploadId }: { uploadId?: string }
       setPurchaseReference(data.reference || '');
       setPayMode('mobile');
       toast.success(data.message || 'Payment started. Waiting for confirmation...');
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Could not start payment');
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, 'Could not start payment'));
     } finally {
       setUnlocking(false);
     }
@@ -145,8 +148,8 @@ export default function CreatorHubDetailView({ uploadId }: { uploadId?: string }
         setUpload({ ...upload, isSaved: true });
         toast.success('Saved');
       }
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Could not save this video');
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, 'Could not save this video'));
     } finally {
       setSaving(false);
     }
@@ -158,8 +161,8 @@ export default function CreatorHubDetailView({ uploadId }: { uploadId?: string }
     try {
       const { data } = await api.post(`/chat/creator-hub/${upload._id}/initiate`);
       router.push(`/dashboard/chat?sessionId=${data.session._id}`);
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Could not open chat');
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, 'Could not open chat'));
     } finally {
       setInitiatingChat(false);
     }

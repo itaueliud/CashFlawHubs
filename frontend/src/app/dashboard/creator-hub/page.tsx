@@ -7,12 +7,15 @@ import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/store/authStore';
 import { Bookmark, Eye, Filter, Heart, Lock, Search, Play, BookmarkCheck, Sparkles } from 'lucide-react';
-import clsx from 'clsx';
 import { CreatorHubMeta, CreatorUploadItem } from './types';
 import CreatorHubShell from './CreatorHubShell';
 
 const CATEGORY_ALL = 'all';
 const CREATOR_HUB_ROUTE = '/dashboard/creator-hub';
+const CREATOR_HUB_REQUEST_TIMEOUT = 30000;
+
+type ApiError = { response?: { data?: { message?: string } } };
+const getApiErrorMessage = (error: unknown, fallback: string) => (error as ApiError)?.response?.data?.message || fallback;
 
 export default function CreatorHubBrowsePage() {
   const router = useRouter();
@@ -27,7 +30,7 @@ export default function CreatorHubBrowsePage() {
   const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
-    api.get('/creator-hub/meta').then(({ data }) => setMeta(data));
+    api.get('/creator-hub/meta', { timeout: CREATOR_HUB_REQUEST_TIMEOUT }).then(({ data }) => setMeta(data));
   }, []);
 
   useEffect(() => {
@@ -45,10 +48,10 @@ export default function CreatorHubBrowsePage() {
         if (tier !== CATEGORY_ALL) params.set('tier', tier);
         if (debouncedSearch) params.set('search', debouncedSearch);
         const url = params.toString() ? `/creator-hub/uploads?${params.toString()}` : '/creator-hub/uploads';
-        const { data } = await api.get(url);
+        const { data } = await api.get(url, { timeout: CREATOR_HUB_REQUEST_TIMEOUT });
         if (!cancelled) setUploads(data.uploads || []);
-      } catch (error: any) {
-        if (!cancelled) toast.error(error?.response?.data?.message || 'Failed to load creator videos');
+      } catch (error: unknown) {
+        if (!cancelled) toast.error(getApiErrorMessage(error, 'Failed to load creator videos'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -82,8 +85,8 @@ export default function CreatorHubBrowsePage() {
         setUploads((current) => current.map((upload) => upload._id === item._id ? { ...upload, isSaved: true } : upload));
         toast.success('Saved');
       }
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Could not save this video');
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, 'Could not save this video'));
     } finally {
       setSavingId(null);
     }
@@ -99,7 +102,7 @@ export default function CreatorHubBrowsePage() {
                 <Sparkles size={12} /> Creator Hub
               </div>
               <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-900 dark:text-white">Browse discoverable videos</h2>
-              <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-300">Free videos autoplay as thumbnails. Premium videos stay locked until a viewer pays with wallet USD or mobile money.</p>
+              <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-300">Free videos can preview as thumbnails, while premium videos stay on a locked card until the viewer opens the detail view.</p>
             </div>
             <div className="grid grid-cols-3 gap-2 text-sm sm:min-w-[20rem]">
               <div className="rounded-2xl border border-slate-200 bg-white/80 p-3 text-center dark:border-slate-700 dark:bg-slate-800/80">
@@ -183,7 +186,7 @@ export default function CreatorHubBrowsePage() {
               <article key={item._id} className="group overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl dark:border-slate-800 dark:bg-slate-900">
                 <button onClick={() => router.push(`${CREATOR_HUB_ROUTE}/${item._id}`)} className="block w-full text-left">
                   <div className="relative aspect-video overflow-hidden bg-slate-900">
-                    {!item.isLocked ? (
+                    {(!item.isPremium && !item.isLocked) ? (
                       <video
                         src={videoSrc(item)}
                         className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
@@ -197,8 +200,8 @@ export default function CreatorHubBrowsePage() {
                       <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-700 to-slate-900 text-white">
                         <div className="flex flex-col items-center gap-2 text-center">
                           <Lock size={28} />
-                          <div className="text-sm font-semibold">${item.priceUSD.toFixed(2)} USD to unlock</div>
-                          <div className="text-xs text-slate-300">Premium preview locked</div>
+                          <div className="text-sm font-semibold">{item.isPremium ? 'Premium video' : `${item.priceUSD.toFixed(2)} USD to unlock`}</div>
+                          <div className="text-xs text-slate-300">{item.isPremium ? 'Open the detail view to watch' : 'Preview locked'}</div>
                         </div>
                       </div>
                     )}
@@ -209,7 +212,7 @@ export default function CreatorHubBrowsePage() {
                     </div>
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-4 py-3 text-white">
                       <div className="flex items-center gap-2 text-xs text-white/80">
-                        <Play size={12} /> {item.isLocked ? 'Locked preview' : 'Free preview'}
+                        <Play size={12} /> {item.isPremium ? 'Premium video' : item.isLocked ? 'Locked preview' : 'Free preview'}
                       </div>
                     </div>
                   </div>

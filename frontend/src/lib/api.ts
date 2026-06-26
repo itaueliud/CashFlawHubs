@@ -4,13 +4,6 @@ import { normalizeLanguage } from '@/i18n';
 const getApiBaseUrl = () => {
   const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
   const canonicalApiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim() || 'https://cashflowhubs.onrender.com/api';
-  const canonicalOrigin = (() => {
-    try {
-      return new URL(canonicalApiUrl).origin.replace(/\/+$/, '');
-    } catch {
-      return canonicalApiUrl.replace(/\/+$/, '');
-    }
-  })();
 
   if (configuredApiUrl) {
     const normalized = configuredApiUrl.replace(/\/+$/, '');
@@ -29,7 +22,7 @@ const getApiBaseUrl = () => {
 
 const api = axios.create({
   baseURL: getApiBaseUrl(),
-  timeout: 15000,
+  timeout: 30000,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 });

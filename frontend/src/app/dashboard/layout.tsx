@@ -30,15 +30,24 @@ import clsx from 'clsx';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 
-const BASE_NAV = [
+type NavItem = {
+  href: string;
+  icon: LucideIcon;
+  labelKey: string;
+  category?: string;
+  hidden?: boolean;
+  accent?: 'amber' | 'blue' | 'violet';
+};
+
+const BASE_NAV: NavItem[] = [
   { href: '/dashboard', icon: LayoutDashboard, labelKey: 'nav.dashboard', category: 'Overview' },
-  { href: '/dashboard/jobs', icon: Briefcase, labelKey: 'nav.remoteJobs', category: 'Earn Features' },
+  { href: '/dashboard/jobs', icon: Briefcase, labelKey: 'nav.remoteJobs', category: 'Earn Features', accent: 'blue' },
   { href: '/dashboard/surveys', icon: ClipboardList, labelKey: 'nav.paidSurveys', category: 'Earn Features' },
   { href: '/dashboard/tasks', icon: Zap, labelKey: 'nav.microtasks', category: 'Earn Features' },
   { href: '/dashboard/ads-network', icon: Video, labelKey: 'nav.adsNetwork', category: 'Earn Features', hidden: true },
   { href: '/dashboard/offerwalls', icon: Gift, labelKey: 'nav.offerwalls', category: 'Earn Features' },
-  { href: '/dashboard/creator-hub', icon: Video, labelKey: 'nav.creatorHub', category: 'Earn Features' },
-  { href: '/dashboard/cash-tasks', icon: TrendingUp, labelKey: 'nav.cashTasks', category: 'Earn Features' },
+  { href: '/dashboard/creator-hub', icon: Video, labelKey: 'nav.creatorHub', category: 'Earn Features', accent: 'amber' },
+  { href: '/dashboard/cash-tasks', icon: TrendingUp, labelKey: 'nav.cashTasks', category: 'Earn Features', accent: 'violet' },
   { href: '/dashboard/challenges', icon: Trophy, labelKey: 'nav.dailyChallenges', category: 'Earn Features' },
   { href: '/dashboard/chat', icon: MessagesSquare, labelKey: 'nav.jobChats', category: 'Social / Community' },
   { href: '/dashboard/jobs/applications', icon: BookOpen, labelKey: 'nav.myApplications', category: 'Social / Community' },
@@ -66,8 +75,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     try {
       await api.post('/auth/resend-verification-email');
       toast.success('Verification email sent! Check your inbox.');
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to send verification email');
+    } catch (err: unknown) {
+      const apiError = err as { response?: { data?: { message?: string } } };
+      toast.error(apiError?.response?.data?.message || 'Failed to send verification email');
     } finally {
       setSendingVerification(false);
     }
@@ -210,20 +220,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div key={category}>
             {category !== 'Menu' && <div className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-emerald-400">{category}</div>}
             <div className="space-y-1">
-              {visibleNav.filter(n => ((n as { category?: string }).category || 'Menu') === category).map(({ href, icon: Icon, labelKey }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  onClick={() => setMobileOpen(false)}
-                  className={clsx(
-                    'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
-                    isNavActive(href) ? 'bg-green-500/20 text-green-400' : 'text-slate-400 hover:bg-slate-700 hover:text-white'
-                  )}
-                >
-                  <Icon size={18} />
-                  {t(labelKey)}
-                </Link>
-              ))}
+              {visibleNav.filter(n => ((n as { category?: string }).category || 'Menu') === category).map(({ href, icon: Icon, labelKey, accent }) => {
+                const active = isNavActive(href);
+                const activeClass =
+                  accent === 'amber' ? 'bg-amber-500/20 text-amber-400' :
+                  accent === 'blue' ? 'bg-blue-500/20 text-blue-400' :
+                  accent === 'violet' ? 'bg-violet-500/20 text-violet-400' :
+                  'bg-green-500/20 text-green-400';
+                const inactiveClass =
+                  accent === 'amber' ? 'text-amber-400/60 hover:bg-amber-500/10 hover:text-amber-300' :
+                  accent === 'blue' ? 'text-blue-400/60 hover:bg-blue-500/10 hover:text-blue-300' :
+                  accent === 'violet' ? 'text-violet-400/60 hover:bg-violet-500/10 hover:text-violet-300' :
+                  'text-slate-400 hover:bg-slate-700 hover:text-white';
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setMobileOpen(false)}
+                    className={clsx(
+                      'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+                      active ? activeClass : inactiveClass
+                    )}
+                  >
+                    <Icon size={18} />
+                    {t(labelKey)}
+                  </Link>
+                );
+              })}
             </div>
           </div>
         ))}
