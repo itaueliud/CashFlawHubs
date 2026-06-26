@@ -503,9 +503,6 @@ exports.register = async (req, res) => {
     if (!termsAccepted) {
       return res.status(400).json({ success: false, message: 'You must accept the terms and conditions' });
     }
-    if (!referralCode) {
-      return res.status(400).json({ success: false, message: 'Referral code is required' });
-    }
     const normalizedPhone = String(phone || '').trim();
     const phoneCheck = validatePhoneForCountry(normalizedPhone);
     if (!phoneCheck.valid) {
@@ -536,20 +533,22 @@ exports.register = async (req, res) => {
     if (existingId) return res.status(409).json({ success: false, message: 'ID number already registered' });
 
     let referrer = null;
-    if (isDatabaseReady()) {
-      referrer = await User.findOne({ referralCode });
-      if (!referrer) {
-        // Fallback to dev auth store if MongoDB doesn't contain the referral (useful for local dev helpers)
-        const devRef = devAuthStore.findByReferralCode(referralCode);
-        if (devRef) {
-          referrer = devRef;
+    if (referralCode) {
+      if (isDatabaseReady()) {
+        referrer = await User.findOne({ referralCode });
+        if (!referrer) {
+          // Fallback to dev auth store if MongoDB doesn't contain the referral (useful for local dev helpers)
+          const devRef = devAuthStore.findByReferralCode(referralCode);
+          if (devRef) {
+            referrer = devRef;
+          }
         }
+      } else {
+        referrer = devAuthStore.findByReferralCode(referralCode);
       }
-    } else {
-      referrer = devAuthStore.findByReferralCode(referralCode);
-    }
-    if (!referrer) {
-      return res.status(400).json({ success: false, message: 'Invalid referral code' });
+      if (!referrer) {
+        return res.status(400).json({ success: false, message: 'Invalid referral code' });
+      }
     }
     const securityContext = getSecurityContext(req, { browser_language, user_language, timezone, device_fingerprint });
 

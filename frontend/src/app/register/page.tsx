@@ -11,8 +11,6 @@ import LanguageSelect from '@/components/LanguageSelect';
 import { TurnstileWidget } from '@/components/security/TurnstileWidget';
 import { normalizeLanguage, setAppLanguage } from '@/i18n';
 
-const langs = ['en', 'sw', 'fr'];
-
 const countries = [
   { code: 'BJ', name: 'Benin',              dialCode: '+229', localDigits: 8,  hint: '9XXXXXXX' },
   { code: 'BF', name: 'Burkina Faso',       dialCode: '+226', localDigits: 8,  hint: '6XXXXXXX' },
@@ -51,6 +49,7 @@ const translations: Record<string, Record<string, string>> = {
     alreadyHaveAccount: 'Already have an account?',
     referralLabel: 'Referral Code (Required)',
     verifyReferral: 'Verify Referral Code',
+    skipReferral: 'No Referral Code',
     referralVerified: 'Referral code verified',
     firstName: 'First Name',
     lastName: 'Last Name',
@@ -111,6 +110,7 @@ const translations: Record<string, Record<string, string>> = {
     alreadyHaveAccount: 'Tayari una akaunti?',
     referralLabel: 'Msimbo wa Rejeleo (Lazima)',
     verifyReferral: 'Thibitisha Msimbo',
+    skipReferral: 'Sina Msimbo wa Rejeleo',
     referralVerified: 'Msimbo wa rejeleo umethibitishwa',
     firstName: 'Jina la Kwanza',
     lastName: 'Jina la Mwisho',
@@ -170,8 +170,9 @@ const translations: Record<string, Record<string, string>> = {
     login: 'Connexion',
     alreadyHaveAccount: 'Vous avez déjà un compte ?',
     referralLabel: 'Code de parrainage (obligatoire)',
-    verifyReferral: 'Vérifier le code',
-    referralVerified: 'Code de parrainage vérifié',
+    verifyReferral: 'V\u00e9rifier le code',
+    skipReferral: 'Pas de code de parrainage',
+    referralVerified: 'Code de parrainage v\u00e9rifi\u00e9',
     firstName: 'Prénom',
     lastName: 'Nom de famille',
     idNumber: "Numéro d'identité",
@@ -301,6 +302,7 @@ function RegisterPageContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [referralVerified, setReferralVerified] = useState(false);
+  const [referralSkipped, setReferralSkipped] = useState(false);
   const [errors, setErrors] = useState<FormErrors>(emptyErrors);
   const [mounted, setMounted] = useState(false);
   const [uiLanguage, setUiLanguage] = useState<'en' | 'sw' | 'fr'>('en');
@@ -340,8 +342,6 @@ function RegisterPageContent() {
       { label: 'At least one symbol', met: /[^A-Za-z0-9]/.test(password) },
     ];
   }, [form.password]);
-  const passwordValid = passwordChecks.every((rule) => rule.met);
-
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
@@ -352,6 +352,7 @@ function RegisterPageContent() {
 
   const validateReferral = async () => {
     const referralCode = form.referralCode.trim();
+    setReferralSkipped(false);
     if (!referralCode) {
       setError('referralCode', copy.referralRequired);
       toast.error(copy.referralRequired);
@@ -365,15 +366,24 @@ function RegisterPageContent() {
       toast.success(copy.referralVerified);
       setStep(3);
       return true;
-    } catch (err: any) {
+    } catch (error: unknown) {
       setReferralVerified(false);
-      const message = err?.response?.data?.message || copy.invalidReferral;
+      const apiError = error as { response?: { data?: { message?: string } } };
+      const message = apiError?.response?.data?.message || copy.invalidReferral;
       setError('referralCode', message);
       toast.error(message);
       return false;
     } finally {
       setLoading(false);
     }
+  };
+
+  const skipReferralCode = () => {
+    setReferralSkipped(true);
+    setReferralVerified(false);
+    setField('referralCode', '');
+    setError('referralCode', '');
+    setStep(3);
   };
 
   const validateStep3 = () => {
@@ -460,10 +470,10 @@ function RegisterPageContent() {
   const goBack = () => setStep((currentStep) => Math.max(1, currentStep - 1));
 
   useEffect(() => {
-    if (!form.referralCode || referralVerified || step !== 2) return;
+    if (!form.referralCode || referralVerified || referralSkipped || step !== 2) return;
     void validateReferral();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.referralCode, referralVerified, step]);
+  }, [form.referralCode, referralVerified, referralSkipped, step]);
 
   useEffect(() => {
     setMounted(true);
@@ -669,7 +679,7 @@ function RegisterPageContent() {
   };
 
   const completeSignup = async () => {
-    if (!referralVerified) return toast.error(copy.verifyReferralFirst);
+    if (!referralVerified && !referralSkipped) return toast.error(copy.verifyReferralFirst);
     if (!validateStep3() || !validateStep4() || !validateStep5()) return;
     if (!form.termsAccepted || !form.privacyAccepted) {
       setError('termsAccepted', 'You must accept both the Terms and Conditions and the Privacy Policy');
@@ -703,8 +713,9 @@ function RegisterPageContent() {
       setUser(res.data.user);
       toast.success(copy.created);
       router.push('/dashboard');
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || copy.registrationFailed);
+    } catch (error: unknown) {
+      const apiError = error as { response?: { data?: { message?: string } } };
+      toast.error(apiError?.response?.data?.message || copy.registrationFailed);
     } finally {
       setLoading(false);
     }
@@ -782,22 +793,40 @@ function RegisterPageContent() {
         {step === 2 && (
           <div className="mt-6 space-y-4">
             <div>
-              <label className="mb-1 block text-sm text-slate-300">{copy.referralLabel}</label>
+              <label className="mb-1 block text-sm text-slate-300">
+                Referral Code <span className="font-normal text-slate-500">(optional)</span>
+              </label>
               <input
                 className="input uppercase"
                 value={form.referralCode}
                 onChange={(e) => {
                   const value = e.target.value.toUpperCase();
                   setField('referralCode', value);
+                  setReferralSkipped(false);
                   if (value) setError('referralCode', '');
                 }}
-                placeholder={copy.referralLabel}
+                placeholder="Enter referral code"
               />
               {errors.referralCode && <p className="mt-1 text-xs text-red-400">{errors.referralCode}</p>}
             </div>
-            <button className="btn-primary" disabled={loading} onClick={validateReferral}>
-              {loading ? copy.creating : copy.verifyReferral}
-            </button>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                className="inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-semibold transition-all disabled:opacity-50"
+                style={{ backgroundColor: '#16a34a', color: '#fff' }}
+                disabled={loading || !form.referralCode.trim()}
+                onClick={validateReferral}
+              >
+                {loading ? copy.creating : copy.verifyReferral}
+              </button>
+              <button
+                className="inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-semibold transition-all hover:opacity-90"
+                style={{ backgroundColor: '#f97316', color: '#fff' }}
+                disabled={loading}
+                onClick={skipReferralCode}
+              >
+                {copy.skipReferral}
+              </button>
+            </div>
           </div>
         )}
 
