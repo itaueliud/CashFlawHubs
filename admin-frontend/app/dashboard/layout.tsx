@@ -43,10 +43,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     () => (Array.isArray(user?.adminAllowedPages) ? user.adminAllowedPages.filter(Boolean) : []),
     [user?.adminAllowedPages]
   );
-  const visibleNavItems = useMemo(
-    () => (allowedPages.length > 0 ? navItems.filter((item) => allowedPages.includes(item.href)) : navItems),
-    [allowedPages]
-  );
+  const visibleNavItems = useMemo(() => {
+    if (!user) return [];
+    if (user.role === 'superadmin') return navItems;
+    return navItems.filter((item) => allowedPages.includes(item.href));
+  }, [allowedPages, user]);
 
   useEffect(() => {
     setMounted(true);
@@ -61,7 +62,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (!hasHydrated || !user || !['admin', 'superadmin'].includes(user.role || '')) return;
-    if (allowedPages.length === 0) return;
+    if (user.role === 'superadmin') return;
+    if (visibleNavItems.length === 0) return;
 
     const currentRouteAllowed = visibleNavItems.some((item) => isRouteAllowed(pathname, item.href));
     if (currentRouteAllowed) return;
@@ -70,7 +72,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (pathname !== fallbackHref) {
       router.replace(fallbackHref);
     }
-  }, [allowedPages, hasHydrated, pathname, router, user, visibleNavItems]);
+  }, [hasHydrated, pathname, router, user, visibleNavItems]);
 
   if (!mounted || !hasHydrated || !user) {
     return (
@@ -81,6 +83,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           <div className="text-lg font-black text-white">Checking access</div>
           <p className="mt-2 text-sm text-slate-400">Restoring your session and verifying admin permissions.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (user.role !== 'superadmin' && visibleNavItems.length === 0) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.10),_transparent_25%),linear-gradient(180deg,#040816_0%,#07111f_48%,#050816_100%)] px-6 text-slate-100">
+        <div className="soft-in w-full max-w-md rounded-[28px] border border-white/8 bg-white/5 p-8 text-center backdrop-blur-xl">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-500/15 text-cyan-300">
+            <Shield className="h-5 w-5" />
+          </div>
+          <div className="text-lg font-black text-white">No pages assigned</div>
+          <p className="mt-2 text-sm text-slate-400">
+            This admin account currently has no dashboard pages enabled. Add at least one allowed page to restore navigation.
+          </p>
+          <button
+            onClick={() => {
+              logout();
+              router.replace('/login');
+            }}
+            className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl border border-white/8 px-4 py-2.5 text-sm text-slate-300 transition hover:border-red-500/30 hover:bg-red-500/5 hover:text-red-300"
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
+          </button>
         </div>
       </div>
     );
@@ -134,7 +162,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <div className="flex min-w-0 flex-col">
           <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-white/8 bg-[rgba(3,8,22,0.72)] px-5 backdrop-blur-xl lg:px-8">
-          <div className="text-sm text-slate-300">Welcome back, {user.name}</div>
+            <div className="text-sm text-slate-300">Welcome back, {user.name}</div>
             <div className="flex items-center gap-2 text-xs text-slate-300">
               <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1">XP {user.xpPoints || 0}</div>
               <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1">{user.role}</div>

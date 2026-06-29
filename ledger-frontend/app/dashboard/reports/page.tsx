@@ -6,6 +6,7 @@ import { ErrorBanner, LoadingSpinner, PageHeader, StatCard } from '../../../comp
 import { Download, FileSpreadsheet, ReceiptText, Wallet } from 'lucide-react';
 
 const money = (value: any) => `$${Number(value || 0).toFixed(2)}`;
+const localMoney = (value: any) => Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function ReportsPage() {
   const [range, setRange] = useState<'7d' | '30d' | '90d'>('30d');
@@ -14,8 +15,8 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async (selectedRange = range) => {
-    setLoading(true);
+  const load = async (selectedRange = range, silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const [dashboardRes, weeklyRes] = await Promise.all([
@@ -32,7 +33,9 @@ export default function ReportsPage() {
   };
 
   useEffect(() => {
-    load(range);
+    void load(range);
+    const timer = window.setInterval(() => void load(range, true), 15000);
+    return () => window.clearInterval(timer);
   }, [range]);
 
   const exportCsv = () => {
@@ -96,9 +99,9 @@ export default function ReportsPage() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Revenue USD" value={money(dashboard?.totalUSD)} sub="Successful revenue only" />
-        <StatCard label="Local Revenue" value={money(dashboard?.totalLocal)} sub="Reported in local currency value" />
+        <StatCard label="Local Revenue" value={localMoney(dashboard?.totalLocal)} sub="Aggregated local-value total" />
         <StatCard label="Transactions" value={String(dashboard?.count || 0)} sub="Revenue events in range" />
-        <StatCard label="Payout Queue" value={money(dashboard?.payoutQueueTotalUSD)} sub={`${Number(payoutQueue.length || 0)} queued payouts`} />
+        <StatCard label="Payout Queue" value={money(dashboard?.payoutQueueTotalUSD)} sub={`${Number(dashboard?.payoutQueueCount || payoutQueue.length || 0)} queued payouts`} />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
@@ -147,7 +150,7 @@ export default function ReportsPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="font-semibold text-white">{tx.userId?.name || tx.userId?.email || 'Unknown user'}</div>
-                      <div className="mt-1 text-xs text-slate-500">{tx.type || 'withdrawal'} · {tx.country || 'n/a'}</div>
+                      <div className="mt-1 text-xs text-slate-500">{tx.type || 'withdrawal'} - {tx.country || 'n/a'}</div>
                     </div>
                     <div className="font-bold text-cyan-300">{money(tx.amountUSD)}</div>
                   </div>
@@ -174,3 +177,4 @@ export default function ReportsPage() {
     </div>
   );
 }
+

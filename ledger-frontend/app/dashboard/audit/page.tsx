@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import api from '../../../lib/api';
 import { ErrorBanner, LoadingSpinner, PageHeader, StatusBadge } from '../../../components/ui';
-import { RefreshCw, ClipboardList } from 'lucide-react';
+import { RefreshCw, ClipboardList, Dot } from 'lucide-react';
 
 const money = (value: any) => `$${Number(value || 0).toFixed(2)}`;
 
@@ -21,8 +21,8 @@ export default function AuditLogsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async (page = pagination.page, activeFilters = filters) => {
-    setLoading(true);
+  const load = async (page = pagination.page, activeFilters = filters, silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams();
@@ -42,8 +42,10 @@ export default function AuditLogsPage() {
   };
 
   useEffect(() => {
-    load(1);
-  }, []);
+    void load(1, filters);
+    const timer = window.setInterval(() => void load(1, filters, true), 10000);
+    return () => window.clearInterval(timer);
+  }, [filters]);
 
   const pages = useMemo(() => Math.max(1, Math.ceil((pagination.total || 0) / (pagination.limit || 50))), [pagination]);
 
@@ -53,7 +55,7 @@ export default function AuditLogsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Audit Logs"
-        description="All ledger audit entries are shown here. Transaction rows are intentionally excluded until the ledger transaction feed is added later."
+        description="Live transaction and ledger events for withdrawals, deposits, token spends, job posts, payouts, and adjustments."
       />
 
       {error && <ErrorBanner message={error} />}
@@ -72,8 +74,8 @@ export default function AuditLogsPage() {
 
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {[
-            ['transactionType', 'Transaction type', 'payout / carry_over / manual_adjustment'],
-            ['status', 'Status', 'success / failed / pending'],
+            ['transactionType', 'Transaction type', 'withdrawal / deposit / job_posting / token_spend / payout'],
+            ['status', 'Status', 'success / failed / pending / reversed'],
             ['processedBy', 'Processed by', 'operator user id'],
             ['userId', 'User ID', 'target user id'],
             ['dateFrom', 'From date', 'YYYY-MM-DD'],
@@ -114,6 +116,7 @@ export default function AuditLogsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/8 text-left text-xs uppercase tracking-[0.22em] text-slate-500">
+                <th className="px-5 py-3">Source</th>
                 <th className="px-5 py-3">User</th>
                 <th className="px-5 py-3">Type</th>
                 <th className="px-5 py-3">Amount</th>
@@ -125,6 +128,13 @@ export default function AuditLogsPage() {
               {logs.length ? logs.map((log: any) => (
                 <tr key={log._id} className="hover:bg-white/[0.03]">
                   <td className="px-5 py-4">
+                    <div className="flex items-center gap-2 text-slate-300">
+                      <Dot className="h-4 w-4 text-cyan-300" />
+                      {log.sourceLabel || log.source || 'n/a'}
+                    </div>
+                    {log.notes && <div className="mt-1 text-xs text-slate-500">{log.notes}</div>}
+                  </td>
+                  <td className="px-5 py-4">
                     <div className="font-semibold text-white">{log.userId?.name || log.username || 'Unknown user'}</div>
                     <div className="mt-1 text-xs text-slate-500">{log.userId?.email || log.userId?.phone || log.userId?.userId || 'n/a'}</div>
                   </td>
@@ -135,7 +145,7 @@ export default function AuditLogsPage() {
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan={5} className="px-5 py-10 text-center text-slate-500">No audit logs found.</td>
+                  <td colSpan={6} className="px-5 py-10 text-center text-slate-500">No audit logs found.</td>
                 </tr>
               )}
             </tbody>
@@ -167,3 +177,6 @@ export default function AuditLogsPage() {
     </div>
   );
 }
+
+
+

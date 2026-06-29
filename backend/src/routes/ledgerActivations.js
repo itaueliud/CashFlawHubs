@@ -28,6 +28,7 @@ router.post('/:userId/activate', protect, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Insufficient wallet balance for activation fee' });
     }
 
+    const beforeBalance = Number(wallet.balanceUSD || 0);
     wallet.balanceUSD -= ACTIVATION_FEE_USD;
     wallet.totalWithdrawn += ACTIVATION_FEE_USD;
     if (wallet.balanceUSD < 0) wallet.balanceUSD = 0;
@@ -66,7 +67,7 @@ router.post('/:userId/activate', protect, async (req, res) => {
       sourceModule: 'ledger_activation',
       notes: 'User activated by ledger',
       ipAddress: req.ip || null,
-      beforeBalance: wallet.balanceUSD + ACTIVATION_FEE_USD,
+      beforeBalance,
       afterBalance: wallet.balanceUSD,
       relatedTransactionId: tx._id,
     });
@@ -91,11 +92,36 @@ router.get('/pending', protect, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Ledger access required' });
     }
 
-    const pendingUsers = await User.find({ activationStatus: { $ne: true } })
-      .select('name email phone userId country activationStatus isActive isBanned referredBy createdAt')
-      .sort({ createdAt: -1 });
+    const [pendingUsers, recentlyActivated] = await Promise.all([
+      User.find({ activationStatus: { $ne: true } })
+        .select('name email phone userId country activationStatus isActive isBanned referredBy createdAt')
+        .sort({ createdAt: -1 }),
+      User.find({ activationStatus: true, activatedAt: { $ne: null } })
+        .select('name email phone userId country activationStatus isActive isBanned referredBy createdAt activatedAt lastActivationBy')
+        .sort({ activatedAt: -1 })
+        .limit(12),
+    ]);
 
-    res.json({ success: true, pendingUsers });
+    const userIds = [...new Set([...pendingUsers, ...recentlyActivated].map((user) => user._id))];
+    const wallets = userIds.length > 0
+      ? await Wallet.find({ userId: { $in: userIds } }).select('userId balanceUSD pendingBalance')
+      : [];
+    const walletMap = wallets.reduce((acc, wallet) => {
+      acc[String(wallet.userId)] = wallet;
+      return acc;
+    }, {});
+
+    const enrichUser = (user) => ({
+      ...user.toObject(),
+      balanceUSD: Number(walletMap[String(user._id)]?.balanceUSD || 0),
+      pendingBalance: Number(walletMap[String(user._id)]?.pendingBalance || 0),
+    });
+
+    res.json({
+      success: true,
+      pendingUsers: pendingUsers.map(enrichUser),
+      recentlyActivated: recentlyActivated.map(enrichUser),
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

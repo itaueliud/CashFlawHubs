@@ -708,6 +708,34 @@ exports.createJobPosting = async (req, res) => {
     const normalizedBudget = Number(budgetAmount) || 0;
     const applicationTokenCost = getApplicationTokenCost(normalizedBudget);
     const publishedAt = new Date();
+
+    if ((user.tokenBalance || 0) < JOB_POSTING_TOKEN_COST) {
+      await Transaction.create({
+        userId: user._id,
+        type: 'token_spend',
+        amountLocal: JOB_POSTING_TOKEN_COST,
+        amountUSD: 0,
+        currency: 'TOKEN',
+        country: user.country,
+        provider: 'internal',
+        direction: 'debit',
+        status: 'failed',
+        failureReason: `Posting one job requires ${JOB_POSTING_TOKEN_COST} tokens`,
+        processedAt: new Date(),
+        metadata: {
+          action: 'job_posting',
+          tokenAmount: JOB_POSTING_TOKEN_COST,
+          budgetAmount: normalizedBudget || 0,
+          budgetCurrency: budgetCurrency || 'KES',
+        },
+      });
+      return res.status(400).json({
+        success: false,
+        message: `Posting one job requires ${JOB_POSTING_TOKEN_COST} tokens`,
+        tokenBalance: user.tokenBalance || 0,
+      });
+    }
+
     user.consumeTokens(JOB_POSTING_TOKEN_COST);
     await user.save();
 
@@ -2268,5 +2296,6 @@ exports.syncJobs = async () => {
     return { success: false, synced, providers: providerStats, error: error.message };
   }
 };
+
 
 

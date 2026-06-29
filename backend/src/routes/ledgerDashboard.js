@@ -61,6 +61,7 @@ router.get('/', protect, ledgerOrSuperadminOnly, async (req, res) => {
         transactions,
         payoutQueue,
         payoutQueueTotalUSD,
+        payoutQueueCount: payoutQueue.length,
       },
     });
   } catch (err) {
@@ -69,3 +70,4 @@ router.get('/', protect, ledgerOrSuperadminOnly, async (req, res) => {
 });
 
 module.exports = router;
+

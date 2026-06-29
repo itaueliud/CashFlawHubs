@@ -6,6 +6,7 @@ import { ErrorBanner, LoadingSpinner, PageHeader, StatCard } from '../../../comp
 import { RefreshCw, ReceiptText, Wallet } from 'lucide-react';
 
 const money = (value: any) => `$${Number(value || 0).toFixed(2)}`;
+const localMoney = (value: any) => Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function TransactionsPage() {
   const [range, setRange] = useState<'7d' | '30d' | '90d'>('30d');
@@ -13,8 +14,8 @@ export default function TransactionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async (selectedRange = range) => {
-    setLoading(true);
+  const load = async (selectedRange = range, silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const res = await api.get(`/ledger/dashboard?range=${selectedRange}`);
@@ -27,7 +28,9 @@ export default function TransactionsPage() {
   };
 
   useEffect(() => {
-    load(range);
+    void load(range);
+    const timer = window.setInterval(() => void load(range, true), 15000);
+    return () => window.clearInterval(timer);
   }, [range]);
 
   const transactions = useMemo(() => dashboard?.transactions || [], [dashboard]);
@@ -70,9 +73,9 @@ export default function TransactionsPage() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Revenue USD" value={money(dashboard?.totalUSD)} sub="Successful revenue" />
-        <StatCard label="Local Currency" value={money(dashboard?.totalLocal)} sub="Reported local equivalent" />
+        <StatCard label="Local Currency" value={localMoney(dashboard?.totalLocal)} sub="Reported local equivalent" />
         <StatCard label="Transactions" value={String(transactions.length)} sub="Revenue entries" />
-        <StatCard label="Payout Queue" value={money(dashboard?.payoutQueueTotalUSD)} sub={`${queue.length} queued items`} />
+        <StatCard label="Payout Queue" value={money(dashboard?.payoutQueueTotalUSD)} sub={`${Number(dashboard?.payoutQueueCount || queue.length || 0)} queued items`} />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
@@ -120,7 +123,7 @@ export default function TransactionsPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="font-semibold text-white">{tx.userId?.name || tx.userId?.email || 'Unknown user'}</div>
-                    <div className="mt-1 text-xs text-slate-500">{tx.country || 'n/a'} · {tx.type || 'withdrawal'}</div>
+                    <div className="mt-1 text-xs text-slate-500">{tx.country || 'n/a'} - {tx.type || 'withdrawal'}</div>
                   </div>
                   <div className="font-bold text-cyan-300">{money(tx.amountUSD)}</div>
                 </div>
@@ -134,3 +137,4 @@ export default function TransactionsPage() {
     </div>
   );
 }
+

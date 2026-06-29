@@ -24,8 +24,8 @@ export default function LedgerOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const [dashRes, previewRes, pendingRes, weeklyRes] = await Promise.all([
@@ -47,7 +47,9 @@ export default function LedgerOverviewPage() {
   };
 
   useEffect(() => {
-    load();
+    void load();
+    const timer = window.setInterval(() => void load(true), 15000);
+    return () => window.clearInterval(timer);
   }, []);
 
   const quickLinks = useMemo(
@@ -100,7 +102,7 @@ export default function LedgerOverviewPage() {
               <div className="text-sm font-semibold text-white">This week</div>
               <div className="text-xs text-slate-400">{weekly?.weekLabel || 'Loading weekly summary'}</div>
             </div>
-            <button onClick={load} className="ledger-button">
+            <button onClick={() => void load()} className="ledger-button">
               <RefreshCcw className="h-4 w-4" />
               Refresh
             </button>
@@ -165,3 +167,7 @@ export default function LedgerOverviewPage() {
     </div>
   );
 }
+
+
+
+
