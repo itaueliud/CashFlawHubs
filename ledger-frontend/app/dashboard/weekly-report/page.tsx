@@ -1,11 +1,49 @@
-'use client';
+﻿'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../../../lib/api';
 import { ErrorBanner, LoadingSpinner, PageHeader, StatCard } from '../../../components/ui';
 import { CalendarDays, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 
 const money = (value: any) => `$${Number(value || 0).toFixed(2)}`;
+
+function secsToNextFriday(): number {
+  const now = new Date();
+  const dow = now.getUTCDay();
+  const daysUntil = dow < 5 ? 5 - dow : 7 - dow + 5;
+  const next = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() + daysUntil,
+  ));
+  return Math.floor((next.getTime() - now.getTime()) / 1000);
+}
+
+function WeekCountdown() {
+  const TOTAL = 7 * 24 * 3600;
+  const [remaining, setRemaining] = useState(secsToNextFriday());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setRemaining(secsToNextFriday()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const pct = Math.max(0, Math.min(100, (1 - remaining / TOTAL) * 100));
+  const hrs = Math.floor(remaining / 3600);
+  const mins = Math.floor((remaining % 3600) / 60);
+
+  return (
+    <div className="px-3 pb-2 pt-1">
+      <div className="mb-1 flex items-center justify-between text-[0.65rem] text-slate-500">
+        <span>Resets next Friday</span>
+        <span className="tabular-nums">{hrs}h {mins}m left</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-white/10">
+        <div className="h-full rounded-full bg-cyan-400 transition-all duration-300" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
 
 export default function WeeklyReportPage() {
   const [weekOffset, setWeekOffset] = useState(0);
@@ -13,6 +51,7 @@ export default function WeeklyReportPage() {
   const [withdrawals, setWithdrawals] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const refreshGuardRef = useRef(false);
 
   const load = async (offset = weekOffset) => {
     setLoading(true);
@@ -32,7 +71,28 @@ export default function WeeklyReportPage() {
   };
 
   useEffect(() => {
-    load(weekOffset);
+    void load(weekOffset);
+  }, [weekOffset]);
+
+  useEffect(() => {
+    if (weekOffset !== 0) {
+      refreshGuardRef.current = false;
+      return;
+    }
+
+    const tick = () => {
+      const remaining = secsToNextFriday();
+      if (remaining <= 3 && !refreshGuardRef.current) {
+        refreshGuardRef.current = true;
+        void load(0);
+      }
+      if (remaining > 30) {
+        refreshGuardRef.current = false;
+      }
+    };
+
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
   }, [weekOffset]);
 
   const countryRows = useMemo(() => summary?.countryBreakdown || [], [summary]);
@@ -65,35 +125,41 @@ export default function WeeklyReportPage() {
     <div className="space-y-6">
       <PageHeader
         title="Weekly Report"
-        description="Review the current ledger week, compare payout categories, and export the withdrawal list."
+        description="Review the Friday-to-Thursday ledger week, compare payout categories, and export the withdrawal list."
       />
 
       {error && <ErrorBanner message={error} />}
 
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-white/8 bg-white/5 p-5">
-        <div>
-          <div className="text-sm font-semibold text-white">{summary?.weekLabel || 'Week summary'}</div>
-          <p className="text-xs text-slate-400">Use the controls to move across weekly snapshots.</p>
+      <section className="rounded-[24px] border border-white/8 bg-white/5 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-white">{summary?.weekLabel || 'Week summary'}</div>
+            <p className="text-xs text-slate-400">Use the controls to move across weekly snapshots.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setWeekOffset((current) => current + 1)}
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 transition hover:bg-white/10"
+              aria-label="Previous week"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setWeekOffset((current) => Math.max(current - 1, 0))}
+              disabled={weekOffset === 0}
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 transition hover:bg-white/10 disabled:opacity-50"
+              aria-label="Next week"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <button onClick={exportCsv} className="ledger-button">
+              <Download className="h-4 w-4" />
+              Export CSV
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setWeekOffset((current) => current + 1)}
-            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 transition hover:bg-white/10"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => setWeekOffset((current) => Math.max(current - 1, 0))}
-            disabled={weekOffset === 0}
-            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 transition hover:bg-white/10 disabled:opacity-50"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-          <button onClick={exportCsv} className="ledger-button">
-            <Download className="h-4 w-4" />
-            Export CSV
-          </button>
-        </div>
+        <WeekCountdown />
+        <div className="mt-2 text-center text-[0.62rem] text-slate-600">Week panel resets every Friday · auto-refresh enabled</div>
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -163,3 +229,4 @@ export default function WeeklyReportPage() {
     </div>
   );
 }
+

@@ -48,6 +48,14 @@ const normalizeProcessedById = (value) => {
   return String(value);
 };
 
+const toRawPayload = (doc) => {
+  if (!doc) return null;
+  if (typeof doc.toObject === 'function') {
+    return doc.toObject({ depopulate: false, virtuals: false });
+  }
+  return doc;
+};
+
 const mapTransactionLog = (tx) => ({
   _id: `tx:${tx._id}`,
   source: 'transaction',
@@ -62,12 +70,13 @@ const mapTransactionLog = (tx) => ({
   processedByName: tx.payoutExecutedBy?.name || tx.payoutExecutedBy?.email || null,
   processedAt: tx.processedAt || tx.createdAt,
   notes: tx.failureReason || tx.metadata?.reason || tx.metadata?.intent || tx.metadata?.action || null,
+  failureReason: tx.failureReason || null,
   beforeBalance: null,
   afterBalance: null,
   relatedTransactionId: tx._id,
   metadata: tx.metadata || {},
+  rawPayload: toRawPayload(tx),
 });
-
 const mapLedgerLog = (log) => ({
   _id: `ledger:${log._id}`,
   source: 'ledger_tx_log',
@@ -82,12 +91,13 @@ const mapLedgerLog = (log) => ({
   processedByName: log.processedBy?.name || log.processedBy?.email || null,
   processedAt: log.processedAt || log.createdAt,
   notes: log.notes || null,
+  failureReason: log.failureReason || (log.status === 'failed' ? log.notes || null : null),
   beforeBalance: log.beforeBalance ?? null,
   afterBalance: log.afterBalance ?? null,
   relatedTransactionId: log.relatedTransactionId || null,
   metadata: log.metadata || {},
+  rawPayload: toRawPayload(log),
 });
-
 const logMatchesFilters = (log, { transactionType, status, processedBy, userId, dateFrom, dateTo }) => {
   if (transactionType && String(log.transactionType || '') !== String(transactionType)) return false;
   if (status && String(log.status || '') !== String(status)) return false;
@@ -221,3 +231,4 @@ router.get('/:logId', protect, async (req, res) => {
 });
 
 module.exports = router;
+

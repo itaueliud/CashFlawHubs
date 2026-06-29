@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const { protect, ledgerOnly, ledgerOrSuperadminOnly } = require('../middleware/auth');
 const User = require('../models/User');
@@ -8,7 +8,19 @@ const LedgerTxLog = require('../models/LedgerTxLog');
 const { createNotification } = require('../services/notificationCenter');
 
 const ACTIVATION_FEE_USD = Number(process.env.ACTIVATION_FEE_USD || 1.5);
-
+const getFridayWeekWindow = (weekOffset = 0) => {
+  const nowUTC = new Date();
+  const day = nowUTC.getUTCDay();
+  const daysBack = day >= 5 ? day - 5 : day + 2;
+  const weekStartUTC = new Date(Date.UTC(
+    nowUTC.getUTCFullYear(),
+    nowUTC.getUTCMonth(),
+    nowUTC.getUTCDate() - daysBack - (Math.max(0, Number(weekOffset) || 0) * 7),
+    0, 0, 0, 0
+  ));
+  const weekEndUTC = new Date(weekStartUTC.getTime() + (7 * 24 * 60 * 60 * 1000));
+  return { weekStartUTC, weekEndUTC };
+};
 router.get('/users', protect, async (req, res) => {
   try {
     if (req.user.role !== 'ledger' && req.user.role !== 'superadmin') {
@@ -168,22 +180,9 @@ router.get('/carryover', protect, ledgerOnly, async (req, res) => {
 router.get('/weekly-summary', protect, ledgerOnly, async (req, res) => {
   try {
     const weekOffset = Math.max(0, Number(req.query.weekOffset) || 0);
-    const nowUTC = new Date();
-    const nowEAT = new Date(nowUTC.getTime() + 3 * 3600000);
-    const dayOfWeek = nowEAT.getUTCDay();
-    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-
-    const weekStartEAT = new Date(nowEAT);
-    weekStartEAT.setUTCDate(weekStartEAT.getUTCDate() - daysToMonday - weekOffset * 7);
-    weekStartEAT.setUTCHours(0, 0, 0, 0);
-
-    const weekEndEAT = new Date(weekStartEAT);
-    weekEndEAT.setUTCDate(weekEndEAT.getUTCDate() + 7);
-
-    const weekStartUTC = new Date(weekStartEAT.getTime() - 3 * 3600000);
-    const weekEndUTC = new Date(weekEndEAT.getTime() - 3 * 3600000);
-
+    const { weekStartUTC, weekEndUTC } = getFridayWeekWindow(weekOffset);
     const dateFilter = { processedAt: { $gte: weekStartUTC, $lt: weekEndUTC } };
+    const weekEndLabel = new Date(weekEndUTC.getTime() - 1);
 
     const typeSummary = await LedgerTxLog.aggregate([
       { $match: { ...dateFilter, status: 'success' } },
@@ -236,7 +235,7 @@ router.get('/weekly-summary', protect, ledgerOnly, async (req, res) => {
 
     res.json({
       success: true,
-      weekLabel: `${weekStartEAT.toISOString().slice(0, 10)} - ${new Date(weekEndEAT.getTime() - 86400000).toISOString().slice(0, 10)}`,
+      weekLabel: `${weekStartUTC.toISOString().slice(0, 10)} - ${weekEndLabel.toISOString().slice(0, 10)}`,
       weekOffset,
       summary: {
         totalPayoutUSD: Number((payouts.totalAmount || 0).toFixed(4)),
@@ -254,7 +253,6 @@ router.get('/weekly-summary', protect, ledgerOnly, async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
-
 router.get('/bulk-preview', protect, ledgerOnly, async (req, res) => {
   try {
     const wallets = await Wallet.find({ pendingBalance: { $gt: 0 } }).populate('userId', 'role isActive isBanned');
@@ -530,18 +528,8 @@ router.post('/carryover/bulk-apply', protect, ledgerOnly, async (req, res) => {
 
 router.get('/weekly-withdrawals', protect, ledgerOnly, async (req, res) => {
   try {
-    const nowUTC = new Date();
-    const nowEAT = new Date(nowUTC.getTime() + 3 * 3600000);
-    const dayOfWeek = nowEAT.getUTCDay();
-    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const weekStartEAT = new Date(nowEAT);
-    weekStartEAT.setUTCDate(weekStartEAT.getUTCDate() - daysToMonday);
-    weekStartEAT.setUTCHours(0, 0, 0, 0);
-    const weekEndEAT = new Date(weekStartEAT);
-    weekEndEAT.setUTCDate(weekEndEAT.getUTCDate() + 7);
-
-    const weekStartUTC = new Date(weekStartEAT.getTime() - 3 * 3600000);
-    const weekEndUTC = new Date(weekEndEAT.getTime() - 3 * 3600000);
+    const { weekStartUTC, weekEndUTC } = getFridayWeekWindow(0);
+    const weekEndLabel = new Date(weekEndUTC.getTime() - 1);
 
     const withdrawals = await Transaction.find({
       type: 'manual_payment',
@@ -564,7 +552,7 @@ router.get('/weekly-withdrawals', protect, ledgerOnly, async (req, res) => {
 
     res.json({
       success: true,
-      weekLabel: `${weekStartEAT.toISOString().slice(0, 10)} - ${new Date(weekEndEAT.getTime() - 86400000).toISOString().slice(0, 10)}`,
+      weekLabel: `${weekStartUTC.toISOString().slice(0, 10)} - ${weekEndLabel.toISOString().slice(0, 10)}`,
       count: list.length,
       totalUSD: Number(list.reduce((sum, item) => sum + Number(item.amountUSD || 0), 0).toFixed(4)),
       withdrawals: list,
@@ -573,7 +561,6 @@ router.get('/weekly-withdrawals', protect, ledgerOnly, async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
-
 router.get('/reconciliation/snapshot', protect, ledgerOnly, async (req, res) => {
   try {
     const [pendingAgg, carryAgg, activeUsers, weeklyPaid] = await Promise.all([
@@ -609,5 +596,7 @@ router.get('/reconciliation/snapshot', protect, ledgerOnly, async (req, res) => 
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
+
 
 
