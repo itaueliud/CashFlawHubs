@@ -1,11 +1,24 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState } from 'react';
 import api from '../../../lib/api';
-import { ConfirmModal, ErrorBanner, LoadingSpinner, PageHeader, StatCard } from '../../../components/ui';
+import { ConfirmModal, ErrorBanner, LoadingSpinner, PageHeader, StatCard, Skeleton } from '../../../components/ui';
 import { CheckCircle2, RefreshCcw, ShieldCheck, Clock3, UserCheck } from 'lucide-react';
 
 const formatDate = (value: any) => (value ? new Date(value).toLocaleString() : 'n/a');
+
+function LoadingBlock() {
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-3">
+        <Skeleton className="h-28 rounded-2xl" />
+        <Skeleton className="h-28 rounded-2xl" />
+        <Skeleton className="h-28 rounded-2xl" />
+      </div>
+      <LoadingSpinner />
+    </div>
+  );
+}
 
 export default function ActivationsPage() {
   const [users, setUsers] = useState<any[]>([]);
@@ -49,7 +62,14 @@ export default function ActivationsPage() {
     }
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Activations" description="Review users who still need activation and settle the fee against their wallet when approved." />
+        <LoadingBlock />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -58,23 +78,28 @@ export default function ActivationsPage() {
         description="Review users who still need activation and settle the fee against their wallet when approved."
       />
 
-      {error && <ErrorBanner message={error} />}
+      {error && <ErrorBanner message={error} onRetry={() => void load()} />}
 
       <section className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Pending" value={String(users.length)} sub="Awaiting activation" />
-        <StatCard label="Wallet-backed" value={String(users.filter((user) => Number(user.balanceUSD || 0) > 0).length)} sub="Users with funds" />
-        <StatCard label="Ready to review" value={String(users.filter((user) => !user.isBanned).length)} sub="Eligible accounts" />
+        <StatCard accent="cyan" label="Pending" value={String(users.length)} sub="Awaiting activation" />
+        <StatCard accent="emerald" label="Wallet-backed" value={String(users.filter((user) => Number(user.balanceUSD || 0) > 0).length)} sub="Users with funds" />
+        <StatCard accent="amber" label="Ready to review" value={String(users.filter((user) => !user.isBanned).length)} sub="Eligible accounts" />
       </section>
 
-      <section className="flex items-center justify-between gap-3 rounded-[24px] border border-white/8 bg-white/5 p-5">
-        <div className="flex items-center gap-2 text-sm font-semibold text-white">
-          <ShieldCheck className="h-4 w-4 text-cyan-300" />
-          Pending activation queue
+      <section className="rounded-[24px] border border-white/8 bg-white/5 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-white">
+            <ShieldCheck className="h-4 w-4 text-cyan-300" />
+            Pending activation queue
+          </div>
+          <button onClick={() => void load()} className="ledger-button">
+            <RefreshCcw className="h-4 w-4" />
+            Refresh
+          </button>
         </div>
-        <button onClick={() => void load()} className="ledger-button">
-          <RefreshCcw className="h-4 w-4" />
-          Refresh
-        </button>
+        <div className="mt-3 rounded-2xl border border-cyan-500/15 bg-cyan-500/10 p-4 text-sm text-cyan-100">
+          The Activate button approves the account, settles the activation fee against the wallet, and moves the user into the active ledger flow.
+        </div>
       </section>
 
       <section className="space-y-3">
@@ -133,5 +158,4 @@ export default function ActivationsPage() {
     </div>
   );
 }
-
 

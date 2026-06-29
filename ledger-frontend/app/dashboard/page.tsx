@@ -1,10 +1,10 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import React, { useEffect, useMemo, useState } from 'react';
 import api from '../../lib/api';
-import { PageHeader, LoadingSpinner, ErrorBanner, StatCard } from '../../components/ui';
-import { ArrowRight, Wallet, ClipboardList, ShieldAlert, RefreshCcw, Users } from 'lucide-react';
+import { PageHeader, LoadingSpinner, ErrorBanner, StatCard, Skeleton } from '../../components/ui';
+import { ArrowRight, Wallet, ClipboardList, ShieldAlert, RefreshCcw, Users, CircleDot } from 'lucide-react';
 
 function SmallCard({ title, value, sub }: { title: string; value: string; sub?: string }) {
   return (
@@ -16,6 +16,10 @@ function SmallCard({ title, value, sub }: { title: string; value: string; sub?: 
   );
 }
 
+function SkeletonCard() {
+  return <div className="rounded-2xl border border-white/8 bg-white/5 p-4"><Skeleton className="h-3 w-24" /><Skeleton className="mt-3 h-8 w-32" /><Skeleton className="mt-2 h-4 w-28" /></div>;
+}
+
 export default function LedgerOverviewPage() {
   const [dashboard, setDashboard] = useState<any>(null);
   const [bulkPreview, setBulkPreview] = useState<any>(null);
@@ -23,6 +27,7 @@ export default function LedgerOverviewPage() {
   const [weekly, setWeekly] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
   const load = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -39,6 +44,7 @@ export default function LedgerOverviewPage() {
       setBulkPreview(previewRes.data || null);
       setPendingActivations(pendingRes.data?.pendingUsers || []);
       setWeekly(weeklyRes.data || null);
+      setLastSyncedAt(new Date());
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to load ledger overview');
     } finally {
@@ -71,16 +77,38 @@ export default function LedgerOverviewPage() {
 
   const cards = useMemo(
     () => [
-      { label: 'Revenue USD', value: `$${Number(dashboard?.totalUSD || 0).toFixed(2)}`, sub: '30-day total' },
-      { label: 'Transactions', value: String(dashboard?.count || 0), sub: 'Revenue events' },
-      { label: 'Pending Payouts', value: `$${Number(bulkPreview?.totalUSD || 0).toFixed(2)}`, sub: `${Number(bulkPreview?.userCount || 0)} users await pay` },
-      { label: 'Pending Activations', value: String(pendingActivations.length), sub: 'Users awaiting activation' },
+      { label: 'Revenue USD', value: `$${Number(dashboard?.totalUSD || 0).toFixed(2)}`, sub: '30-day total', accent: 'emerald' as const },
+      { label: 'Transactions', value: String(dashboard?.count || 0), sub: 'Revenue events', accent: 'cyan' as const },
+      { label: 'Pending Payouts', value: `$${Number(bulkPreview?.totalUSD || 0).toFixed(2)}`, sub: `${Number(bulkPreview?.userCount || 0)} users await pay`, accent: 'amber' as const },
+      { label: 'Pending Activations', value: String(pendingActivations.length), sub: 'Users awaiting activation', accent: 'violet' as const },
     ],
     [dashboard, bulkPreview, pendingActivations]
   );
 
-  if (loading) return <LoadingSpinner />;
-  if (error) return <ErrorBanner message={error} />;
+  if (loading && !dashboard) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Ledger Overview"
+          description="A routed dashboard for payouts, carry-over, transactions, reconciliation, and operator profile management."
+        />
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </section>
+        <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+          <div className="card-surface soft-up rounded-[24px] p-5">
+            <LoadingSpinner />
+          </div>
+          <div className="card-surface soft-up rounded-[24px] p-5">
+            <LoadingSpinner />
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -89,9 +117,11 @@ export default function LedgerOverviewPage() {
         description="A routed dashboard for payouts, carry-over, transactions, reconciliation, and operator profile management."
       />
 
+      {error && <ErrorBanner message={error} onRetry={() => void load()} />}
+
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (
-          <StatCard key={card.label} label={card.label} value={card.value} sub={card.sub} />
+          <StatCard key={card.label} label={card.label} value={card.value} accent={card.accent} sub={card.sub} />
         ))}
       </section>
 
@@ -99,13 +129,22 @@ export default function LedgerOverviewPage() {
         <div className="card-surface soft-up rounded-[24px] p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-semibold text-white">This week</div>
+              <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                </span>
+                This week
+              </div>
               <div className="text-xs text-slate-400">{weekly?.weekLabel || 'Loading weekly summary'}</div>
             </div>
-            <button onClick={() => void load()} className="ledger-button">
-              <RefreshCcw className="h-4 w-4" />
-              Refresh
-            </button>
+            <div className="flex items-center gap-2">
+              {lastSyncedAt && <span className="text-[0.65rem] uppercase tracking-[0.22em] text-slate-500">Synced {lastSyncedAt.toLocaleTimeString()}</span>}
+              <button onClick={() => void load()} className="ledger-button">
+                <RefreshCcw className="h-4 w-4" />
+                Refresh
+              </button>
+            </div>
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -167,7 +206,4 @@ export default function LedgerOverviewPage() {
     </div>
   );
 }
-
-
-
 

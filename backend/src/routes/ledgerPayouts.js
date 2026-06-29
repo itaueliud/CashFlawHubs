@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const { protect, ledgerOnly, ledgerOrSuperadminOnly } = require('../middleware/auth');
 const User = require('../models/User');
@@ -36,7 +36,7 @@ router.get('/users', protect, async (req, res) => {
     if (status === 'inactive') { userQuery.$or = [{ isActive: false }, { isBanned: true }]; }
 
     const users = await User.find(userQuery)
-      .select('name email phone userId country activationStatus isActive isBanned referredBy createdAt')
+      .select('name email phone userId country activationStatus isActive isBanned referredBy createdAt fraudRiskScore fraudRiskLevel fraudReviewStatus fraudRiskReasons')
       .sort({ createdAt: -1 })
       .skip((safePage - 1) * safeLimit)
       .limit(safeLimit);
@@ -159,6 +159,63 @@ router.post('/users/:userId/pay', protect, async (req, res) => {
       title: 'Payout processed',
       message: `Your payout of $${pendingAmount.toFixed(2)} has been processed.`,
       metadata: { amount: pendingAmount },
+    });
+
+    res.json({ success: true, amountPaid: pendingAmount, userId: user._id, processedAt: wallet.lastPaidAt });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/users/:userId/mark-paid-outside', protect, ledgerOnly, async (req, res) => {
+  try {
+    const { reason = 'Manual payout recorded outside the system' } = req.body || {};
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const wallet = await Wallet.findOne({ userId: user._id });
+    if (!wallet) return res.status(404).json({ success: false, message: 'Wallet not found' });
+
+    const pendingAmount = Number(wallet.pendingBalance || 0);
+    if (pendingAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'No pending balance to mark as paid.' });
+    }
+
+    const beforeBalance = Number(wallet.balanceUSD || 0);
+    wallet.pendingBalance = 0;
+    wallet.lastPaidAt = new Date();
+    wallet.totalWithdrawn = Number(wallet.totalWithdrawn || 0) + pendingAmount;
+    await wallet.save();
+
+    const tx = await Transaction.create({
+      userId: user._id,
+      type: 'manual_payment',
+      amountLocal: pendingAmount,
+      amountUSD: pendingAmount,
+      currency: 'USD',
+      country: user.country || 'KE',
+      provider: 'internal',
+      status: 'successful',
+      direction: 'debit',
+      metadata: { action: 'manual_outside_system', reason, markedBy: req.user._id },
+      processedAt: new Date(),
+    });
+
+    await LedgerTxLog.create({
+      userId: user._id,
+      username: user.name,
+      transactionType: 'payout',
+      amount: pendingAmount,
+      currency: 'USD',
+      status: 'success',
+      processedBy: req.user._id,
+      processedAt: new Date(),
+      sourceModule: 'manual_outside_system',
+      notes: `Marked paid outside system: ${reason}`,
+      ipAddress: req.ip || null,
+      beforeBalance,
+      afterBalance: Number(wallet.balanceUSD || 0),
+      relatedTransactionId: tx._id,
     });
 
     res.json({ success: true, amountPaid: pendingAmount, userId: user._id, processedAt: wallet.lastPaidAt });
@@ -380,7 +437,7 @@ router.post('/carryover/:userId/apply', protect, ledgerOnly, async (req, res) =>
       processedBy: req.user._id,
       processedAt: new Date(),
       sourceModule: 'carryover_apply',
-      notes: 'Applied carry-over to pending balance',
+      notes: reason ? `Applied carry-over to pending balance: ${reason}` : 'Applied carry-over to pending balance',
       ipAddress: req.ip || null,
       beforeBalance: null,
       afterBalance: Number(wallet.pendingBalance.toFixed(4)),
@@ -596,6 +653,10 @@ router.get('/reconciliation/snapshot', protect, ledgerOnly, async (req, res) => 
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
+
+
+
 
 
 

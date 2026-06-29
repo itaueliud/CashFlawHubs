@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../../../lib/api';
-import { ErrorBanner, LoadingSpinner, PageHeader, StatCard } from '../../../components/ui';
+import { ErrorBanner, LoadingSpinner, PageHeader, Skeleton, StatCard } from '../../../components/ui';
 import { CalendarDays, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 
 const money = (value: any) => `$${Number(value || 0).toFixed(2)}`;
@@ -45,6 +45,24 @@ function WeekCountdown() {
   );
 }
 
+function LoadingBlock() {
+  return (
+    <div className="space-y-4">
+      <div className="rounded-[24px] border border-white/8 bg-white/5 p-5">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="mt-2 h-3 w-56" />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Skeleton className="h-28 rounded-2xl" />
+        <Skeleton className="h-28 rounded-2xl" />
+        <Skeleton className="h-28 rounded-2xl" />
+        <Skeleton className="h-28 rounded-2xl" />
+      </div>
+      <LoadingSpinner />
+    </div>
+  );
+}
+
 export default function WeeklyReportPage() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [summary, setSummary] = useState<any>(null);
@@ -59,7 +77,7 @@ export default function WeeklyReportPage() {
     try {
       const [summaryRes, withdrawalsRes] = await Promise.all([
         api.get(`/ledger/payouts/weekly-summary?weekOffset=${offset}`),
-        api.get('/ledger/payouts/weekly-withdrawals'),
+        api.get(`/ledger/payouts/weekly-withdrawals?weekOffset=${offset}`),
       ]);
       setSummary(summaryRes.data || null);
       setWithdrawals(withdrawalsRes.data || null);
@@ -119,7 +137,14 @@ export default function WeeklyReportPage() {
     URL.revokeObjectURL(url);
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (loading && !summary) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Weekly Report" description="Review the Friday-to-Thursday ledger week, compare payout categories, and export the withdrawal list." />
+        <LoadingBlock />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -128,7 +153,7 @@ export default function WeeklyReportPage() {
         description="Review the Friday-to-Thursday ledger week, compare payout categories, and export the withdrawal list."
       />
 
-      {error && <ErrorBanner message={error} />}
+      {error && <ErrorBanner message={error} onRetry={() => void load(weekOffset)} />}
 
       <section className="rounded-[24px] border border-white/8 bg-white/5 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -163,10 +188,10 @@ export default function WeeklyReportPage() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Payouts USD" value={money(summary?.summary?.totalPayoutUSD)} sub={`${Number(summary?.summary?.usersPayoutCount || 0)} users paid`} />
-        <StatCard label="Activation Fees" value={money(summary?.summary?.totalActivationFeesUSD)} sub={`${Number(summary?.summary?.activationsCount || 0)} activations`} />
-        <StatCard label="Referral Comm" value={money(summary?.summary?.totalReferralCommUSD)} sub={`${Number(summary?.summary?.referralCommCount || 0)} transactions`} />
-        <StatCard label="Carry-over" value={money(summary?.summary?.totalCarryOverUSD)} sub="Rolled forward balance" />
+        <StatCard accent="emerald" label="Payouts USD" value={money(summary?.summary?.totalPayoutUSD)} sub={`${Number(summary?.summary?.usersPayoutCount || 0)} users paid`} />
+        <StatCard accent="cyan" label="Activation Fees" value={money(summary?.summary?.totalActivationFeesUSD)} sub={`${Number(summary?.summary?.activationsCount || 0)} activations`} />
+        <StatCard accent="amber" label="Referral Comm" value={money(summary?.summary?.totalReferralCommUSD)} sub={`${Number(summary?.summary?.referralCommCount || 0)} transactions`} />
+        <StatCard accent="violet" label="Carry-over" value={money(summary?.summary?.totalCarryOverUSD)} sub="Rolled forward balance" />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">

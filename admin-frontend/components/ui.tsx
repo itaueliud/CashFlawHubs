@@ -73,6 +73,23 @@ export const LoadingSpinner = () => (
   <div className="flex items-center justify-center py-6"><Loader2 className="h-6 w-6 animate-spin text-slate-300" /></div>
 );
 
-export const ErrorBanner = ({ message }: { message: string }) => (
-  <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">{message}</div>
+export const ErrorBanner = ({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry?: () => void;
+}) => (
+  <div className="flex items-center justify-between gap-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+    <div>{message}</div>
+    {onRetry && (
+      <button
+        type="button"
+        onClick={onRetry}
+        className="shrink-0 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-200 transition hover:bg-red-500/20"
+      >
+        Retry
+      </button>
+    )}
+  </div>
 );

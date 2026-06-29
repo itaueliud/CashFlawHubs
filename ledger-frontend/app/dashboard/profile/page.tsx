@@ -1,14 +1,15 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState } from 'react';
 import api from '../../../lib/api';
-import { ErrorBanner, LoadingSpinner, PageHeader, StatCard, StatusBadge } from '../../../components/ui';
-import { ShieldCheck, ShieldOff, RefreshCw, Copy } from 'lucide-react';
+import { ConfirmModal, ErrorBanner, LoadingSpinner, PageHeader, StatCard, StatusBadge } from '../../../components/ui';
+import { ShieldCheck, ShieldOff, RefreshCw, Copy, Clock3 } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuthStore();
   const [profile, setProfile] = useState<any>(null);
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [setupData, setSetupData] = useState<any>(null);
@@ -19,8 +20,12 @@ export default function ProfilePage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get('/auth/me');
-      setProfile(res.data?.user || null);
+      const [profileRes, auditRes] = await Promise.all([
+        api.get('/auth/me'),
+        (user as any)?.id ? api.get(`/ledger/audit-logs?processedBy=${(user as any).id}&limit=20`) : Promise.resolve({ data: { logs: [] } }),
+      ]);
+      setProfile(profileRes.data?.user || null);
+      setActivityLogs(auditRes.data?.logs || []);
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to load profile');
     } finally {
@@ -29,7 +34,7 @@ export default function ProfilePage() {
   };
 
   useEffect(() => {
-    load();
+    void load();
   }, []);
 
   const startSetup = async () => {
@@ -83,16 +88,16 @@ export default function ProfilePage() {
     <div className="space-y-6">
       <PageHeader
         title="Profile"
-        description="Ledger operator profile, session state, and 2FA controls."
+        description="Ledger operator profile, session state, 2FA controls, and recent operator activity."
       />
 
-      {error && <ErrorBanner message={error} />}
+      {error && <ErrorBanner message={error} onRetry={() => void load()} />}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Name" value={profile?.name || user?.name || 'Ledger Operator'} sub="Current account name" />
-        <StatCard label="Role" value={profile?.role || user?.role || 'ledger'} sub="Permission level" />
-        <StatCard label="2FA" value={profile?.twoFactorEnabled || user?.twoFactorEnabled ? 'Enabled' : 'Disabled'} sub="Authenticator protection" />
-        <StatCard label="Email" value={profile?.email || user?.email || 'n/a'} sub="Login identifier" />
+        <StatCard accent="cyan" label="Name" value={profile?.name || user?.name || 'Ledger Operator'} sub="Current account name" />
+        <StatCard accent="emerald" label="Role" value={profile?.role || user?.role || 'ledger'} sub="Permission level" />
+        <StatCard accent="amber" label="2FA" value={profile?.twoFactorEnabled || user?.twoFactorEnabled ? 'Enabled' : 'Disabled'} sub="Authenticator protection" />
+        <StatCard accent="violet" label="Email" value={profile?.email || user?.email || 'n/a'} sub="Login identifier" />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
@@ -173,9 +178,36 @@ export default function ProfilePage() {
         </div>
       </section>
 
+      <section className="rounded-[24px] border border-white/8 bg-white/5 p-5">
+        <div className="flex items-center gap-2 text-sm font-semibold text-white">
+          <Clock3 className="h-4 w-4 text-cyan-300" />
+          Operator activity log
+        </div>
+        <div className="mt-4 space-y-3">
+          {activityLogs.length ? activityLogs.map((log) => (
+            <div key={log._id} className="rounded-2xl border border-white/8 bg-[#050b17] p-4 text-sm text-slate-300">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="font-semibold text-white">{log.transactionType || log.sourceLabel || 'Action'}</div>
+                  <div className="mt-1 text-xs text-slate-500">{log.notes || log.failureReason || 'No notes'}</div>
+                </div>
+                <StatusBadge status={log.status || 'unknown'} />
+              </div>
+              <div className="mt-2 text-xs text-slate-500">{log.processedAt ? new Date(log.processedAt).toLocaleString() : 'n/a'}</div>
+            </div>
+          )) : (
+            <div className="rounded-2xl border border-white/8 bg-white/5 p-6 text-sm text-slate-500">No operator activity recorded yet.</div>
+          )}
+        </div>
+      </section>
+
       <section className="rounded-[24px] border border-white/8 bg-white/5 p-5 text-sm text-slate-300">
         Need a session refresh? Click refresh on the operator store state after changing login settings, or use the setup flow above to re-enroll your authenticator.
       </section>
     </div>
   );
 }
+
+
+
+

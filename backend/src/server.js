@@ -1,4 +1,4 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
@@ -90,13 +90,15 @@ const parseAllowedOrigins = () => {
     // Staff frontends
     'https://admin.cashflowhubs.com',
     'https://ledger.cashflowhubs.com',
+    'https://cashflowhubs-admin-omega.vercel.app',
+    'https://cashflowhubs-ledger-livid.vercel.app',
     ...configuredOrigins,
   ]);
 };
 
 const allowedOrigins = parseAllowedOrigins();
 const allowedOriginPatterns = [
-  /^https:\/\/cashflowhubs-[a-z0-9]+-techswifttrix\.vercel\.app$/,
+  new RegExp("^https://cashflowhubs-[a-z0-9-]+\\.vercel\\.app$"),
 ];
 
 const isAllowedOrigin = (origin) => {
@@ -298,8 +300,3 @@ server.listen(PORT, () => {
 });
 
 module.exports = app;
-
-
-
-
-

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import api from '../../../lib/api';
@@ -6,7 +6,7 @@ import { ConfirmModal, ErrorBanner, LoadingSpinner, PageHeader, StatCard, Status
 import { RefreshCw, Layers3, BadgeCheck, Trash2 } from 'lucide-react';
 
 type CarryAction =
-  | { type: 'apply'; item: any }
+  | { type: 'apply'; item: any; reason: string }
   | { type: 'writeoff'; item: any; reason: string }
   | { type: 'bulk' }
   | null;
@@ -54,10 +54,10 @@ export default function CarryoverPage() {
     [filteredRows]
   );
 
-  const applyOne = async (userId: string) => {
+  const applyOne = async (userId: string, reason: string) => {
     setBusyId(userId);
     try {
-      await api.post(`/ledger/payouts/carryover/${userId}/apply`);
+      await api.post(`/ledger/payouts/carryover/${userId}/apply`, { reason });
       await load();
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to apply carry-over');
@@ -102,12 +102,12 @@ export default function CarryoverPage() {
         description="Review balances that were deferred, apply them back to pending balance, or write them off with a reason."
       />
 
-      {error && <ErrorBanner message={error} />}
+      {error && <ErrorBanner message={error} onRetry={() => void load()} />}
 
       <section className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Users" value={String(filteredRows.length)} sub="Carry-over records visible" />
-        <StatCard label="Total Carry-Over" value={money(totalCarryOver)} sub="Filtered carry-over value" />
-        <StatCard label="Bulk Ready" value={String(filteredRows.filter((row) => Number(row.carryOver || 0) > 0).length)} sub="Eligible for bulk apply" />
+        <StatCard accent="cyan" label="Users" value={String(filteredRows.length)} sub="Carry-over records visible" />
+        <StatCard accent="amber" label="Total Carry-Over" value={money(totalCarryOver)} sub="Filtered carry-over value" />
+        <StatCard accent="emerald" label="Bulk Ready" value={String(filteredRows.filter((row) => Number(row.carryOver || 0) > 0).length)} sub="Eligible for bulk apply" />
       </section>
 
       <section className="rounded-[24px] border border-white/8 bg-white/5 p-5">
@@ -165,7 +165,7 @@ export default function CarryoverPage() {
                     <td className="px-5 py-4">
                       <div className="flex flex-wrap gap-2">
                         <button
-                          onClick={() => setAction({ type: 'apply', item: row })}
+                          onClick={() => setAction({ type: 'apply', item: row, reason: '' })}
                           disabled={busyId === (user._id || user.userId)}
                           className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-300 transition hover:bg-cyan-500/15 disabled:opacity-50"
                         >
@@ -209,12 +209,27 @@ export default function CarryoverPage() {
           if (action?.type === 'bulk') {
             void bulkApply();
           } else if (action?.type === 'apply') {
-            void applyOne(String(action.item.user?._id || action.item.user?.userId || action.item.userId || ''));
+            void applyOne(String(action.item.user?._id || action.item.user?.userId || action.item.userId || ''), action.reason || 'Carry-over restored to pending balance');
           } else if (action?.type === 'writeoff') {
             void writeOff(String(action.item.user?._id || action.item.user?.userId || action.item.userId || ''), action.reason || 'Carry-over reviewed and written off');
           }
         }}
       >
+        {action?.type === 'apply' && (
+          <div className="mt-4">
+            <label className="mb-2 block text-xs uppercase tracking-[0.24em] text-slate-500">Reason</label>
+            <textarea
+              autoFocus
+              value={action.reason}
+              onChange={(e) =>
+                setAction((current) => (current && current.type === 'apply' ? { ...current, reason: e.target.value } : current))
+              }
+              rows={4}
+              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
+              placeholder="Enter the reason for restoring carry-over"
+            />
+          </div>
+        )}
         {action?.type === 'writeoff' && (
           <div className="mt-4">
             <label className="mb-2 block text-xs uppercase tracking-[0.24em] text-slate-500">Reason</label>
@@ -234,3 +249,4 @@ export default function CarryoverPage() {
     </div>
   );
 }
+

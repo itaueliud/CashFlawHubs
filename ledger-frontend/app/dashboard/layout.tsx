@@ -74,12 +74,26 @@ const BellIcon = ({ className = '' }: IconProps) => (
     <path d="M9 17a3 3 0 0 0 6 0" />
   </IconShell>
 );
+const MenuIcon = ({ className = '' }: IconProps) => (
+  <IconShell className={className}>
+    <path d="M4 6h16" />
+    <path d="M4 12h16" />
+    <path d="M4 18h16" />
+  </IconShell>
+);
+const CloseIcon = ({ className = '' }: IconProps) => (
+  <IconShell className={className}>
+    <path d="M18 6 6 18" />
+    <path d="M6 6l12 12" />
+  </IconShell>
+);
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, hasHydrated, logout } = useAuthStore();
   const [mounted, setMounted] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
@@ -89,6 +103,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.replace('/login');
     }
   }, [hasHydrated, user, router]);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
 
   const navItems = useMemo(
     () => [
@@ -129,13 +147,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const displayName = user.name || 'Ledger Operator';
-  const balance = Number(user.balanceUSD || 0).toFixed(2);
+  const roleLabel = user.role || 'ledger';
   const tokens = Number(user.tokenBalance || 0);
 
   return (
     <div className="dashboard-shell ledger-app min-h-screen text-slate-100">
       <div className="grid min-h-screen lg:grid-cols-[300px_1fr]">
-        <aside className="sticky top-0 flex h-screen flex-col overflow-hidden bg-[rgba(8,17,31,0.94)] shadow-[inset_-1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-xl">
+        <aside className="sticky top-0 hidden h-screen flex-col overflow-hidden bg-[rgba(8,17,31,0.94)] shadow-[inset_-1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-xl lg:flex">
           <div className="flex flex-none items-center gap-3 px-5 py-5">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 font-black text-white shadow-lg shadow-cyan-500/25">
               {displayName.charAt(0).toUpperCase()}
@@ -171,9 +189,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           <div className="flex-none p-4 pt-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <div className="rounded-2xl border border-cyan-500/15 bg-cyan-500/10 p-4">
-              <div className="text-xs text-slate-400">Balance</div>
-              <div className="mt-1 text-3xl font-black text-cyan-300 tabular-nums">${balance}</div>
-              <div className="mt-1 text-xs text-yellow-300 tabular-nums">{tokens} Tokens</div>
+              <div className="text-xs text-slate-400">Workspace</div>
+              <div className="mt-1 text-xl font-black text-white">Ledger operator</div>
+              <div className="mt-2 text-xs text-slate-400">Role</div>
+              <div className="mt-1 text-sm font-semibold text-cyan-300 tabular-nums">{roleLabel}</div>
+              <div className="mt-2 text-xs text-slate-400">Tokens</div>
+              <div className="mt-1 text-sm font-semibold text-yellow-300 tabular-nums">{tokens}</div>
             </div>
             <button
               onClick={() => {
@@ -189,8 +210,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </aside>
 
         <div className="flex min-w-0 flex-col">
-          <header className="sticky top-0 z-20 flex h-16 items-center justify-between bg-[rgba(3,7,18,0.76)] px-5 shadow-[inset_0_-1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl lg:px-8">
-            <div className="text-sm text-slate-300">Welcome back, {displayName}</div>
+          <header className="sticky top-0 z-20 flex h-16 items-center justify-between bg-[rgba(3,7,18,0.76)] px-4 shadow-[inset_0_-1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl lg:px-8">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setMobileNavOpen((open) => !open)}
+                className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 p-2 text-slate-200 transition hover:bg-white/10 lg:hidden"
+                aria-label="Toggle navigation"
+              >
+                {mobileNavOpen ? <CloseIcon className="h-5 w-5" /> : <MenuIcon className="h-5 w-5" />}
+              </button>
+              <div className="text-sm text-slate-300">Welcome back, {displayName}</div>
+            </div>
             <div className="flex items-center gap-2 text-xs text-slate-300">
               <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1">XP {user.xpPoints || 0}</div>
               <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1">T {tokens}</div>
@@ -198,12 +228,61 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </header>
 
-          <main className="h-screen flex-1 overflow-y-auto p-5 lg:p-8">
+          <main className="h-screen flex-1 overflow-y-auto p-4 lg:p-8">
             <div className="soft-in">{children}</div>
           </main>
         </div>
       </div>
+
+      {mobileNavOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <button className="absolute inset-0 bg-black/60" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation" />
+          <aside className="absolute left-0 top-0 flex h-full w-[82vw] max-w-sm flex-col overflow-hidden bg-[rgba(8,17,31,0.98)] shadow-2xl shadow-black/40">
+            <div className="flex flex-none items-center gap-3 px-5 py-5">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 font-black text-white shadow-lg shadow-cyan-500/25">
+                {displayName.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-bold text-white">CashFlowHubs Ledger</div>
+                <div className="mt-1 text-xs text-cyan-300">Ledger operator</div>
+              </div>
+            </div>
+            <nav className="scrollbar-none min-h-0 flex-1 space-y-1 overflow-y-auto p-3">
+              {navItems.map((item) => {
+                const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileNavOpen(false)}
+                    className={`group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
+                      isActive
+                        ? 'border-cyan-500/20 bg-cyan-500/15 text-cyan-300'
+                        : 'border-transparent text-slate-400 hover:border-white/8 hover:bg-white/5 hover:text-slate-200'
+                    }`}
+                  >
+                    <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-cyan-400' : 'text-slate-500'}`} />
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+            <div className="flex-none p-4 pt-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <button
+                onClick={() => {
+                  logout();
+                  router.replace('/login');
+                }}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/8 px-4 py-2.5 text-sm text-slate-400 transition-all hover:border-red-500/30 hover:bg-red-500/5 hover:text-red-300"
+              >
+                <LogOutIcon className="h-4 w-4" />
+                Logout
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
     </div>
   );
 }
-
