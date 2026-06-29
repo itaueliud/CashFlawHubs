@@ -349,3 +349,29 @@ button{cursor:pointer}
     width: 100%;
   }
 }
+
+.ledger-app .card,
+.ledger-app .card-surface,
+.ledger-app .stat-card,
+.ledger-app .table-shell,
+.ledger-app .ledger-table-wrap,
+.ledger-app .ledger-table {
+  border-color: rgba(255,255,255,0.04) !important;
+}
+
+.ledger-app .card::before,
+.ledger-app .card-surface::before,
+.ledger-app .stat-card::before {
+  display: none;
+}
+
+.ledger-app .border-white\/8,
+.ledger-app .border-white\/10,
+.ledger-app .border-slate-700,
+.ledger-app .border-slate-800 {
+  border-color: rgba(255,255,255,0.05) !important;
+}
+
+.ledger-app .divide-y > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(255,255,255,0.04) !important;
+}

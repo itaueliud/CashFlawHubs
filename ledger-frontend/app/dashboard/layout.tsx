@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -135,7 +135,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="dashboard-shell ledger-app min-h-screen text-slate-100">
       <div className="grid min-h-screen lg:grid-cols-[300px_1fr]">
-        <aside className="sticky top-0 flex h-screen flex-col overflow-hidden border-r border-white/8 bg-[rgba(8,17,31,0.95)] backdrop-blur-xl">
+        <aside className="sticky top-0 flex h-screen flex-col overflow-hidden bg-[rgba(8,17,31,0.94)] shadow-[inset_-1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-xl">
           <div className="flex flex-none items-center gap-3 px-5 py-5">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 font-black text-white shadow-lg shadow-cyan-500/25">
               {displayName.charAt(0).toUpperCase()}
@@ -169,7 +169,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             })}
           </nav>
 
-          <div className="flex-none border-t border-white/8 p-4">
+          <div className="flex-none p-4 pt-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <div className="rounded-2xl border border-cyan-500/15 bg-cyan-500/10 p-4">
               <div className="text-xs text-slate-400">Balance</div>
               <div className="mt-1 text-3xl font-black text-cyan-300 tabular-nums">${balance}</div>
@@ -189,7 +189,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </aside>
 
         <div className="flex min-w-0 flex-col">
-          <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-white/8 bg-[rgba(3,7,18,0.78)] px-5 backdrop-blur-xl lg:px-8">
+          <header className="sticky top-0 z-20 flex h-16 items-center justify-between bg-[rgba(3,7,18,0.76)] px-5 shadow-[inset_0_-1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl lg:px-8">
             <div className="text-sm text-slate-300">Welcome back, {displayName}</div>
             <div className="flex items-center gap-2 text-xs text-slate-300">
               <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1">XP {user.xpPoints || 0}</div>
@@ -206,3 +206,4 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
+
