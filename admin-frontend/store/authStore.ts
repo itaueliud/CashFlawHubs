@@ -21,6 +21,7 @@ interface AuthState {
   verify2FA: (code: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  setUser: (user: AdminUser | null) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -85,12 +86,13 @@ export const useAuthStore = create<AuthState>()(
           throw err;
         }
       },
-
       logout: () => {
         api.post('/auth/logout').catch(() => {});
         set({ user: null, token: null, pending2FA: null, isLoading: false });
         delete api.defaults.headers.common['Authorization'];
       },
+
+      setUser: (user) => set({ user }),
 
       refreshUser: async () => {
         try {

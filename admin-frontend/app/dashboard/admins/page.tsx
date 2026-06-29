@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import api from '../../../lib/api';
@@ -59,7 +59,7 @@ const defaultForm: AdminForm = {
 const normalizePages = (pages: string[]) => Array.from(new Set(pages.filter(Boolean)));
 
 export default function AdminsPage() {
-  const { user, refreshUser } = useAuthStore();
+  const { user, refreshUser, setUser } = useAuthStore();
   const [admins, setAdmins] = useState<AdminRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,8 +75,19 @@ export default function AdminsPage() {
   const [resetPassword, setResetPassword] = useState('');
   const [resetBusy, setResetBusy] = useState(false);
 
-  const currentUserId = String(user?.id || '');
+  const currentUserId = String((user as any)?.id || (user as any)?._id || (user as any)?.userId || '');
   const canCreateSuperadmin = Boolean((user as any)?.role === 'ledger');
+
+  const isCurrentAdmin = (candidate?: AdminRow | null) => {
+    if (!candidate || !user) return false;
+    const candidateIds = [candidate._id, candidate.userId, candidate.email, candidate.phone]
+      .map((value) => String(value || '').trim().toLowerCase())
+      .filter(Boolean);
+    const currentIds = [currentUserId, (user as any)?.email, (user as any)?.phone]
+      .map((value) => String(value || '').trim().toLowerCase())
+      .filter(Boolean);
+    return candidateIds.some((value) => currentIds.includes(value));
+  };
 
   const loadAdmins = async () => {
     setLoading(true);
@@ -134,11 +145,17 @@ export default function AdminsPage() {
     setEditBusy(true);
     setError(null);
     try {
-      await api.put(`/admin/admins/${editTarget._id}/pages`, {
+      const res = await api.put(`/admin/admins/${editTarget._id}/pages`, {
         adminAllowedPages: normalizePages(editPages),
       });
+      const updatedAdmin = res.data?.admin || null;
       await loadAdmins();
-      if (String(editTarget.userId || editTarget._id) === currentUserId) {
+      if (isCurrentAdmin(updatedAdmin || editTarget)) {
+        setUser({
+          ...(user as any),
+          ...(updatedAdmin || {}),
+          adminAllowedPages: normalizePages((updatedAdmin?.adminAllowedPages || editPages) as string[]),
+        } as any);
         await refreshUser();
       }
       setEditTarget(null);
