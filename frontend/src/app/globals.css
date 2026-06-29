@@ -1,4 +1,4 @@
-@tailwind base;
+﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -414,3 +414,4 @@ body {
     @apply w-full justify-center;
   }
 }
+

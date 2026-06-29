@@ -1,6 +1,6 @@
-'use client';
+﻿'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../../../lib/api';
 import { Search, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ErrorBanner, LoadingSpinner, PageHeader } from '../../../components/ui';
@@ -33,8 +33,10 @@ export default function AuditPage() {
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({ module: 'all', action: 'all' });
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  const requestSeqRef = useRef(0);
 
   const loadLogs = async (page = 1, searchTerm = search, filterModule = filters.module, filterAction = filters.action) => {
+    const requestSeq = ++requestSeqRef.current;
     setLoading(true);
     try {
       const params: any = { page, limit: 50 };
@@ -42,13 +44,18 @@ export default function AuditPage() {
       if (filterModule !== 'all') params.module = filterModule;
       if (filterAction !== 'all') params.action = filterAction;
       const response = await api.get('/admin-advanced/audit/logs', { params });
+      if (requestSeq !== requestSeqRef.current) return;
       setLogs(response.data?.logs || []);
       setPagination(response.data?.pagination || { total: 0, page: 1, limit: 50 });
       setError(null);
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to load audit logs');
+      if (requestSeq === requestSeqRef.current) {
+        setError(err?.response?.data?.message || 'Failed to load audit logs');
+      }
     } finally {
-      setLoading(false);
+      if (requestSeq === requestSeqRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -87,7 +94,7 @@ export default function AuditPage() {
   };
 
   const handlePageChange = (page: number) => {
-    loadLogs(page);
+    loadLogs(page, search, filters.module, filters.action);
   };
 
   const handleExportJSON = () => {
@@ -261,7 +268,7 @@ export default function AuditPage() {
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-xs text-slate-400">{log.targetType || '—'}</td>
+                        <td className="px-4 py-3 text-xs text-slate-400">{log.targetType || 'â€”'}</td>
                         <td className="px-4 py-3 text-xs text-slate-400">
                           {metadataText ? `${metadataText.slice(0, 80)}${metadataText.length > 80 ? '...' : ''}` : 'No details'}
                         </td>
@@ -306,11 +313,11 @@ export default function AuditPage() {
             </div>
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Target Type</div>
-              <div className="mt-1 text-white">{selectedLog.targetType || '—'}</div>
+              <div className="mt-1 text-white">{selectedLog.targetType || 'â€”'}</div>
             </div>
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Target ID</div>
-              <div className="mt-1 font-mono text-xs text-slate-300">{selectedLog.targetId || '—'}</div>
+              <div className="mt-1 font-mono text-xs text-slate-300">{selectedLog.targetId || 'â€”'}</div>
             </div>
             {selectedLog.metadata && (
               <div className="sm:col-span-2">
@@ -350,3 +357,4 @@ export default function AuditPage() {
     </div>
   );
 }
+

@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../../../lib/api';
 import { ErrorBanner, LoadingSpinner, PageHeader, StatusBadge } from '../../../components/ui';
 import { ClipboardList, Dot, RefreshCw, X } from 'lucide-react';
@@ -27,10 +27,12 @@ export default function AuditLogsPage() {
     dateTo: '',
   });
   const [selectedLog, setSelectedLog] = useState<any | null>(null);
+  const requestSeqRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = async (page = pagination.page, activeFilters = filters, silent = false) => {
+    const requestSeq = ++requestSeqRef.current;
     if (!silent) setLoading(true);
     setError(null);
     try {
@@ -41,12 +43,17 @@ export default function AuditLogsPage() {
         if (value) params.set(key, value);
       });
       const res = await api.get(`/ledger/audit-logs?${params.toString()}`);
+      if (requestSeq !== requestSeqRef.current) return;
       setLogs(res.data?.logs || []);
       setPagination(res.data?.pagination || { page, limit: pagination.limit, total: 0 });
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to load audit logs');
+      if (requestSeq === requestSeqRef.current) {
+        setError(err?.response?.data?.message || 'Failed to load audit logs');
+      }
     } finally {
-      setLoading(false);
+      if (requestSeq === requestSeqRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -86,7 +93,7 @@ export default function AuditLogsPage() {
               <div className="text-sm font-semibold text-white">Filters</div>
               <p className="text-xs text-slate-400">Filter by type, status, date, user, or processor.</p>
             </div>
-            <button onClick={() => load(pagination.page)} className="ledger-button">
+            <button onClick={() => load(pagination.page, filters)} className="ledger-button">
               <RefreshCw className="h-4 w-4" />
               Refresh
             </button>
@@ -114,7 +121,7 @@ export default function AuditLogsPage() {
           </div>
 
           <div className="mt-4 flex items-center gap-2">
-            <button onClick={() => load(1)} className="ledger-button">
+            <button onClick={() => load(1, filters)} className="ledger-button">
               <ClipboardList className="h-4 w-4" />
               Apply filters
             </button>
@@ -183,14 +190,14 @@ export default function AuditLogsPage() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => load(Math.max(1, (pagination.page || 1) - 1))}
+              onClick={() => load(Math.max(1, (pagination.page || 1) - 1), filters)}
               disabled={(pagination.page || 1) <= 1}
               className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-slate-300 disabled:opacity-50"
             >
               Previous
             </button>
             <button
-              onClick={() => load(Math.min(pages, (pagination.page || 1) + 1))}
+              onClick={() => load(Math.min(pages, (pagination.page || 1) + 1), filters)}
               disabled={(pagination.page || 1) >= pages}
               className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-slate-300 disabled:opacity-50"
             >
@@ -268,4 +275,8 @@ export default function AuditLogsPage() {
     </>
   );
 }
+
+
+
+
 
