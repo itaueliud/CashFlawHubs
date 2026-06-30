@@ -25,6 +25,7 @@ const getLedgerSplitPercent = () => {
 };
 
 const getAdminSharePercent = () => 100 - getLedgerSplitPercent();
+const VALID_ADMIN_COUNTRIES = ['KE', 'UG', 'TZ', 'ET', 'GH', 'NG'];
 const normalizeSearch = (value = '') => String(value).trim();
 const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const canManageTarget = (actor, target) => {
@@ -1234,37 +1235,50 @@ router.get('/admins', protect, ledgerOrSuperadminOnly, async (req, res) => {
 });
 
 router.post('/admins', protect, ledgerOrSuperadminOnly, async (req, res) => {
-  const { name, email, phone, country, password, role = 'admin', adminAllowedPages = [] } = req.body;
+  try {
+    const { name, email, phone, country, password, role = 'admin', adminAllowedPages = [] } = req.body;
 
-  if (!name || !email || !phone || !country || !password) {
-    return res.status(400).json({ success: false, message: 'Missing required admin fields' });
+    if (!name || !email || !phone || !country || !password) {
+      return res.status(400).json({ success: false, message: 'Missing required admin fields' });
+    }
+
+    const countryCode = String(country).trim().toUpperCase();
+    if (!VALID_ADMIN_COUNTRIES.includes(countryCode)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid country code "${country}". Use one of: ${VALID_ADMIN_COUNTRIES.join(', ')}`,
+      });
+    }
+
+    const allowedRoles = req.user.role === 'ledger' ? ['admin', 'superadmin'] : ['admin'];
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({ success: false, message: 'Invalid role' });
+    }
+
+    const existing = await User.findOne({ $or: [{ email: email.toLowerCase() }, { phone }] });
+    if (existing) {
+      return res.status(409).json({ success: false, message: 'Admin already exists with this email or phone' });
+    }
+
+    const admin = await User.create({
+      name,
+      email: email.toLowerCase(),
+      phone,
+      country: countryCode,
+      passwordHash: password,
+      role,
+      activationStatus: true,
+      emailVerified: true,
+      phoneVerified: true,
+      isActive: true,
+      adminAllowedPages: Array.isArray(adminAllowedPages) ? adminAllowedPages.filter(Boolean) : [],
+    });
+
+    res.status(201).json({ success: true, admin });
+  } catch (error) {
+    logger.error(`Admin creation failed: ${error.message}`, { userId: req.user?._id?.toString?.() || null });
+    res.status(400).json({ success: false, message: error.message || 'Failed to create admin' });
   }
-
-  const allowedRoles = req.user.role === 'ledger' ? ['admin', 'superadmin'] : ['admin'];
-  if (!allowedRoles.includes(role)) {
-    return res.status(400).json({ success: false, message: 'Invalid role' });
-  }
-
-  const existing = await User.findOne({ $or: [{ email: email.toLowerCase() }, { phone }] });
-  if (existing) {
-    return res.status(409).json({ success: false, message: 'Admin already exists with this email or phone' });
-  }
-
-  const admin = await User.create({
-    name,
-    email: email.toLowerCase(),
-    phone,
-    country,
-    passwordHash: password,
-    role,
-    activationStatus: true,
-    emailVerified: true,
-    phoneVerified: true,
-    isActive: true,
-    adminAllowedPages: Array.isArray(adminAllowedPages) ? adminAllowedPages.filter(Boolean) : [],
-  });
-
-  res.status(201).json({ success: true, admin });
 });
 
 router.put('/admins/:id/ban', protect, ledgerOrSuperadminOnly, async (req, res) => {

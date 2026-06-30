@@ -29,6 +29,15 @@ const availablePages = [
   { key: '/dashboard/profile', label: 'Profile' },
 ];
 
+const adminCountries = [
+  { value: 'KE', label: 'Kenya' },
+  { value: 'UG', label: 'Uganda' },
+  { value: 'TZ', label: 'Tanzania' },
+  { value: 'ET', label: 'Ethiopia' },
+  { value: 'GH', label: 'Ghana' },
+  { value: 'NG', label: 'Nigeria' },
+] as const;
+
 const emptyForm = {
   name: '',
   email: '',
@@ -182,7 +191,6 @@ export default function AdminsPage() {
               ['name', 'Full name'],
               ['email', 'Email address'],
               ['phone', 'Phone number'],
-              ['country', 'Country'],
               ['password', 'Password'],
             ].map(([key, label]) => (
               <label key={key} className="block">
@@ -195,6 +203,21 @@ export default function AdminsPage() {
                 />
               </label>
             ))}
+            <label className="block">
+              <div className="mb-2 text-xs uppercase tracking-[0.24em] text-slate-500">Country</div>
+              <select
+                value={form.country}
+                onChange={(e) => setForm((current) => ({ ...current, country: e.target.value }))}
+                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
+              >
+                <option value="">Select country</option>
+                {adminCountries.map((country) => (
+                  <option key={country.value} value={country.value} className="bg-[#09111f] text-white">
+                    {country.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="block">
               <div className="mb-2 text-xs uppercase tracking-[0.24em] text-slate-500">Role</div>
               <select
