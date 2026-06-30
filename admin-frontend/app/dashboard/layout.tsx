@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
@@ -111,7 +111,7 @@ const isRouteAllowed = (pathname: string, href: string) => {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, hasHydrated, logout } = useAuthStore();
+  const { user, hasHydrated, logout, refreshUser } = useAuthStore();
   const [mounted, setMounted] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -134,8 +134,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!hasHydrated) return;
     if (!user || !['admin', 'superadmin'].includes(user.role || '')) {
       router.replace('/login');
+      return;
     }
-  }, [hasHydrated, user, router]);
+
+    // Pull a fresh user snapshot so adminAllowedPages reflects the backend state.
+    refreshUser().catch(() => {});
+  }, [hasHydrated, user?.id, router, refreshUser]);
 
   useEffect(() => {
     setMobileNavOpen(false);
