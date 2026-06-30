@@ -1493,20 +1493,33 @@ router.put('/admins/:id/reset-password', protect, ledgerOrSuperadminOnly, async 
 });
 
 router.put('/admins/:id/pages', protect, ledgerOrSuperadminOnly, async (req, res) => {
-  const pages = Array.isArray(req.body?.adminAllowedPages) ? req.body.adminAllowedPages.map((page) => String(page).trim()).filter(Boolean) : null;
-  if (!pages) {
-    return res.status(400).json({ success: false, message: 'adminAllowedPages array is required' });
+  try {
+    const pages = Array.isArray(req.body?.adminAllowedPages)
+      ? req.body.adminAllowedPages.map((page) => String(page).trim()).filter(Boolean)
+      : null;
+    if (!pages) {
+      return res.status(400).json({ success: false, message: 'adminAllowedPages array is required' });
+    }
+
+    const target = await User.findById(req.params.id);
+    if (!target || !['admin', 'superadmin'].includes(target.role)) {
+      return res.status(404).json({ success: false, message: 'Admin account not found' });
+    }
+    if (req.user.role === 'superadmin' && target.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Superadmin can only manage admin accounts' });
+    }
+
+    const admin = await User.findByIdAndUpdate(
+      target._id,
+      { $set: { adminAllowedPages: pages } },
+      { new: true, runValidators: true }
+    ).select('name email phone role country isBanned isActive lastActiveDate userId createdAt adminAllowedPages');
+
+    res.json({ success: true, message: 'Admin permissions updated successfully', admin });
+  } catch (error) {
+    logger.error(`Admin pages update failed: ${error.message}`, { userId: req.user?._id?.toString?.() || null, targetUserId: req.params.id });
+    res.status(500).json({ success: false, message: 'Failed to update admin permissions', error: error.message });
   }
-  const target = await User.findById(req.params.id);
-  if (!target || !['admin', 'superadmin'].includes(target.role)) {
-    return res.status(404).json({ success: false, message: 'Admin account not found' });
-  }
-  if (req.user.role === 'superadmin' && target.role !== 'admin') {
-    return res.status(403).json({ success: false, message: 'Superadmin can only manage admin accounts' });
-  }
-  target.adminAllowedPages = pages;
-  await target.save();
-  res.json({ success: true, message: 'Admin permissions updated successfully', admin: target });
 });
 
 router.delete('/admins/:id', protect, ledgerOrSuperadminOnly, async (req, res) => {
