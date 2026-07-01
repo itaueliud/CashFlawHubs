@@ -196,6 +196,17 @@ app.use(express.urlencoded({ extended: true }));
 app.use(compression());
 app.use('/uploads', express.static('uploads'));
 
+// Permission-sensitive auth/admin endpoints must never be cached, otherwise
+// the staff portals can keep rendering stale allowed-page snapshots after an update.
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/auth') || req.path === '/api/admin/admins') {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  next();
+});
+
 // IP capture middleware on authenticated requests
 app.use(captureIp);
 
@@ -300,3 +311,4 @@ server.listen(PORT, () => {
 });
 
 module.exports = app;
+
