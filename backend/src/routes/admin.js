@@ -1516,7 +1516,7 @@ router.put('/admins/:id/reset-password', protect, staffOnly, async (req, res) =>
   res.json({ success: true, message: 'Admin password updated successfully' });
 });
 
-router.put('/admins/:id/pages', protect, adminOnly, async (req, res) => {
+router.put('/admins/:id/pages', protect, staffOnly, async (req, res) => {
   try {
     const pages = Array.isArray(req.body?.adminAllowedPages)
       ? req.body.adminAllowedPages.map((page) => String(page).trim()).filter(Boolean)
@@ -1528,6 +1528,9 @@ router.put('/admins/:id/pages', protect, adminOnly, async (req, res) => {
     const target = await User.findById(req.params.id);
     if (!target || !['admin', 'superadmin'].includes(target.role)) {
       return res.status(404).json({ success: false, message: 'Admin account not found' });
+    }
+    if (req.user.role === 'ledger' && target.role === 'superadmin') {
+      return res.status(403).json({ success: false, message: 'Ledger cannot edit superadmin page permissions' });
     }
     if (req.user.role === 'admin' && target.role !== 'admin') {
       return res.status(403).json({ success: false, message: 'Admin can only manage admin accounts' });
@@ -2252,6 +2255,7 @@ router.post('/execute-payout', protect, ledgerOrSuperadminOnly, async (req, res)
 });
 
 module.exports = router;
+
 
 
 
