@@ -2,7 +2,7 @@
   --bg-base: #0B132B;
   --bg-surface: #1C1F26;
   --bg-elevated: #141B34;
-  --border: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.035);
   --accent-blue: #1E90FF;
   --accent-green: #00C896;
   --text-primary: #EAEAEA;
@@ -24,8 +24,8 @@ body {
 
 .card-surface {
   background: rgba(28, 31, 38, 0.92);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-glow), 0 20px 60px rgba(0, 0, 0, 0.35);
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-glow), 0 24px 70px rgba(0, 0, 0, 0.28);
   backdrop-filter: blur(18px);
 }
 
@@ -103,3 +103,7 @@ html {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.45);
 }
+
+
+
+

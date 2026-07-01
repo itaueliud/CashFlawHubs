@@ -21,7 +21,7 @@ function MetricCard({
   sub?: string;
 }) {
   return (
-    <div className="card-surface soft-up rounded-2xl border-t-2 p-5 transition-all duration-200 hover:border-white/15" style={{ borderTopColor: accent }}>
+    <div className="card-surface soft-up rounded-2xl p-5 transition-all duration-200" style={{ borderTopColor: accent }}>
       <div className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">{label}</div>
       <div className="mt-2 text-3xl font-black tabular-nums" style={{ color: accent }}>
         {value}
@@ -34,7 +34,7 @@ function MetricCard({
 function SectionCard({ title, subtitle, children, id }: { title: string; subtitle: string; children: React.ReactNode; id: string }) {
   return (
     <section id={id} className="card-surface soft-up rounded-[24px] p-5 lg:p-6">
-      <div className="mb-4 border-b border-white/8 pb-4">
+      <div className="mb-4 pb-4">
         <h2 className="text-lg font-black text-white">{title}</h2>
         <p className="mt-1 text-sm text-slate-400">{subtitle}</p>
       </div>
@@ -45,13 +45,13 @@ function SectionCard({ title, subtitle, children, id }: { title: string; subtitl
 
 function KeyValueTable({ title, rows }: { title: string; rows: Array<[string, React.ReactNode]> }) {
   return (
-    <div className="rounded-2xl border border-white/8 bg-[#050b17] overflow-hidden">
-      <div className="flex items-center justify-between border-b border-white/8 px-4 py-3">
+    <div className="rounded-2xl bg-[#050b17] overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3">
         <h3 className="text-sm font-bold text-white">{title}</h3>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <tbody className="divide-y divide-white/5">
+          <tbody className="">
             {rows.map(([label, value]) => (
               <tr key={label} className="hover:bg-white/[0.03]">
                 <th className="w-44 px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{label}</th>
@@ -114,8 +114,8 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <section id="overview" className="card-surface soft-up rounded-[28px] border border-cyan-500/20 border-t-2 border-t-cyan-500/70 bg-gradient-to-br from-[#0f1730] via-[#07101e] to-[#050b17] p-6 lg:p-8">
-        <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-500/10 px-4 py-1 text-[11px] font-bold uppercase tracking-[0.35em] text-cyan-300">
+      <section id="overview" className="card-surface soft-up rounded-[28px] bg-gradient-to-br from-[#0f1730] via-[#07101e] to-[#050b17] p-6 lg:p-8">
+        <div className="inline-flex items-center gap-2 rounded-full bg-cyan-500/10 px-4 py-1 text-[11px] font-bold uppercase tracking-[0.35em] text-cyan-300">
           <WandSparkles className="h-3.5 w-3.5" />
           Staff Controls
         </div>
@@ -163,7 +163,7 @@ export default function AdminDashboard() {
                 <Link
                   key={item.label}
                   href={item.href}
-                  className="group flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200 transition-all duration-200 hover:-translate-y-0.5 hover:border-cyan-400/30 hover:bg-cyan-500/10 hover:text-white"
+                  className="group flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3 text-sm text-slate-200 transition-all duration-200 hover:-translate-y-0.5 hover:bg-cyan-500/10 hover:text-white"
                 >
                   <span className="flex items-center gap-3">
                     <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/5 text-cyan-300 transition group-hover:bg-cyan-500/15">
@@ -188,7 +188,7 @@ export default function AdminDashboard() {
               ['Audit', 'Sensitive admin actions only'],
               ['Config', 'Feature flags and system toggles'],
             ].map(([title, description]) => (
-              <div key={title} className="rounded-2xl border border-white/8 bg-white/5 p-4">
+              <div key={title} className="rounded-2xl bg-white/5 p-4">
                 <div className="text-sm font-bold text-white">{title}</div>
                 <div className="mt-1 text-xs leading-5 text-slate-400">{description}</div>
               </div>
@@ -197,7 +197,7 @@ export default function AdminDashboard() {
         </SectionCard>
 
         <SectionCard id="provider-health" title="Provider Health" subtitle="A compact view of provider readiness and backend health.">
-          <div className="overflow-hidden rounded-2xl border border-white/8 bg-[#050b17]">
+          <div className="overflow-hidden rounded-2xl bg-[#050b17]">
             {providerRows.length ? (
               <KeyValueTable title="Provider payload" rows={providerRows} />
             ) : (
@@ -216,7 +216,7 @@ export default function AdminDashboard() {
               'Broadcasts, support flows, and notification targeting',
               'Audit and provider health entry points',
             ].map((item) => (
-              <div key={item} className="rounded-2xl border border-white/8 bg-white/5 px-4 py-3 text-sm text-slate-200">
+              <div key={item} className="rounded-2xl bg-white/5 px-4 py-3 text-sm text-slate-200">
                 {item}
               </div>
             ))}
@@ -237,13 +237,13 @@ export default function AdminDashboard() {
       </section>
 
       <section id="config" className="card-surface soft-up rounded-[24px] p-5 lg:p-6">
-        <div className="mb-4 border-b border-white/8 pb-4">
+        <div className="mb-4 pb-4">
           <h2 className="text-lg font-black text-white">Configuration</h2>
           <p className="mt-1 text-sm text-slate-400">Feature flags and platform toggles should live here once connected to the backend view.</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {['KYC enforcement', 'Payout queue', 'Offerwall health', 'Provider monitoring'].map((item) => (
-            <div key={item} className="rounded-2xl border border-white/8 bg-white/5 p-4">
+            <div key={item} className="rounded-2xl bg-white/5 p-4">
               <div className="text-sm font-bold text-white">{item}</div>
               <div className="mt-1 text-xs text-slate-400">Visible in the live admin portal.</div>
             </div>
@@ -253,3 +253,6 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
+
+
