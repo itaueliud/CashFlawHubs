@@ -130,19 +130,30 @@ export default function AdminsPage() {
     setEditBusy(true);
     setError(null);
     try {
+      const normalizedPermissions = normalizePages(editPages);
       const res = await api.put(`/admin/admins/${editTarget._id}/pages`, {
-        adminAllowedPages: normalizePages(editPages),
+        adminAllowedPages: normalizedPermissions,
       });
-      const updatedAdmin = res.data?.admin || null;
-      await loadAdmins();
+      const updatedAdmin = (res.data?.admin || {
+        ...editTarget,
+        adminAllowedPages: normalizedPermissions,
+      }) as AdminRow;
+
+      setAdmins((current) => current.map((admin) => (
+        admin._id === updatedAdmin._id
+          ? { ...admin, ...updatedAdmin, adminAllowedPages: normalizePages(updatedAdmin.adminAllowedPages || normalizedPermissions) }
+          : admin
+      )));
+
       if (isCurrentAdmin(updatedAdmin || editTarget)) {
         setUser({
           ...(user as any),
           ...(updatedAdmin || {}),
-          adminAllowedPages: normalizePages((updatedAdmin?.adminAllowedPages || editPages) as string[]),
+          adminAllowedPages: normalizePages((updatedAdmin.adminAllowedPages || normalizedPermissions) as string[]),
         } as any);
-        await refreshUser();
       }
+
+      void loadAdmins();
       setEditTarget(null);
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to update permissions');
