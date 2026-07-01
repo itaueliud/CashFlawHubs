@@ -2,8 +2,14 @@ import axios from 'axios';
 
 const STORAGE_KEY = 'admin-auth';
 
+const resolveApiBaseUrl = () => {
+  const configuredUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (configuredUrl) return `${configuredUrl.replace(/\/$/, '')}/api`;
+  return process.env.NODE_ENV === 'development' ? 'http://localhost:5000/api' : '/api';
+};
+
 const api = axios.create({
-  baseURL: (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api',
+  baseURL: resolveApiBaseUrl(),
   withCredentials: true,
 });
 
