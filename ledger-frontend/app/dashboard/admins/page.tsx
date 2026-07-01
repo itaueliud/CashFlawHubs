@@ -2,8 +2,10 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import api from '../../../lib/api';
+import { useAuthStore } from '../../../store/authStore';
 import { ConfirmModal, ErrorBanner, LoadingSpinner, PageHeader, StatusBadge, StatCard } from '../../../components/ui';
 import { RefreshCw, UserPlus, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { ADMIN_PAGE_OPTIONS, normalizeAdminPages } from '../../lib/adminPermissions';
 
 type AdminAction =
   | { type: 'ban'; admin: any }
@@ -12,22 +14,6 @@ type AdminAction =
   | { type: 'pages'; admin: any; pages: string[] }
   | { type: 'delete'; admin: any }
   | null;
-
-const availablePages = [
-  { key: '/dashboard', label: 'Overview' },
-  { key: '/dashboard/admins', label: 'Admins' },
-  { key: '/dashboard/users', label: 'Users' },
-  { key: '/dashboard/kyc', label: 'KYC' },
-  { key: '/dashboard/moderation', label: 'Moderation' },
-  { key: '/dashboard/fraud', label: 'Fraud' },
-  { key: '/dashboard/notifications', label: 'Notifications' },
-  { key: '/dashboard/config', label: 'Config' },
-  { key: '/dashboard/challenges', label: 'Challenges' },
-  { key: '/dashboard/referrals', label: 'Referrals' },
-  { key: '/dashboard/provider-health', label: 'Provider Health' },
-  { key: '/dashboard/support', label: 'Support' },
-  { key: '/dashboard/profile', label: 'Profile' },
-];
 
 const adminCountries = [
   { value: 'KE', label: 'Kenya' },
@@ -49,6 +35,7 @@ const emptyForm = {
 };
 
 export default function AdminsPage() {
+  const { user, refreshUser, setUser } = useAuthStore();
   const [admins, setAdmins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +43,18 @@ export default function AdminsPage() {
   const [search, setSearch] = useState('');
   const [form, setForm] = useState(emptyForm);
   const [action, setAction] = useState<AdminAction>(null);
+  const currentUserId = String((user as any)?.id || (user as any)?._id || (user as any)?.userId || '').trim().toLowerCase();
+
+  const isCurrentAdmin = (candidate?: any | null) => {
+    if (!candidate || !user) return false;
+    const candidateIds = [candidate._id, candidate.userId, candidate.email, candidate.phone]
+      .map((value) => String(value || '').trim().toLowerCase())
+      .filter(Boolean);
+    const currentIds = [currentUserId, (user as any)?.email, (user as any)?.phone]
+      .map((value) => String(value || '').trim().toLowerCase())
+      .filter(Boolean);
+    return candidateIds.some((value) => currentIds.includes(value));
+  };
 
   const load = async () => {
     setLoading(true);
@@ -88,7 +87,10 @@ export default function AdminsPage() {
     setBusy(true);
     setError(null);
     try {
-      await api.post('/admin/admins', form);
+      await api.post('/admin/admins', {
+        ...form,
+        adminAllowedPages: normalizeAdminPages(form.adminAllowedPages),
+      });
       setForm(emptyForm);
       await load();
     } catch (err: any) {
@@ -140,7 +142,25 @@ export default function AdminsPage() {
   const updatePermissions = async (admin: any, pages: string[]) => {
     setBusy(true);
     try {
-      await api.put(`/admin/admins/${admin._id}/pages`, { adminAllowedPages: pages });
+      const normalizedPages = normalizeAdminPages(pages);
+      const res = await api.put(`/admin/admins/${admin._id}/pages`, { adminAllowedPages: normalizedPages });
+      const updatedAdmin = res.data?.admin || { ...admin, adminAllowedPages: normalizedPages };
+      setAdmins((current) => current.map((item) => (
+        item._id === updatedAdmin._id
+          ? { ...item, ...updatedAdmin, adminAllowedPages: normalizeAdminPages(updatedAdmin.adminAllowedPages || normalizedPages) }
+          : item
+      )));
+
+      if (isCurrentAdmin(updatedAdmin || admin)) {
+        const nextPages = normalizeAdminPages((updatedAdmin.adminAllowedPages || normalizedPages) as string[]);
+        setUser({
+          ...(user as any),
+          ...(updatedAdmin || {}),
+          adminAllowedPages: nextPages,
+        } as any);
+      }
+
+      await refreshUser();
       await load();
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to update admin permissions');
@@ -232,7 +252,7 @@ export default function AdminsPage() {
             <div className="rounded-2xl border border-white/8 bg-white/5 p-4">
               <div className="text-xs uppercase tracking-[0.24em] text-slate-500">Allowed pages</div>
               <div className="mt-3 grid gap-2">
-                {availablePages.map((page) => {
+                {ADMIN_PAGE_OPTIONS.map((page) => {
                   const checked = form.adminAllowedPages.includes(page.key);
                   return (
                     <label key={page.key} className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 text-sm ${checked ? 'border-cyan-500/25 bg-cyan-500/10 text-cyan-200' : 'border-white/8 bg-white/5 text-slate-300'}`}>
@@ -293,9 +313,9 @@ export default function AdminsPage() {
                     <div className="font-semibold text-white">{admin.name || 'Unknown admin'}</div>
                     <div className="mt-1 text-xs text-slate-500">{admin.email || 'n/a'} · {admin.phone || 'n/a'} · {admin.country || 'n/a'}</div>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {(admin.adminAllowedPages || []).map((page: string) => (
+                      {normalizeAdminPages(admin.adminAllowedPages || []).map((page: string) => (
                         <span key={page} className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-[0.16em] text-slate-300">
-                          {availablePages.find((entry) => entry.key === page)?.label || page}
+                          {ADMIN_PAGE_OPTIONS.find((entry) => entry.key === page)?.label || page}
                         </span>
                       ))}
                     </div>
@@ -405,7 +425,7 @@ export default function AdminsPage() {
         )}
         {action?.type === 'pages' && (
           <div className="mt-4 grid gap-2">
-            {availablePages.map((page) => {
+            {ADMIN_PAGE_OPTIONS.map((page) => {
               const checked = action.pages.includes(page.key);
               return (
                 <label key={page.key} className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 text-sm ${checked ? 'border-cyan-500/25 bg-cyan-500/10 text-cyan-200' : 'border-white/8 bg-white/5 text-slate-300'}`}>
@@ -435,3 +455,4 @@ export default function AdminsPage() {
     </div>
   );
 }
+

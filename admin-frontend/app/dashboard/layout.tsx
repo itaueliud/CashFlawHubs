@@ -133,6 +133,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
+    if (!hasHydrated || !user || !['admin', 'superadmin', 'ledger'].includes(user.role || '')) return;
+
+    void refreshUser();
+    const onFocus = () => {
+      void refreshUser();
+    };
+
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [hasHydrated, refreshUser, user?.id]);
+
+  useEffect(() => {
     if (!hasHydrated) return;
     if (!user || !['admin', 'superadmin', 'ledger'].includes(user.role || '')) {
       router.replace('/login');
@@ -311,3 +323,5 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
+
+

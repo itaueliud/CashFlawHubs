@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -91,11 +91,23 @@ const CloseIcon = ({ className = '' }: IconProps) => (
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, hasHydrated, logout } = useAuthStore();
+  const { user, hasHydrated, logout, refreshUser } = useAuthStore();
   const [mounted, setMounted] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (!hasHydrated || !user || user.role !== 'ledger') return;
+
+    void refreshUser();
+    const onFocus = () => {
+      void refreshUser();
+    };
+
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [hasHydrated, refreshUser, user?.id]);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -286,3 +298,4 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
+

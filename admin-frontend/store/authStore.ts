@@ -1,4 +1,4 @@
- 'use client';
+'use client';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import api from '../lib/api';
@@ -23,6 +23,17 @@ interface AuthState {
   refreshUser: () => Promise<void>;
   setUser: (user: AdminUser | null) => void;
 }
+
+const normalizeUser = (user: any): AdminUser | null => {
+  if (!user) return null;
+
+  return {
+    ...user,
+    id: user.id || user._id || user.userId || '',
+    balanceUSD: typeof user.balanceUSD === 'number' ? user.balanceUSD : 0,
+    adminAllowedPages: Array.isArray(user.adminAllowedPages) ? user.adminAllowedPages : [],
+  };
+};
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -53,11 +64,12 @@ export const useAuthStore = create<AuthState>()(
             return { requires2FA: true };
           }
           const { token, user } = data;
-          if (!['admin', 'superadmin', 'ledger'].includes(user.role)) {
+          const normalizedUser = normalizeUser(user);
+          if (!['admin', 'superadmin', 'ledger'].includes(normalizedUser?.role || '')) {
             throw new Error('Access denied. Admin credentials required.');
           }
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          set({ token, user, isLoading: false, pending2FA: null });
+          set({ token, user: normalizedUser, isLoading: false, pending2FA: null });
           return {};
         } catch (err) {
           set({ isLoading: false });
@@ -78,9 +90,10 @@ export const useAuthStore = create<AuthState>()(
             portal: pending2FA.portal || 'admin',
           });
           const { token, user } = res.data;
-          if (!['admin', 'superadmin', 'ledger'].includes(user.role)) throw new Error('Access denied');
+          const normalizedUser = normalizeUser(user);
+          if (!['admin', 'superadmin', 'ledger'].includes(normalizedUser?.role || '')) throw new Error('Access denied');
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          set({ token, user, pending2FA: null, isLoading: false });
+          set({ token, user: normalizedUser, pending2FA: null, isLoading: false });
         } catch (err) {
           set({ isLoading: false });
           throw err;
@@ -92,12 +105,12 @@ export const useAuthStore = create<AuthState>()(
         delete api.defaults.headers.common['Authorization'];
       },
 
-      setUser: (user) => set({ user }),
+      setUser: (user) => set({ user: normalizeUser(user) }),
 
       refreshUser: async () => {
         try {
           const res = await api.get('/auth/me');
-          set({ user: { ...res.data.user, balanceUSD: res.data.wallet?.balanceUSD || 0 } });
+          set({ user: normalizeUser({ ...res.data.user, balanceUSD: res.data.wallet?.balanceUSD || 0 }) });
         } catch {}
       },
     }),
