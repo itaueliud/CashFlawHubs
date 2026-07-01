@@ -802,7 +802,7 @@ exports.login = async (req, res) => {
       // ─── PORTAL ENFORCEMENT (dev fallback) ──────────────────────────────────
       // Define which roles belong to which portal
       const PORTAL_ROLES = {
-        admin:      ['admin'],
+        admin:      ['admin', 'superadmin'],
         ledger:     ['ledger'],
         superadmin: ['superadmin'],
         '':         ['user'], // empty = user portal
@@ -1092,7 +1092,7 @@ exports.login = async (req, res) => {
     // ─── PORTAL ENFORCEMENT ───────────────────────────────────────────────────
     // Define which roles belong to which portal
     const PORTAL_ROLES = {
-      admin:      ['admin'],
+      admin:      ['admin', 'superadmin'],
       ledger:     ['ledger'],
       superadmin: ['superadmin'],
       '':         ['user'], // empty = user portal
@@ -1469,3 +1469,4 @@ exports.verifyEmailToken = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+

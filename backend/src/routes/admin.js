@@ -1237,6 +1237,7 @@ router.get('/admins', protect, staffOnly, async (req, res) => {
 router.post('/admins', protect, staffOnly, async (req, res) => {
   try {
     const { name, email, phone, country, password, role = 'admin', adminAllowedPages = [] } = req.body;
+    const normalizedPages = req.user.role === 'ledger' ? [] : (Array.isArray(adminAllowedPages) ? adminAllowedPages.filter(Boolean) : []);
 
     if (!name || !email || !phone || !country || !password) {
       return res.status(400).json({ success: false, message: 'Missing required admin fields' });
@@ -1271,7 +1272,7 @@ router.post('/admins', protect, staffOnly, async (req, res) => {
       emailVerified: true,
       phoneVerified: true,
       isActive: true,
-      adminAllowedPages: Array.isArray(adminAllowedPages) ? adminAllowedPages.filter(Boolean) : [],
+      adminAllowedPages: normalizedPages,
     });
 
     res.status(201).json({ success: true, admin });
@@ -1515,7 +1516,7 @@ router.put('/admins/:id/reset-password', protect, staffOnly, async (req, res) =>
   res.json({ success: true, message: 'Admin password updated successfully' });
 });
 
-router.put('/admins/:id/pages', protect, staffOnly, async (req, res) => {
+router.put('/admins/:id/pages', protect, adminOnly, async (req, res) => {
   try {
     const pages = Array.isArray(req.body?.adminAllowedPages)
       ? req.body.adminAllowedPages.map((page) => String(page).trim()).filter(Boolean)
@@ -2251,3 +2252,6 @@ router.post('/execute-payout', protect, ledgerOrSuperadminOnly, async (req, res)
 });
 
 module.exports = router;
+
+
+
