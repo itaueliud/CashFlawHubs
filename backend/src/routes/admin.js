@@ -1224,7 +1224,7 @@ router.patch('/users/:userId/kyc', protect, requireAdmin, async (req, res) => {
   }
 });
 
-router.get('/admins', protect, ledgerOrSuperadminOnly, async (req, res) => {
+router.get('/admins', protect, staffOnly, async (req, res) => {
   const visibleRoles = req.user.role === 'ledger'
     ? ['admin', 'superadmin']
     : ['admin'];
@@ -1234,7 +1234,7 @@ router.get('/admins', protect, ledgerOrSuperadminOnly, async (req, res) => {
   res.json({ success: true, admins });
 });
 
-router.post('/admins', protect, ledgerOrSuperadminOnly, async (req, res) => {
+router.post('/admins', protect, staffOnly, async (req, res) => {
   try {
     const { name, email, phone, country, password, role = 'admin', adminAllowedPages = [] } = req.body;
 
@@ -1281,10 +1281,13 @@ router.post('/admins', protect, ledgerOrSuperadminOnly, async (req, res) => {
   }
 });
 
-router.put('/admins/:id/ban', protect, ledgerOrSuperadminOnly, async (req, res) => {
+router.put('/admins/:id/ban', protect, staffOnly, async (req, res) => {
   const target = await User.findById(req.params.id);
   if (!target || !['admin', 'superadmin'].includes(target.role)) {
     return res.status(404).json({ success: false, message: 'Admin account not found' });
+  }
+  if (req.user.role === 'admin' && target.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Admin can only manage admin accounts' });
   }
   if (req.user.role === 'superadmin' && target.role !== 'admin') {
     return res.status(403).json({ success: false, message: 'Superadmin can only manage admin accounts' });
@@ -1300,10 +1303,13 @@ router.put('/admins/:id/ban', protect, ledgerOrSuperadminOnly, async (req, res) 
   res.json({ success: true, admin });
 });
 
-router.put('/admins/:id/unban', protect, ledgerOrSuperadminOnly, async (req, res) => {
+router.put('/admins/:id/unban', protect, staffOnly, async (req, res) => {
   const target = await User.findById(req.params.id);
   if (!target || !['admin', 'superadmin'].includes(target.role)) {
     return res.status(404).json({ success: false, message: 'Admin account not found' });
+  }
+  if (req.user.role === 'admin' && target.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Admin can only manage admin accounts' });
   }
   if (req.user.role === 'superadmin' && target.role !== 'admin') {
     return res.status(403).json({ success: false, message: 'Superadmin can only manage admin accounts' });
@@ -1487,7 +1493,7 @@ router.post('/users/:id/activate', protect, requireAdmin, async (req, res) => {
   }
 });
 
-router.put('/admins/:id/reset-password', protect, ledgerOrSuperadminOnly, async (req, res) => {
+router.put('/admins/:id/reset-password', protect, staffOnly, async (req, res) => {
   const { newPassword } = req.body;
   if (!newPassword || String(newPassword).length < 8) {
     return res.status(400).json({ success: false, message: 'New password must be at least 8 characters' });
@@ -1495,6 +1501,9 @@ router.put('/admins/:id/reset-password', protect, ledgerOrSuperadminOnly, async 
   const target = await User.findById(req.params.id).select('+passwordHash');
   if (!target || !['admin', 'superadmin'].includes(target.role)) {
     return res.status(404).json({ success: false, message: 'Admin account not found' });
+  }
+  if (req.user.role === 'admin' && target.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Admin can only manage admin accounts' });
   }
   if (req.user.role === 'superadmin' && target.role !== 'admin') {
     return res.status(403).json({ success: false, message: 'Superadmin can only manage admin accounts' });
@@ -1506,7 +1515,7 @@ router.put('/admins/:id/reset-password', protect, ledgerOrSuperadminOnly, async 
   res.json({ success: true, message: 'Admin password updated successfully' });
 });
 
-router.put('/admins/:id/pages', protect, ledgerOrSuperadminOnly, async (req, res) => {
+router.put('/admins/:id/pages', protect, staffOnly, async (req, res) => {
   try {
     const pages = Array.isArray(req.body?.adminAllowedPages)
       ? req.body.adminAllowedPages.map((page) => String(page).trim()).filter(Boolean)
@@ -1518,6 +1527,9 @@ router.put('/admins/:id/pages', protect, ledgerOrSuperadminOnly, async (req, res
     const target = await User.findById(req.params.id);
     if (!target || !['admin', 'superadmin'].includes(target.role)) {
       return res.status(404).json({ success: false, message: 'Admin account not found' });
+    }
+    if (req.user.role === 'admin' && target.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Admin can only manage admin accounts' });
     }
     if (req.user.role === 'superadmin' && target.role !== 'admin') {
       return res.status(403).json({ success: false, message: 'Superadmin can only manage admin accounts' });
@@ -1536,13 +1548,16 @@ router.put('/admins/:id/pages', protect, ledgerOrSuperadminOnly, async (req, res
   }
 });
 
-router.delete('/admins/:id', protect, ledgerOrSuperadminOnly, async (req, res) => {
+router.delete('/admins/:id', protect, staffOnly, async (req, res) => {
   const target = await User.findById(req.params.id);
   if (!target || !['admin', 'superadmin'].includes(target.role)) {
     return res.status(404).json({ success: false, message: 'Admin account not found' });
   }
   if (target._id.toString() === req.user.id.toString()) {
     return res.status(400).json({ success: false, message: 'You cannot delete your own account' });
+  }
+  if (req.user.role === 'admin' && target.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Admin can only manage admin accounts' });
   }
   if (req.user.role === 'ledger' && target.role !== 'admin') {
     return res.status(403).json({ success: false, message: 'Ledger can only delete admin accounts' });
