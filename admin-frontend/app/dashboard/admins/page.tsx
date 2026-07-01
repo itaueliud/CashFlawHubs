@@ -5,8 +5,9 @@ import api from '../../../lib/api';
 import { useAuthStore } from '../../../store/authStore';
 import { ErrorBanner, LoadingSpinner, PageHeader, StatusBadge, ConfirmModal } from '../../../components/ui';
 import { RefreshCw, Plus, Shield, Check, X, Settings2, Trash2, Lock, UserPlus } from 'lucide-react';
+import { ADMIN_PAGE_OPTIONS, normalizeAdminPages } from '../../lib/adminPermissions';
 
-type AdminRole = 'admin' | 'superadmin';
+type AdminRole = 'admin' | 'superadmin' | 'ledger';
 
 type AdminRow = {
   _id: string;
@@ -31,22 +32,6 @@ type AdminForm = {
   role: AdminRole;
 };
 
-const pageOptions = [
-  { label: 'Overview', href: '/dashboard' },
-  { label: 'Users', href: '/dashboard/users' },
-  { label: 'Referrals', href: '/dashboard/referrals' },
-  { label: 'Fraud Center', href: '/dashboard/fraud' },
-  { label: 'KYC Queue', href: '/dashboard/kyc' },
-  { label: 'Challenges', href: '/dashboard/challenges' },
-  { label: 'Moderation', href: '/dashboard/moderation' },
-  { label: 'Support', href: '/dashboard/support' },
-  { label: 'Broadcasts', href: '/dashboard/notifications' },
-  { label: 'Provider Health', href: '/dashboard/provider-health' },
-  { label: 'Config', href: '/dashboard/config' },
-  { label: 'Audit Logs', href: '/dashboard/audit' },
-  { label: 'Profile', href: '/dashboard/profile' },
-];
-
 const defaultForm: AdminForm = {
   name: '',
   email: '',
@@ -56,7 +41,7 @@ const defaultForm: AdminForm = {
   role: 'admin',
 };
 
-const normalizePages = (pages: string[]) => Array.from(new Set(pages.filter(Boolean)));
+const normalizePages = (pages: string[]) => normalizeAdminPages(pages);
 
 export default function AdminsPage() {
   const { user, refreshUser, setUser } = useAuthStore();
@@ -241,7 +226,7 @@ export default function AdminsPage() {
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
             <div className="text-xs uppercase tracking-[0.22em] text-slate-500">Allowed pages</div>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {pageOptions.map((page) => {
+              {ADMIN_PAGE_OPTIONS.map((page) => {
                 const active = selectedPages.includes(page.href);
                 return (
                   <button
@@ -313,7 +298,7 @@ export default function AdminsPage() {
 
                   <div className="mt-3 flex flex-wrap gap-2">
                     {pages.length ? pages.map((page) => (
-                      <span key={page} className="rounded-full border border-white/10 bg-[#09111f] px-3 py-1 text-xs text-slate-300">{pageOptions.find((item) => item.href === page)?.label || page}</span>
+                      <span key={page} className="rounded-full border border-white/10 bg-[#09111f] px-3 py-1 text-xs text-slate-300">{ADMIN_PAGE_OPTIONS.find((item) => item.href === page)?.label || page}</span>
                     )) : (
                       <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs text-amber-200">No pages assigned</span>
                     )}
@@ -337,7 +322,7 @@ export default function AdminsPage() {
       >
         <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
           <div className="grid gap-2 sm:grid-cols-2">
-            {pageOptions.map((page) => {
+            {ADMIN_PAGE_OPTIONS.map((page) => {
               const active = editPages.includes(page.href);
               return (
                 <button

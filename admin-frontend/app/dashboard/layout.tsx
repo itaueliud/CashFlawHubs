@@ -9,6 +9,7 @@ import {
   ChevronRight, Menu, X
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+import { canManageAllAdminPages, normalizeAdminPages } from '../lib/adminPermissions';
 
 type IconProps = { className?: string };
 
@@ -116,13 +117,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const allowedPages = useMemo(
-    () => (Array.isArray(user?.adminAllowedPages) ? user.adminAllowedPages.filter(Boolean) : []),
+    () => normalizeAdminPages(Array.isArray(user?.adminAllowedPages) ? user.adminAllowedPages : []),
     [user?.adminAllowedPages]
   );
 
   const visibleNavItems = useMemo(() => {
     if (!user) return [];
-    if (user.role === 'superadmin') return navItems;
+    if (canManageAllAdminPages(user.role)) return navItems;
     return navItems.filter((item) => allowedPages.includes(item.href));
   }, [allowedPages, user]);
 
@@ -132,7 +133,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (!hasHydrated) return;
-    if (!user || !['admin', 'superadmin'].includes(user.role || '')) {
+    if (!user || !['admin', 'superadmin', 'ledger'].includes(user.role || '')) {
       router.replace('/login');
       return;
     }
@@ -146,8 +147,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [pathname]);
 
   useEffect(() => {
-    if (!hasHydrated || !user || !['admin', 'superadmin'].includes(user.role || '')) return;
-    if (user.role === 'superadmin') return;
+    if (!hasHydrated || !user || !['admin', 'superadmin', 'ledger'].includes(user.role || '')) return;
+    if (canManageAllAdminPages(user.role)) return;
     if (visibleNavItems.length === 0) return;
 
     const currentRouteAllowed = visibleNavItems.some((item) => isRouteAllowed(pathname, item.href));
@@ -173,7 +174,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  if (user.role !== 'superadmin' && visibleNavItems.length === 0) {
+  if (!canManageAllAdminPages(user.role) && visibleNavItems.length === 0) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.10),_transparent_25%),linear-gradient(180deg,#040816_0%,#07111f_48%,#050816_100%)] px-6 text-slate-100">
         <div className="soft-in w-full max-w-md rounded-[28px] border border-white/8 bg-white/5 p-8 text-center backdrop-blur-xl">

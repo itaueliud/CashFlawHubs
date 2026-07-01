@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { canManageAllAdminPages } from '../lib/adminPermissions';
 
 function AlertIcon({ className = '' }: { className?: string }) {
   return (
@@ -27,7 +28,7 @@ export default function AdminLogin() {
 
   useEffect(() => {
     if (!hasHydrated || !user) return;
-    if (['admin', 'superadmin'].includes(user.role || '')) {
+    if (canManageAllAdminPages(user.role) || ['admin', 'superadmin'].includes(user.role || '')) {
       window.location.assign('/dashboard');
     }
   }, [hasHydrated, user]);

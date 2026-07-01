@@ -5,7 +5,7 @@ import api from '../lib/api';
 
 interface AdminUser {
   id: string; name: string; email?: string; phone: string;
-  role: 'admin' | 'superadmin'; tokenBalance?: number;
+  role: 'admin' | 'superadmin' | 'ledger'; tokenBalance?: number;
   balanceUSD?: number; xpPoints?: number;
   twoFactorEnabled?: boolean;
   adminAllowedPages?: string[];
@@ -53,7 +53,7 @@ export const useAuthStore = create<AuthState>()(
             return { requires2FA: true };
           }
           const { token, user } = data;
-          if (!['admin', 'superadmin'].includes(user.role)) {
+          if (!['admin', 'superadmin', 'ledger'].includes(user.role)) {
             throw new Error('Access denied. Admin credentials required.');
           }
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -78,7 +78,7 @@ export const useAuthStore = create<AuthState>()(
             portal: pending2FA.portal || 'admin',
           });
           const { token, user } = res.data;
-          if (!['admin', 'superadmin'].includes(user.role)) throw new Error('Access denied');
+          if (!['admin', 'superadmin', 'ledger'].includes(user.role)) throw new Error('Access denied');
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
           set({ token, user, pending2FA: null, isLoading: false });
         } catch (err) {
