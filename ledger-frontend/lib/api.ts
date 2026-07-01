@@ -1,9 +1,39 @@
 import axios from 'axios';
 
 const STORAGE_KEY = 'ledger-auth';
+const DEFAULT_BACKEND_API = 'https://cashflawhubs-km48.onrender.com/api';
+const LEGACY_BACKEND_API = 'https://cashflowhubs.onrender.com/api';
+
+const resolveApiBaseUrl = () => {
+  const configuredUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (configuredUrl) {
+    const normalized = configuredUrl.replace(/\/+$/, '');
+    if (normalized.includes('cashflowhubs.onrender.com')) {
+      return DEFAULT_BACKEND_API;
+    }
+    return normalized.endsWith('/api') ? normalized : `${normalized}/api`;
+  }
+
+  if (process.env.NODE_ENV === 'development') {
+    return 'http://localhost:5000/api';
+  }
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname.toLowerCase();
+    if (host === 'localhost' || host.startsWith('127.0.0.1')) {
+      return 'http://localhost:5000/api';
+    }
+
+    if (host.endsWith('.cashflowhubs.com') || host === 'cashflowhubs.com') {
+      return DEFAULT_BACKEND_API;
+    }
+  }
+
+  return DEFAULT_BACKEND_API || LEGACY_BACKEND_API;
+};
 
 const api = axios.create({
-  baseURL: (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api',
+  baseURL: resolveApiBaseUrl(),
   withCredentials: true,
 });
 
