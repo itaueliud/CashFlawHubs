@@ -90,6 +90,7 @@ const BellIcon = ({ className = '' }: IconProps) => (
 
 const navItems = [
   { label: 'Overview',        href: '/dashboard',                   icon: LayoutDashboardIcon },
+  { label: 'Admins',          href: '/dashboard/admins',            icon: ShieldIcon },
   { label: 'Users',           href: '/dashboard/users',             icon: UsersIcon },
   { label: 'Referrals',       href: '/dashboard/referrals',         icon: UsersIcon },
   { label: 'Fraud Center',    href: '/dashboard/fraud',             icon: ShieldIcon },
@@ -97,7 +98,7 @@ const navItems = [
   { label: 'Challenges',      href: '/dashboard/challenges',        icon: FlagIcon },
   { label: 'Moderation',      href: '/dashboard/moderation',        icon: FlagIcon },
   { label: 'Support',         href: '/dashboard/support',           icon: HeadphonesIcon },
-  { label: 'Broadcasts',      href: '/dashboard/notifications',     icon: BellIcon },
+  { label: 'Notifications',   href: '/dashboard/notifications',     icon: BellIcon },
   { label: 'Provider Health', href: '/dashboard/provider-health',   icon: ActivityIcon },
   { label: 'Config',          href: '/dashboard/config',            icon: SlidersIcon },
   { label: 'Audit Logs',      href: '/dashboard/audit',             icon: ScrollTextIcon },
