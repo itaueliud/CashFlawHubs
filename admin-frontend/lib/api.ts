@@ -5,16 +5,15 @@ const DEFAULT_BACKEND_API = 'https://cashflawhubs-km48.onrender.com/api';
 const LEGACY_BACKEND_API = 'https://cashflowhubs.onrender.com/api';
 
 const resolveApiBaseUrl = () => {
-  const configuredUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
-  if (configuredUrl) {
-    const normalized = configuredUrl.replace(/\/+$/, '');
-    if (normalized.includes('cashflowhubs.onrender.com')) {
-      return DEFAULT_BACKEND_API;
-    }
-    return normalized.endsWith('/api') ? normalized : `${normalized}/api`;
-  }
-
   if (process.env.NODE_ENV === 'development') {
+    const configuredUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+    if (configuredUrl) {
+      const normalized = configuredUrl.replace(/\/+$/, '');
+      if (normalized.includes('cashflowhubs.onrender.com')) {
+        return DEFAULT_BACKEND_API;
+      }
+      return normalized.endsWith('/api') ? normalized : `${normalized}/api`;
+    }
     return 'http://localhost:5000/api';
   }
 
@@ -64,3 +63,4 @@ api.interceptors.response.use(
 );
 
 export default api;
+

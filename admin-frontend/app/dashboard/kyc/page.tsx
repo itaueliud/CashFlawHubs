@@ -33,7 +33,7 @@ interface PaginationData {
   limit: number;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE = api.defaults.baseURL?.replace(/\/api$/, '') || 'http://localhost:5000';
 const docUrl = (filename?: string) => (filename ? `${API_BASE}/uploads/registrations/${filename}` : null);
 
 function RiskBadge({ user }: { user: KycUser }) {
@@ -420,3 +420,4 @@ export default function KycQueuePage() {
     </div>
   );
 }
+
