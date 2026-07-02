@@ -349,10 +349,9 @@ export default function JobsPage() {
                 const locationLabel = String(job.location || 'Remote');
                 const isOnSite = locationLabel.toLowerCase().includes('on-site') || locationLabel.toLowerCase().includes('onsite');
 
-                return (
-                  <div
+                             <div
                     key={job._id}
-                    className="group rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 transition-all hover:-translate-y-0.5 hover:border-emerald-400/30 hover:shadow-xl hover:shadow-emerald-950/15"
+                    className="group rounded-[1.5rem] border border-slate-200 bg-white p-5 transition-all hover:-translate-y-0.5 hover:border-emerald-400/40 hover:shadow-xl hover:shadow-slate-200/60 dark:border-emerald-500/10 dark:bg-slate-900/90 dark:hover:border-emerald-400/30 dark:hover:shadow-emerald-950/15"
                   >
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0 flex-1 space-y-2">
@@ -365,7 +364,7 @@ export default function JobsPage() {
                           <span className="rounded-full border border-slate-700 bg-slate-800 px-2.5 py-0.5 text-[11px] text-slate-300 capitalize">
                             {job.jobType}
                           </span>
-                          <span className={`rounded-full border px-2.5 py-0.5 text-[11px] ${isOnSite ? 'border-cyan-400/20 bg-cyan-500/10 text-cyan-300' : 'border-slate-700 bg-slate-800 text-slate-300'}`}>
+                          <span className={`rounded-full border px-2.5 py-0.5 text-[11px] ${isOnSite ? 'border-cyan-400/20 bg-cyan-50 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-300' : 'border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
                             {locationLabel}
                           </span>
                           {job.category && (
@@ -379,13 +378,11 @@ export default function JobsPage() {
                             </span>
                           )}
                         </div>
-
-                        <h3 className="text-base font-bold text-white leading-snug">{job.title}</h3>
-
-                        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                        <h3 className="text-base font-bold text-slate-900 leading-snug dark:text-white">{job.title}</h3>
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
                           <span className="flex items-center gap-1">
                             <Building2 size={11} /> {job.company || 'Unknown company'}
-                          </span>
+                          </span>         </span>
                           <span className="flex items-center gap-1">
                             <Clock size={11} />
                             <span className={isNew ? 'text-emerald-400 font-semibold' : ''}>{timeAgo}</span>
@@ -438,11 +435,11 @@ export default function JobsPage() {
 
       {tab === 'who-hiring' ? (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-emerald-500/10 bg-slate-900/90 p-4">
+          <div className="overflow-hidden rounded-[1.5rem] border border-blue-200 bg-gradient-to-br from-blue-50 via-white to-white p-6 dark:border-blue-500/20 dark:from-blue-950/50 dark:via-slate-900 dark:to-slate-900">
             <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <h2 className="text-lg font-black text-white">Who’s Hiring</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Discover companies that are currently opening roles in your preferred region and skill.</p>
+                <h2 className="text-lg font-black text-slate-900 dark:text-white">Who’s Hiring</h2>
+                <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">Discover companies that are currently opening roles in your preferred region and skill.</p>
               </div>
               <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300">
                 {providerStatus.theirStack?.status || 'unconfigured'}
@@ -488,11 +485,11 @@ export default function JobsPage() {
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
               {companies.map((company: any) => (
-                <div key={company.id} className="rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5">
+                <div key={company.id} className="group rounded-[1.5rem] border border-blue-100 bg-white p-5 dark:border-blue-500/10 dark:bg-slate-900/90">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-lg font-black text-white">{company.name}</div>
-                      <div className="mt-1 text-sm text-slate-400">{company.headline}</div>
+                      <div className="text-lg font-black text-slate-900 truncate dark:text-white">{company.name}</div>
+                      <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{company.headline}</div>
                     </div>
                     <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-2.5 py-1 text-[11px] font-semibold text-cyan-300">{company.industry || 'Hiring'}</span>
                   </div>
@@ -510,11 +507,11 @@ export default function JobsPage() {
         </div>
       ) : tab === 'job-alerts' ? (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-emerald-500/10 bg-slate-900/90 p-4">
+          <div className="border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-white p-6 shadow-xl rounded-[1.5rem] dark:border-violet-500/20 dark:from-violet-950/40 dark:via-slate-900 dark:to-slate-900">
             <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <h2 className="text-lg font-black text-white">Job Alerts</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Create alert subscriptions and review fresh LoopCV signal cards in one place.</p>
+                <h2 className="text-lg font-black text-slate-900 dark:text-white">Job Alerts</h2>
+                <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">Create alert subscriptions and review fresh LoopCV signal cards in one place.</p>
               </div>
               <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300">
                 {providerStatus.loopcv?.status || 'unconfigured'}
@@ -540,8 +537,8 @@ export default function JobsPage() {
               </button>
             </div>
 
-            <div className="rounded-2xl border border-slate-700/50 bg-slate-900/80 p-4 space-y-3">
-              <div className="text-sm font-semibold text-white">Saved alerts</div>
+            <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5 dark:border-white/8 dark:bg-slate-900/90 space-y-3">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Your Active Alerts</h3>
               {savedAlertsLoading ? (
                 <div className="space-y-2">{Array(3).fill(0).map((_, i) => <div key={i} className="h-16 rounded-xl bg-slate-800/50 animate-pulse" />)}</div>
               ) : savedAlerts.length === 0 ? (
@@ -587,14 +584,14 @@ export default function JobsPage() {
           )}
         </div>
       ) : tab === 'post' ? (
-        <div className="mx-auto max-w-4xl space-y-4 rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 shadow-xl shadow-emerald-950/10 md:p-6">
+        <div className="mx-auto max-w-4xl space-y-4 rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-xl dark:border-emerald-500/10 dark:bg-slate-900/90 md:p-6">
           <div className="mb-2">
-            <h2 className="text-2xl font-black text-white">{t('jobs.board.postRole')}</h2>
-            <p className="mt-1 text-sm text-slate-400">{t('jobs.board.postRoleDescription')}</p>
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white">{t('jobs.board.postRole')}</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('jobs.board.postRoleDescription')}</p>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-slate-300 mb-1 block">{t('jobs.board.labels.jobTitle')}</label>
+              <label className="text-sm text-slate-600 mb-1 block dark:text-slate-300">{t('jobs.board.labels.jobTitle')}</label>
               <input className="input" value={form.title} onChange={(e) => updateField('title', e.target.value)} />
             </div>
             <div>
@@ -672,13 +669,13 @@ export default function JobsPage() {
         </div>
       ) : tab === 'browse' ? (
         <>
-          <div className="rounded-2xl border border-emerald-500/10 bg-slate-900/90 p-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-emerald-500/10 dark:bg-slate-900/90">
             <div className="flex flex-col gap-3 lg:flex-row">
               <div className="relative flex-1">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder={t('jobs.board.placeholders.search')} className="input border-slate-700 bg-slate-950 pl-9" />
+                <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder={t('jobs.board.placeholders.search')} className="input border-slate-300 bg-white text-slate-900 placeholder-slate-400 pl-9 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
               </div>
-              <select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }} className="input border-slate-700 bg-slate-950 lg:w-56">
+              <select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }} className="input border-slate-300 bg-white text-slate-900 lg:w-56 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
                 <option value="">{t('jobs.board.filters.allCategories')}</option>
                 {availableCategories.map((c: string) => <option key={c} value={c}>{c}</option>)}
               </select>
@@ -689,7 +686,7 @@ export default function JobsPage() {
                     setView(e.target.value as 'unique' | 'all' | 'duplicates');
                     setPage(1);
                   }}
-                  className="input border-slate-700 bg-slate-950 lg:w-56"
+                  className="input border-slate-300 bg-white text-slate-900 lg:w-56 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                 >
                   <option value="unique">{t('jobs.board.filters.uniqueJobs')}</option>
                   <option value="all">{t('jobs.board.filters.rawFeed')}</option>
@@ -722,11 +719,11 @@ export default function JobsPage() {
                 const locationLabel = String(job.location || 'Remote');
                 const isOnSite = locationLabel.toLowerCase().includes('on-site') || locationLabel.toLowerCase().includes('onsite');
                 return (
-                <div key={job._id} className="rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 transition-all hover:-translate-y-1 hover:border-emerald-400/30 hover:shadow-xl hover:shadow-emerald-950/15">
+                <div key={job._id} className="rounded-[1.5rem] border border-slate-200 bg-white p-5 transition-all hover:-translate-y-1 hover:border-emerald-400/40 hover:shadow-xl hover:shadow-slate-200/60 dark:border-emerald-500/10 dark:bg-slate-900/90 dark:hover:border-emerald-400/30 dark:hover:shadow-emerald-950/15">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0 flex-1 space-y-4">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${isOnSite ? 'border-cyan-400/20 bg-cyan-500/10 text-cyan-300' : 'border-slate-700 bg-slate-800 text-slate-300'}`}>
+                        <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${isOnSite ? 'border-cyan-400/20 bg-cyan-50 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-300' : 'border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
                           {locationLabel}
                         </span>
                         <span className="badge-blue">{job.category === 'Other' && job.categoryOther ? t('jobs.board.badges.other', { category: job.categoryOther }) : job.category}</span>
@@ -738,8 +735,8 @@ export default function JobsPage() {
                         {job.salary && <span className="badge" style={{ background: 'rgba(16,185,129,0.14)', color: '#6ee7b7' }}>{job.salary}</span>}
                       </div>
                       <div className="space-y-2">
-                        <h3 className="text-xl font-bold text-white">{job.title}</h3>
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400">
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-white">{job.title}</h3>
+                        <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
                           <span className="flex items-center gap-1"><Building2 size={12} />{job.company}</span>
                           <span className="flex items-center gap-1"><Clock size={12} />{new Date(job.publishedAt).toLocaleDateString()}</span>
                           <span className="capitalize">{job.jobType}</span>
@@ -777,9 +774,9 @@ export default function JobsPage() {
           )}
         </>      ) : tab === 'onsite' ? (
         <>
-          <div className="rounded-2xl border border-emerald-500/10 bg-slate-900/90 p-4">
-            <h2 className="text-lg font-black text-white">On-site Jobs</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Positions requiring in-office or on-location work</p>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-emerald-500/10 dark:bg-slate-900/90">
+            <h2 className="text-lg font-black text-slate-900 dark:text-white">On-site Jobs</h2>
+            <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">Positions requiring in-office or on-location work</p>
           </div>
 
           {isLoading ? (
@@ -805,20 +802,20 @@ export default function JobsPage() {
                 return (
                   <div
                     key={job._id}
-                    className="rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 transition-all hover:-translate-y-1 hover:border-emerald-400/30 hover:shadow-xl hover:shadow-emerald-950/15"
+                    className="rounded-[1.5rem] border border-slate-200 bg-white p-5 transition-all hover:-translate-y-1 hover:border-emerald-400/40 hover:shadow-xl hover:shadow-slate-200/60 dark:border-emerald-500/10 dark:bg-slate-900/90 dark:hover:border-emerald-400/30 dark:hover:shadow-emerald-950/15"
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0 flex-1 space-y-4">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-300">
+                          <span className="rounded-full border px-3 py-1 text-xs font-semibold border-cyan-400/20 bg-cyan-50 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-300">
                             {locationLabel}
                           </span>
                           <span className="badge-blue">{job.category === 'Other' && job.categoryOther ? `Other: ${job.categoryOther}` : job.category}</span>
                           {job.salary && <span className="badge" style={{ background: 'rgba(16,185,129,0.14)', color: '#6ee7b7' }}>{job.salary}</span>}
                         </div>
                         <div className="space-y-2">
-                          <h3 className="text-xl font-bold text-white">{job.title}</h3>
-                          <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400">
+                          <h3 className="text-xl font-bold text-slate-900 dark:text-white">{job.title}</h3>
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
                             <span className="flex items-center gap-1"><Building2 size={12} />{job.company}</span>
                             <span className="flex items-center gap-1"><Clock size={12} />{new Date(job.publishedAt).toLocaleDateString()}</span>
                             <span className="capitalize">{job.jobType}</span>
