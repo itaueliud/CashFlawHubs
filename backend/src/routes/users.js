@@ -3,10 +3,14 @@ const router = express.Router();
 const { protect } = require('../middleware/auth');
 const User = require('../models/User');
 const { initiateEmailChange, confirmEmailChange } = require('../services/emailChangeService');
+const registrationUpload = require('../middleware/registrationUpload');
 const { trackEvent } = require('../services/eventTracker');
 const SUPPORTED_LANGUAGES = new Set(['en', 'sw', 'fr']);
 
 const PROFILE_COMPLETENESS_FIELDS = ['name', 'email', 'phone', 'country', 'bio', 'avatar', 'userLanguage', 'timezone'];
+
+const isAdminScopedProfileRequest = (req) => String(req.get('x-profile-scope') || req.headers['x-profile-scope'] || '').toLowerCase() === 'admin';
+const isAdminOrSuperadmin = (user = {}) => ['admin', 'superadmin'].includes(String(user?.role || '').toLowerCase());
 
 const calculateProfileCompleteness = (user = {}) => {
   const filled = PROFILE_COMPLETENESS_FIELDS.filter((field) => {
@@ -22,6 +26,10 @@ router.get('/profile', protect, async (req, res) => {
 });
 
 router.put('/profile', protect, async (req, res) => {
+  if (isAdminScopedProfileRequest(req) && !isAdminOrSuperadmin(req.user)) {
+    return res.status(403).json({ success: false, message: 'Only admin and superadmin accounts can use this profile editor' });
+  }
+
   const { name, bio, avatar, phone, userLanguage, browserLanguage, timezone } = req.body;
   const currentUser = await User.findById(req.user.id).select('phone phoneVerified');
   if (!currentUser) {
@@ -82,33 +90,94 @@ router.patch('/:id/language', protect, async (req, res) => {
 });
 
 router.put('/profile/password', protect, async (req, res) => {
-  const { currentPassword, newPassword } = req.body;
-  if (!currentPassword || !newPassword) {
-    return res.status(400).json({ success: false, message: 'Current and new password are required' });
-  }
-  if (String(newPassword).length < 8) {
-    return res.status(400).json({ success: false, message: 'New password must be at least 8 characters' });
-  }
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current and new password are required' });
+    }
+    if (String(newPassword).length < 8) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 8 characters' });
+    }
 
-  const user = await User.findById(req.user.id).select('+passwordHash');
-  if (!user) {
-    return res.status(404).json({ success: false, message: 'User not found' });
-  }
+    const user = await User.findById(req.user.id).select('+passwordHash');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
 
-  const valid = await user.comparePassword(String(currentPassword));
-  if (!valid) {
-    return res.status(401).json({ success: false, message: 'Current password is incorrect' });
-  }
+    const valid = await user.comparePassword(String(currentPassword));
+    if (!valid) {
+      return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    }
 
-  user.passwordHash = String(newPassword);
-  user.failedLoginAttempts = 0;
-  user.lockUntil = null;
-  await user.save();
-  res.json({ success: true, message: 'Password updated successfully' });
+    user.passwordHash = String(newPassword);
+    user.failedLoginAttempts = 0;
+    user.lockUntil = null;
+    await user.save();
+    res.json({ success: true, message: 'Password updated successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Notification preferences
+router.put('/profile/notifications', protect, async (req, res) => {
+  try {
+    const { earnings, tasks, updates, referrals, weeklyReport } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (!user.notificationPrefs) user.notificationPrefs = {};
+    if (earnings !== undefined) user.notificationPrefs.earnings = Boolean(earnings);
+    if (tasks !== undefined) user.notificationPrefs.tasks = Boolean(tasks);
+    if (updates !== undefined) user.notificationPrefs.updates = Boolean(updates);
+    if (referrals !== undefined) user.notificationPrefs.referrals = Boolean(referrals);
+    if (weeklyReport !== undefined) user.notificationPrefs.weeklyReport = Boolean(weeklyReport);
+
+    user.markModified('notificationPrefs');
+    await user.save();
+    res.json({ success: true, message: 'Notification preferences saved', notificationPrefs: user.notificationPrefs });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Toggle or set Two-Factor Authentication (simple toggle)
+router.put('/profile/2fa', protect, async (req, res) => {
+  try {
+    const { enabled } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    user.twoFactorEnabled = Boolean(enabled);
+    await user.save();
+    res.json({ success: true, twoFactorEnabled: user.twoFactorEnabled });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Submit identity (KYC) data (expects image URLs or base64-encoded data already uploaded elsewhere)
+router.post('/profile/identity', protect, async (req, res) => {
+  try {
+    const { idNumber, idDocumentImage, faceVerificationImage } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (idNumber) user.idNumber = String(idNumber).trim();
+    if (idDocumentImage) user.idDocumentImage = idDocumentImage;
+    if (faceVerificationImage) user.faceVerificationImage = faceVerificationImage;
+    user.identityVerificationStatus = 'submitted';
+    await user.save();
+    res.json({ success: true, message: 'Identity submitted', identityVerificationStatus: user.identityVerificationStatus });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 router.post('/me/email', protect, async (req, res) => {
   try {
+    if (isAdminScopedProfileRequest(req) && !isAdminOrSuperadmin(req.user)) {
+      return res.status(403).json({ success: false, message: 'Only admin and superadmin accounts can use this profile editor' });
+    }
+
     const { newEmail } = req.body;
     const result = await initiateEmailChange(req.user.id, newEmail);
     res.json({
@@ -132,4 +201,55 @@ router.get('/verify-email', async (req, res) => {
   }
 });
 
+// KYC submit (file upload)
+router.post('/kyc/submit', protect, registrationUpload.fields([
+  { name: 'idDocumentImage', maxCount: 1 },
+  { name: 'faceVerificationImage', maxCount: 1 },
+]), async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (user.identityVerificationStatus === 'verified') {
+      return res.status(400).json({ success: false, message: 'Identity already verified' });
+    }
+
+    const { idNumber } = req.body;
+    const updates = { identityVerificationStatus: 'submitted' };
+
+    if (idNumber) {
+      const normalized = String(idNumber).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      const existing = await User.findOne({ idNumber: normalized, _id: { $ne: req.user.id } });
+      if (existing) return res.status(409).json({ success: false, message: 'ID number already in use' });
+      updates.idNumber = normalized;
+    }
+
+    if (req.files?.idDocumentImage?.[0]) updates.idDocumentImage = req.files.idDocumentImage[0].filename;
+    if (req.files?.faceVerificationImage?.[0]) updates.faceVerificationImage = req.files.faceVerificationImage[0].filename;
+
+    if (!updates.idDocumentImage && !user.idDocumentImage) {
+      return res.status(400).json({ success: false, message: 'ID document image is required' });
+    }
+    if (!updates.faceVerificationImage && !user.faceVerificationImage) {
+      return res.status(400).json({ success: false, message: 'Selfie/face image is required' });
+    }
+
+    await User.findByIdAndUpdate(req.user.id, updates, { new: true });
+    res.json({ success: true, message: 'KYC submitted for review. We will verify within 24–48 hours.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.get('/kyc/status', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('identityVerificationStatus idNumber idDocumentImage faceVerificationImage');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    res.json({ success: true, status: user.identityVerificationStatus, idNumber: user.idNumber || null, hasIdDocument: !!user.idDocumentImage, hasSelfie: !!user.faceVerificationImage });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;
+
