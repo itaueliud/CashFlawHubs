@@ -41,3 +41,23 @@ export function useTheme() {
   if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
   return ctx;
 }
+
+export function useLocalTheme(storageKey: string, defaultTheme: Theme = 'dark') {
+  const [theme, setThemeState] = useState<Theme>(defaultTheme);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(storageKey) as Theme | null;
+    setThemeState(stored === 'light' || stored === 'dark' ? stored : defaultTheme);
+    setMounted(true);
+  }, [storageKey, defaultTheme]);
+
+  const setTheme = (next: Theme) => {
+    setThemeState(next);
+    localStorage.setItem(storageKey, next);
+  };
+
+  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
+
+  return { theme, toggleTheme, setTheme, mounted };
+}

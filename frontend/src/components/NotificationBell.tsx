@@ -5,7 +5,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Bell, CheckCheck, Dot, Loader2 } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
-import { useTheme } from '@/components/ThemeProvider';
+import { useLocalTheme } from '@/components/ThemeProvider';
 import api from '@/lib/api';
 
 type NotificationItem = {
@@ -100,7 +100,7 @@ function getTypeMeta(type: string) {
 
 export default function NotificationBell() {
   const { t } = useTranslation();
-  const { theme } = useTheme();
+  const { theme, toggleTheme } = useLocalTheme('cfh-notification-theme', 'dark');
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
@@ -171,7 +171,7 @@ export default function NotificationBell() {
                 <div className="text-sm font-semibold text-slate-900 dark:text-white">{t('notifications.notifications')}</div>
                 <div className="text-xs text-slate-500 dark:text-slate-500">{t('notifications.unread', { count: unreadCount })}</div>
               </div>
-              <ThemeToggle className="h-8 w-8 flex-shrink-0" />
+              <ThemeToggle className="h-8 w-8 flex-shrink-0" theme={theme} toggleTheme={toggleTheme} />
             </div>
             <button
               type="button"

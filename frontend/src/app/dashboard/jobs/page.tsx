@@ -4,10 +4,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/lib/api';
+import ThemeToggle from '@/components/ThemeToggle';
+import { useLocalTheme } from '@/components/ThemeProvider';
 import { Search, Building2, Clock, Plus, Loader2, ArrowRight, Briefcase, SearchCheck, ShieldCheck, Sparkles, TrendingUp } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import toast from 'react-hot-toast';
-import { useTheme } from '@/components/ThemeProvider';
 
 const EMPTY_FORM = {
   title: '',
@@ -28,7 +29,7 @@ export default function JobsPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { theme } = useTheme();
+  const { theme, toggleTheme } = useLocalTheme('cfh-jobs-theme', 'light');
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [view, setView] = useState<'unique' | 'all' | 'duplicates'>('unique');
@@ -219,6 +220,7 @@ export default function JobsPage() {
             </button>
           ))}
         </div>
+        <ThemeToggle className="h-9 w-9" theme={theme} toggleTheme={toggleTheme} />
       </div>
 
       {tab === 'recent' && (
