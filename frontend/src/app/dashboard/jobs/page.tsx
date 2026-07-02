@@ -349,7 +349,8 @@ export default function JobsPage() {
                 const locationLabel = String(job.location || 'Remote');
                 const isOnSite = locationLabel.toLowerCase().includes('on-site') || locationLabel.toLowerCase().includes('onsite');
 
-                             <div
+                return (
+                  <div
                     key={job._id}
                     className="group rounded-[1.5rem] border border-slate-200 bg-white p-5 transition-all hover:-translate-y-0.5 hover:border-emerald-400/40 hover:shadow-xl hover:shadow-slate-200/60 dark:border-emerald-500/10 dark:bg-slate-900/90 dark:hover:border-emerald-400/30 dark:hover:shadow-emerald-950/15"
                   >
@@ -382,7 +383,7 @@ export default function JobsPage() {
                         <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
                           <span className="flex items-center gap-1">
                             <Building2 size={11} /> {job.company || 'Unknown company'}
-                          </span>         </span>
+                          </span>
                           <span className="flex items-center gap-1">
                             <Clock size={11} />
                             <span className={isNew ? 'text-emerald-400 font-semibold' : ''}>{timeAgo}</span>
