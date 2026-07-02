@@ -118,7 +118,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <meta name="monetag" content="f805e56c8e2a41c32ced55e23cc0368f" />
       </head>
-      <body className={`${inter.className} bg-white text-slate-900 antialiased dark:bg-slate-950 dark:text-white`}>
+      <body className={`${inter.className} bg-slate-950 text-white antialiased`}>
         <NonceProvider nonce={nonce}>
           <Providers>
             <OrganizationSchema />

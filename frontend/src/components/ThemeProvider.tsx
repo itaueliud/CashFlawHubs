@@ -11,15 +11,7 @@ type ThemeContextValue = {
 };
 
 const STORAGE_KEY = 'cfh-theme';
-
 const ThemeContext = createContext<ThemeContextValue | null>(null);
-
-function applyThemeClass(theme: Theme) {
-  const root = document.documentElement;
-  root.classList.toggle('dark', theme === 'dark');
-  root.classList.toggle('light', theme === 'light');
-  root.style.colorScheme = theme;
-}
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('dark');
@@ -27,20 +19,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    const initial: Theme = stored === 'light' || stored === 'dark' ? stored : 'dark';
-    setThemeState(initial);
-    applyThemeClass(initial);
+    setThemeState(stored === 'light' || stored === 'dark' ? stored : 'dark');
     setMounted(true);
   }, []);
 
   const setTheme = (next: Theme) => {
     setThemeState(next);
     localStorage.setItem(STORAGE_KEY, next);
-    applyThemeClass(next);
   };
 
   const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
-
   const value = useMemo(() => ({ theme, toggleTheme, setTheme }), [theme]);
 
   if (!mounted) return <div style={{ visibility: 'hidden' }}>{children}</div>;

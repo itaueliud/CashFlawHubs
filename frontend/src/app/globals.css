@@ -36,10 +36,6 @@ html.light {
   --shadow-glow: 0 18px 50px rgba(56, 189, 248, 0.07);
 }
 
-html.light body {
-  background: #f8fafc;
-  color: #0f172a;
-}
 
 * {
   box-sizing: border-box;

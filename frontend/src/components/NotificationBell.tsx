@@ -5,6 +5,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Bell, CheckCheck, Dot, Loader2 } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
+import { useTheme } from '@/components/ThemeProvider';
 import api from '@/lib/api';
 
 type NotificationItem = {
@@ -99,6 +100,7 @@ function getTypeMeta(type: string) {
 
 export default function NotificationBell() {
   const { t } = useTranslation();
+  const { theme } = useTheme();
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
@@ -142,7 +144,7 @@ export default function NotificationBell() {
   const hasUrgentUnread = notifications.some((n) => !n.readAt && n.type === 'system');
 
   return (
-    <div ref={wrapperRef} className="relative">
+    <div ref={wrapperRef} className={`relative ${theme}`}>
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
