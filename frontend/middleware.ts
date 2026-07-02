@@ -42,9 +42,6 @@ const buildConnectSrc = () => {
     'https://nap5k.com',
     'https://zoologyfibre.com',
     'https://kettledroopingcontinuation.com',
-    'https://www.google-analytics.com',
-    'https://region1.google-analytics.com',
-    'https://analytics.google.com',
   ]);
 
   const apiOrigin = getOriginFromUrl(process.env.NEXT_PUBLIC_API_URL);
