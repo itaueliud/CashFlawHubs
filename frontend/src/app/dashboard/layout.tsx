@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/store/authStore';
 import NotificationBell from '@/components/NotificationBell';
+import ThemeToggle from '@/components/ThemeToggle';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import {
   LayoutDashboard,
@@ -298,6 +299,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
+            <ThemeToggle />
             <NotificationBell />
             {!user.activationStatus && (
               <Link href="/dashboard/activate" className="btn-primary text-xs py-1.5 px-3 sm:w-auto">

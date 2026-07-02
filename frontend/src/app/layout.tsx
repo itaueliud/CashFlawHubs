@@ -12,11 +12,20 @@ import Script from 'next/script';
 import { SITE_NAME, SITE_URL } from '@/lib/seo';
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' });
+function isSafeRemoteUrl(value: string | undefined) {
+  if (!value) return false;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
 const adScripts = [
   process.env.NEXT_PUBLIC_ADSTERRA_POPUNDER_URL,
   process.env.NEXT_PUBLIC_MONETAG_POPUNDER_URL,
-].filter((src): src is string => Boolean(src && src.trim()));
+].filter(isSafeRemoteUrl);
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -109,7 +118,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <meta name="monetag" content="f805e56c8e2a41c32ced55e23cc0368f" />
       </head>
-      <body className={`${inter.className} bg-slate-950 text-white antialiased`}>
+      <body className={`${inter.className} bg-white text-slate-900 antialiased dark:bg-slate-950 dark:text-white`}>
         <NonceProvider nonce={nonce}>
           <Providers>
             <OrganizationSchema />

@@ -1,4 +1,4 @@
-﻿@tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -20,6 +20,25 @@
   --text-subtle: #94a3b8;
   --shadow-soft: 0 18px 55px rgba(2, 8, 23, 0.36);
   --shadow-glow: 0 24px 80px rgba(56, 189, 248, 0.10);
+}
+
+html.light {
+  --bg-base: #f8fafc;
+  --bg-panel: #ffffff;
+  --bg-surface: #ffffff;
+  --bg-elevated: #f1f5f9;
+  --border-soft: rgba(15, 23, 42, 0.08);
+  --border-subtle: rgba(15, 23, 42, 0.05);
+  --text-primary: #0f172a;
+  --text-muted: #475569;
+  --text-subtle: #64748b;
+  --shadow-soft: 0 12px 34px rgba(15, 23, 42, 0.07);
+  --shadow-glow: 0 18px 50px rgba(56, 189, 248, 0.07);
+}
+
+html.light body {
+  background: #f8fafc;
+  color: #0f172a;
 }
 
 * {

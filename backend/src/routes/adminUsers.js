@@ -101,7 +101,13 @@ router.patch('/:id/suspend', protect, requireAdmin, async (req, res) => {
       afterState: { isActive: false, endDate },
     });
 
-    await createNotification(user._id, 'account_suspended', `Your account has been suspended for ${duration}. Reason: ${reason}`);
+    await createNotification({
+      userId: user._id,
+      type: 'account_suspended',
+      title: 'Account suspended',
+      message: `Your account has been suspended for ${duration}. Reason: ${reason}`,
+      metadata: { duration, reason },
+    });
 
     res.json({ success: true, message: 'User suspended', endDate });
   } catch (err) {
@@ -130,7 +136,12 @@ router.patch('/:id/reactivate', protect, requireAdmin, async (req, res) => {
       afterState: { isActive: true },
     });
 
-    await createNotification(user._id, 'account_reactivated', 'Your account has been reactivated.');
+    await createNotification({
+      userId: user._id,
+      type: 'account_reactivated',
+      title: 'Account reactivated',
+      message: 'Your account has been reactivated.',
+    });
     res.json({ success: true, message: 'User reactivated' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
