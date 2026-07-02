@@ -202,20 +202,37 @@ export default function CreatorHubDetailView({ uploadId }: { uploadId?: string }
                   </button>
                 </div>
               ) : upload.uploadType === 'document' ? (
-                <div className="flex aspect-video flex-col items-center justify-center gap-3 bg-gradient-to-br from-slate-800 to-slate-950 text-white">
-                  <FileText size={40} />
-                  <p className="text-sm font-semibold">{upload.fileName || 'Document'}</p>
-                  <a
-                    href={upload.videoPublicUrl || `${apiOrigin}${upload.streamUrl}?token=${encodeURIComponent(token || '')}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
-                  >
-                    Download / Open
-                  </a>
+                <div className="relative flex aspect-video w-full flex-col bg-slate-100 dark:bg-slate-900" onContextMenu={(e) => e.preventDefault()}>
+                  {(() => {
+                    const docUrl = upload.videoPublicUrl || `${apiOrigin}${upload.streamUrl}?token=${encodeURIComponent(token || '')}`;
+                    const isPdf = upload.fileName?.toLowerCase().endsWith('.pdf');
+                    const embedUrl = isPdf
+                      ? `${docUrl}#toolbar=0`
+                      : `https://docs.google.com/gview?url=${encodeURIComponent(docUrl)}&embedded=true`;
+
+                    return (
+                      <iframe
+                        src={embedUrl}
+                        className="h-full w-full border-0"
+                        title={upload.title}
+                        sandbox="allow-scripts allow-same-origin"
+                      />
+                    );
+                  })()}
                 </div>
               ) : (
-                <video key={streamSrc} src={streamSrc} controls playsInline preload="metadata" className="aspect-video w-full bg-black" onError={() => toast.error('Video playback failed. Please try opening the raw stream link.')} />
+                <div className="relative aspect-video w-full bg-black" onContextMenu={(e) => e.preventDefault()}>
+                  <video 
+                    key={streamSrc} 
+                    src={streamSrc} 
+                    controls 
+                    controlsList="nodownload"
+                    playsInline 
+                    preload="metadata" 
+                    className="h-full w-full" 
+                    onError={() => toast.error('Video playback failed. Please try opening the raw stream link.')} 
+                  />
+                </div>
               )}
             </div>
 
