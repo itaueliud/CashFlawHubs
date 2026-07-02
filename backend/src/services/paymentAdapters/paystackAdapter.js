@@ -36,13 +36,20 @@ exports.initiateDeposit = async ({ reference, amountLocal, currency, callbackUrl
 };
 
 exports.initiateWithdrawal = async ({ reference, amountLocal, currency, user }) => {
+  const { PAYSTACK_TRANSFER_RECIPIENTS } = require('../controllers/paymentController');
+  const config = PAYSTACK_TRANSFER_RECIPIENTS[user.country];
+  if (!config) throw new Error(`Paystack transfer not configured for ${user.country}`);
+  
+  const bankCode = process.env[config.bankCodeEnv];
+  if (!bankCode) throw new Error(`Missing ${config.bankCodeEnv} for ${user.country}`);
+
   const recipientResponse = await axios.post(
     `${PAYSTACK_BASE_URL}/transferrecipient`,
     {
-      type: currency === 'GHS' || currency === 'KES' ? 'mobile_money' : 'nuban',
+      type: config.type,
       name: user.name,
       account_number: user.phone.replace(/[^\d]/g, ''),
-      bank_code: process.env.PAYSTACK_WITHDRAWAL_BANK_CODE || 'MTN',
+      bank_code: bankCode,
       currency,
     },
     { headers: getHeaders() }

@@ -1,87 +1,113 @@
 const axios = require('axios');
+const { v4: uuidv4 } = require('uuid');
+const { recordSuccess, recordFailure } = require('../providerHealthTracker'); // from earlier fix
 
-const getConfig = () => ({
-  baseUrl: String(process.env.PAWAPAY_BASE_URL || '').replace(/\/+$/, ''),
-  apiKey: process.env.PAWAPAY_API_KEY,
-  merchantId: process.env.PAWAPAY_MERCHANT_ID,
-  collectionUrl: process.env.PAWAPAY_COLLECTION_URL || '',
-  payoutUrl: process.env.PAWAPAY_PAYOUT_URL || '',
-  callbackUrl: process.env.PAWAPAY_CALLBACK_URL || '',
-});
+const getBaseUrl = () =>
+  (process.env.PAWAPAY_ENV === 'production'
+    ? 'https://api.pawapay.io'
+    : 'https://api.sandbox.pawapay.io') + '/v2';
 
-const getHeaders = () => {
-  const config = getConfig();
-  if (!config.apiKey) {
-    throw new Error('PawaPay API key is not configured');
-  }
-
-  return {
-    Authorization: `Bearer ${config.apiKey}`,
-    'Content-Type': 'application/json',
-  };
-};
-
-const resolveUrl = (configuredUrl, fallbackPath) => {
-  const config = getConfig();
-  if (configuredUrl) return configuredUrl;
-  if (!config.baseUrl) {
-    throw new Error('PawaPay base URL is not configured');
-  }
-  return `${config.baseUrl}${fallbackPath}`;
-};
-
-exports.initiateDeposit = async ({ reference, amountLocal, currency, callbackUrl, customer, metadata }) => {
-  const config = getConfig();
-  const response = await axios.post(
-    resolveUrl(config.collectionUrl, '/collections'),
-    {
-      merchantId: config.merchantId,
-      reference,
-      amount: Number(amountLocal),
-      currency,
-      callbackUrl: callbackUrl || config.callbackUrl,
-      customer: {
-        name: customer?.name,
-        email: customer?.email,
-        phone: customer?.phone,
-      },
-      metadata,
+const client = () =>
+  axios.create({
+    baseURL: getBaseUrl(),
+    headers: {
+      Authorization: `Bearer ${process.env.PAWAPAY_API_KEY}`,
+      'Content-Type': 'application/json',
     },
-    { headers: getHeaders() }
-  );
+    timeout: 15000,
+  });
 
-  return {
-    provider: 'pawapay',
-    reference,
-    providerTransactionId: response.data?.transactionId || response.data?.reference || reference,
-    checkoutUrl: response.data?.checkoutUrl || response.data?.paymentUrl || null,
-    raw: response.data,
-  };
+/**
+ * Resolve the correct MMO provider code + sanitized phone number
+ * for a given raw phone number. Avoids hardcoding per-country MMO codes.
+ */
+async function predictProvider(phoneNumber) {
+  const { data } = await client().post('/predict-provider', { phoneNumber });
+  // { country: 'UGA', provider: 'MTN_MOMO_UGA', phoneNumber: '256...' }
+  return data;
+}
+
+exports.initiateDeposit = async ({ amountLocal, currency, customer, metadata = {}, clientReferenceId }) => {
+  try {
+    const prediction = await predictProvider(customer.phone);
+    const depositId = uuidv4();
+
+    const { data } = await client().post('/deposits', {
+      depositId,
+      payer: {
+        type: 'MMO',
+        accountDetails: {
+          phoneNumber: prediction.phoneNumber,
+          provider: prediction.provider,
+        },
+      },
+      amount: String(amountLocal),
+      currency,
+      clientReferenceId: clientReferenceId || depositId,
+      customerMessage: (metadata.description || 'CashFlawHubs deposit').slice(0, 22),
+      metadata: Object.entries(metadata).map(([fieldName, fieldValue]) => ({ fieldName, fieldValue: String(fieldValue) })),
+    });
+
+    await recordSuccess('pawapay');
+    return {
+      provider: 'pawapay',
+      reference: depositId,
+      providerTransactionId: depositId,
+      status: data.status, // 'ACCEPTED' — final status arrives via callback
+      country: prediction.country,
+      resolvedProvider: prediction.provider,
+      raw: data,
+    };
+  } catch (error) {
+    await recordFailure('pawapay', error);
+    throw error;
+  }
 };
 
-exports.initiateWithdrawal = async ({ reference, amountLocal, currency, callbackUrl, user }) => {
-  const config = getConfig();
-  const response = await axios.post(
-    resolveUrl(config.payoutUrl, '/payouts'),
-    {
-      merchantId: config.merchantId,
-      reference,
-      amount: Number(amountLocal),
-      currency,
-      callbackUrl: callbackUrl || config.callbackUrl,
-      customer: {
-        name: user?.name,
-        email: user?.email,
-        phone: user?.phone,
-      },
-    },
-    { headers: getHeaders() }
-  );
+exports.initiateWithdrawal = async ({ amountLocal, currency, user, metadata = {}, clientReferenceId }) => {
+  try {
+    const prediction = await predictProvider(user.phone);
+    const payoutId = uuidv4();
 
-  return {
-    provider: 'pawapay',
-    reference,
-    providerTransactionId: response.data?.transactionId || response.data?.reference || reference,
-    raw: response.data,
-  };
+    const { data } = await client().post('/payouts', {
+      payoutId,
+      amount: String(amountLocal),
+      currency,
+      recipient: {
+        type: 'MMO',
+        accountDetails: {
+          phoneNumber: prediction.phoneNumber,
+          provider: prediction.provider,
+        },
+      },
+      metadata: Object.entries(metadata).map(([fieldName, fieldValue]) => ({ fieldName, fieldValue: String(fieldValue) })),
+    });
+
+    await recordSuccess('pawapay');
+    return {
+      provider: 'pawapay',
+      reference: payoutId,
+      providerTransactionId: payoutId,
+      status: data.status,
+      raw: data,
+    };
+  } catch (error) {
+    await recordFailure('pawapay', error);
+    throw error;
+  }
+};
+
+exports.checkDepositStatus = async (depositId) => {
+  const { data } = await client().get(`/deposits/${depositId}`);
+  return data;
+};
+
+exports.checkPayoutStatus = async (payoutId) => {
+  const { data } = await client().get(`/payouts/${payoutId}`);
+  return data;
+};
+
+exports.getActiveConfiguration = async (country) => {
+  const { data } = await client().get('/active-conf', { params: country ? { country } : {} });
+  return data;
 };

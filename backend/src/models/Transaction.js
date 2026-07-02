@@ -4,7 +4,7 @@ const transactionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   type: {
     type: String,
-    enum: ['activation', 'withdrawal', 'referral_reward', 'survey', 'task', 'offer', 'challenge', 'freelance', 'token_purchase', 'token_spend', 'job_posting', 'deposit', 'xp_redemption'],
+    enum: ['activation', 'withdrawal', 'referral_reward', 'survey', 'task', 'offer', 'challenge', 'freelance', 'token_purchase', 'token_spend', 'job_posting', 'deposit', 'xp_redemption', 'manual_payment', 'creator_hub_upload', 'creator_hub_purchase', 'creator_hub_earning'],
     required: true,
   },
   amountLocal: { type: Number, required: true },
@@ -13,7 +13,7 @@ const transactionSchema = new mongoose.Schema({
   country: { type: String, required: true },
   provider: {
     type: String,
-    enum: ['mpesa', 'mtn', 'vodacom', 'telebirr', 'flutterwave', 'paystack', 'internal', 'jenga', 'mtn_momo', 'tanzania_wallet', 'daraja'],
+    enum: ['mpesa', 'mtn', 'vodacom', 'telebirr', 'paystack', 'pawapay', 'internal', 'mtn_momo', 'tanzania_wallet', 'daraja', 'manual'],
     required: true,
   },
   providerTransactionId: { type: String, default: null },
@@ -39,3 +39,4 @@ transactionSchema.index({ providerTransactionId: 1 });
 transactionSchema.index({ 'metadata.payoutReference': 1 });
 
 module.exports = mongoose.model('Transaction', transactionSchema);
+

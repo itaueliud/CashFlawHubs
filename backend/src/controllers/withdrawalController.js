@@ -17,8 +17,6 @@ const isWithdrawalWindowOpen = () => !isFridayOnlyWithdrawalEnabled() || isFrida
 const getWithdrawalCallbackUrl = (strategy) => {
   const base = process.env.BACKEND_URL;
   switch (strategy) {
-    case 'jenga_mobile_wallet':
-      return `${base}/api/payments/jenga/callback`;
     case 'mtn_momo_transfer':
       return `${base}/api/payments/mtn-momo/callback`;
     case 'telebirr_transfer':

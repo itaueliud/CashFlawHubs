@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -11,7 +11,7 @@ export default function AdminLedgerPage() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const [showConfirm, setShowConfirm] = useState(false);
-  const [tab, setTab] = useState<'summary' | 'staff' | 'b2c'>('summary');
+  const [tab, setTab] = useState<'summary' | 'staff' | 'b2c' | 'rails'>('summary');
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-ledger'],
@@ -30,6 +30,12 @@ export default function AdminLedgerPage() {
     enabled: tab === 'b2c',
   });
 
+  const { data: railsData } = useQuery({
+    queryKey: ['ledger-rails'],
+    queryFn: () => api.get('/ledger/rails').then((r) => r.data),
+    enabled: tab === 'rails',
+  });
+
   const executeMutation = useMutation({
     mutationFn: () => api.post('/admin/ledger/payouts/execute', { range: '30d' }),
     onSuccess: () => {
@@ -39,6 +45,17 @@ export default function AdminLedgerPage() {
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Failed to execute payout');
+    },
+  });
+
+  const toggleRailMutation = useMutation({
+    mutationFn: ({ strategyId, isEnabled, reason }: any) => api.post('/ledger/rails/toggle', { strategyId, isEnabled, reason }),
+    onSuccess: () => {
+      toast.success('Rail status updated');
+      queryClient.invalidateQueries({ queryKey: ['ledger-rails'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to update rail');
     },
   });
 
@@ -99,6 +116,7 @@ export default function AdminLedgerPage() {
           ['summary', 'Summary'],
           ['staff', 'Admins/Superadmins'],
           ['b2c', 'B2C Monitoring'],
+          ['rails', 'Payment Rails'],
         ] as const).map(([id, label]) => (
           <button
             key={id}
@@ -182,6 +200,36 @@ export default function AdminLedgerPage() {
                 ))}
               </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'rails' && (
+        <div className="card space-y-3 p-5">
+          <h2 className="text-xl font-bold text-white">Payment Rails</h2>
+          <div className="text-sm text-slate-400 mb-4">Enable or disable specific payment rails across the platform.</div>
+          {(railsData?.states || []).map((state: any) => (
+            <div key={state.strategyId} className="inner-item flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-semibold text-white">{state.strategyId}</div>
+                {state.disabledReason && <div className="text-xs text-red-400">Disabled: {state.disabledReason}</div>}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const reason = state.isEnabled ? prompt('Reason for disabling:') : null;
+                    if (state.isEnabled && !reason) return; // cancelled prompt
+                    toggleRailMutation.mutate({ strategyId: state.strategyId, isEnabled: !state.isEnabled, reason });
+                  }}
+                  className={`ledger-button press inline-flex items-center gap-1 rounded-lg px-3 py-1 text-xs font-semibold ${state.isEnabled ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'}`}
+                >
+                  {state.isEnabled ? 'Enabled' : 'Disabled'}
+                </button>
+              </div>
+            </div>
+          ))}
+          {(!railsData?.states || railsData.states.length === 0) && (
+            <div className="text-sm text-slate-400">No rail states configured yet.</div>
           )}
         </div>
       )}

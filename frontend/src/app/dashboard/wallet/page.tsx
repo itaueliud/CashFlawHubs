@@ -61,6 +61,12 @@ export default function WalletPage() {
     staleTime: 5 * 60_000,
   });
 
+  const { data: payoutMethods } = useQuery({
+    queryKey: ['payout-methods'],
+    queryFn: () => api.get('/payments/methods').then((res) => res.data.methods),
+    enabled: !!user,
+  });
+
   const { data: transactionData } = useQuery({
     queryKey: ['transactions'],
     queryFn: () => api.get('/wallet/transactions?limit=30').then((response) => response.data.transactions),
@@ -583,9 +589,9 @@ export default function WalletPage() {
                   <div className="mt-6 grid gap-3">
                     <div className="text-sm text-slate-400">Choose how to pay:</div>
                     <button onClick={() => setPayMethod('mpesa')} className="flex w-full items-center gap-4 rounded-2xl border border-slate-700 bg-slate-950/50 px-4 py-4 text-left">
-                      <div className="text-2xl">📱</div>
+                      <div className="text-2xl">{payoutMethods?.[0]?.icon || '📱'}</div>
                       <div className="flex-1">
-                        <div className="font-semibold">{user?.country === 'KE' ? 'M-Pesa' : user?.country === 'UG' ? 'MTN MoMo' : user?.country === 'GH' ? 'MTN MoMo / Paystack' : user?.country === 'NG' ? 'Card / Paystack' : user?.country === 'ET' ? 'Telebirr' : 'Mobile Money'}</div>
+                        <div className="font-semibold">{payoutMethods?.[0]?.label || 'Mobile Money'}</div>
                         <div className="text-xs text-slate-400">You'll receive a payment prompt on your phone</div>
                       </div>
                       <div className="text-slate-400">›</div>
@@ -721,6 +727,12 @@ export default function WalletPage() {
               className="input"
             />
           </div>
+
+          {payoutMethods && payoutMethods.length > 0 && (
+            <div className="text-xs text-slate-400">
+              Funds will be sent to your primary payout method: <span className="font-semibold text-white">{payoutMethods[0].label} ({formatPhone(user?.phone)})</span>
+            </div>
+          )}
 
           <button
             type="submit"

@@ -16,6 +16,7 @@ const { getRedis, isRedisReady } = require('../config/redis');
 const logger = require('../utils/logger');
 const { createNotification } = require('../services/notificationCenter');
 const { sendCampaign, resolveAudience } = require('../services/broadcastProcessor');
+const { buildProviderStatus } = require('../services/jobProviderService');
 
 const truthy = (value) => Boolean(value && String(value).trim());
 const getLedgerSplitPercent = () => {
@@ -343,21 +344,7 @@ const providerConfigs = {
       ['till', process.env.DARAJA_TILL || process.env.MPESA_TILL],
     ],
   },
-  jenga: {
-    label: 'Jenga API',
-    environment: 'configured',
-    required: [
-      ['apiKey', process.env.JENGA_API_KEY],
-      ['apiSecret', process.env.JENGA_API_SECRET],
-      ['merchantCode', process.env.JENGA_MERCHANT_CODE],
-      ['collectionUrl', process.env.JENGA_COLLECTION_URL],
-      ['mobileWithdrawalUrl', process.env.JENGA_MOBILE_WITHDRAWAL_URL],
-    ],
-    recommended: [
-      ['sourceAccountNumber', process.env.JENGA_SOURCE_ACCOUNT_NUMBER],
-      ['sourceAccountName', process.env.JENGA_SOURCE_ACCOUNT_NAME],
-    ],
-  },
+
   paystack: {
     label: 'Paystack',
     environment: process.env.PAYSTACK_SECRET_KEY?.startsWith('sk_live') ? 'live' : 'test',
@@ -2107,12 +2094,18 @@ router.get('/provider-health', protect, requireAdmin, async (req, res) => {
     { $sort: { totalRewardsUSD: -1 } },
   ]);
 
+  const jobProviderStatus = buildProviderStatus({
+    theirStackConfigured: Boolean(process.env.THEIRSTACK_API_KEY),
+    loopcvConfigured: Boolean(process.env.LOOPCV_API_KEY),
+  });
+
   res.json({
     success: true,
     generatedAt: new Date().toISOString(),
     stack: HYBRID_PAYMENT_STACK,
     providers,
     transactionCounts,
+    jobProviderStatus,
     adsMetrics: {
       day: metricsDay,
       thresholds: thresholdConfig,

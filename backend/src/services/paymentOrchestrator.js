@@ -1,6 +1,6 @@
 const { COUNTRIES } = require('../config/countries');
+const { isRailEnabled } = require('./railStateService');
 const paystack = require('./paymentAdapters/paystackAdapter');
-const jenga = require('./paymentAdapters/jengaAdapter');
 const mtnMomo = require('./paymentAdapters/mtnMomoAdapter');
 const telebirr = require('./paymentAdapters/telebirrAdapter');
 const tanzaniaWallet = require('./paymentAdapters/tanzaniaWalletAdapter');
@@ -14,14 +14,9 @@ const adapterMap = {
   paystack_ussd: paystack,
   paystack_mpesa: paystack,
   paystack_mobile_money: paystack,
-  jenga: jenga,
-  jenga_mobile_wallet: jenga,
   daraja: daraja,
   daraja_b2c: daraja,
   pawapay: pawapay,
-  pawapay_mpesa: pawapay,
-  pawapay_mobile_money: pawapay,
-  pawapay_withdrawal: pawapay,
   mtn_momo_request_to_pay: mtnMomo,
   mtn_momo_transfer: mtnMomo,
   telebirr_app_approval: telebirr,
@@ -30,53 +25,44 @@ const adapterMap = {
   tanzania_wallet_b2c: tanzaniaWallet,
 };
 
-const pickStrategies = (country, operation, requestedProvider) => {
+const pickStrategies = async (country, operation, requestedProvider) => {
   const routing = COUNTRIES[country]?.paymentRouting || { deposits: [], withdrawals: [] };
-  const providers = operation === 'deposit' ? routing.deposits : routing.withdrawals;
-  if (requestedProvider) return [requestedProvider];
-  return providers;
+  const candidates = requestedProvider ? [requestedProvider] : (operation === 'deposit' ? routing.deposits : routing.withdrawals);
+
+  const enabledFlags = await Promise.all(candidates.map((strategy) => isRailEnabled(strategy, country)));
+  return candidates.filter((_, i) => enabledFlags[i]);
 };
 
 exports.initiateDeposit = async ({ country, requestedProvider, payload }) => {
-  const strategies = pickStrategies(country, 'deposit', requestedProvider);
+  const strategies = await pickStrategies(country, 'deposit', requestedProvider);
+  if (strategies.length === 0) {
+    throw new Error(`All payment rails for ${country} are currently disabled. Contact support.`);
+  }
   const errors = [];
-
   for (const strategy of strategies) {
     const adapter = adapterMap[strategy];
-    if (!adapter?.initiateDeposit) {
-      errors.push(`${strategy}: adapter not implemented`);
-      continue;
-    }
-
+    if (!adapter?.initiateDeposit) { errors.push(`${strategy}: adapter not implemented`); continue; }
     try {
       const result = await adapter.initiateDeposit(payload);
       return { ...result, strategy };
-    } catch (error) {
-      errors.push(`${strategy}: ${error.message}`);
-    }
+    } catch (error) { errors.push(`${strategy}: ${error.message}`); }
   }
-
   throw new Error(`Deposit routing failed for ${country}. ${errors.join(' | ')}`);
 };
 
 exports.initiateWithdrawal = async ({ country, requestedProvider, payload }) => {
-  const strategies = pickStrategies(country, 'withdrawal', requestedProvider);
+  const strategies = await pickStrategies(country, 'withdrawal', requestedProvider);
+  if (strategies.length === 0) {
+    throw new Error(`All payment rails for ${country} are currently disabled. Contact support.`);
+  }
   const errors = [];
-
   for (const strategy of strategies) {
     const adapter = adapterMap[strategy];
-    if (!adapter?.initiateWithdrawal) {
-      errors.push(`${strategy}: adapter not implemented`);
-      continue;
-    }
-
+    if (!adapter?.initiateWithdrawal) { errors.push(`${strategy}: adapter not implemented`); continue; }
     try {
       const result = await adapter.initiateWithdrawal(payload);
       return { ...result, strategy };
-    } catch (error) {
-      errors.push(`${strategy}: ${error.message}`);
-    }
+    } catch (error) { errors.push(`${strategy}: ${error.message}`); }
   }
-
   throw new Error(`Withdrawal routing failed for ${country}. ${errors.join(' | ')}`);
 };

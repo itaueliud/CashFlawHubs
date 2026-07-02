@@ -437,6 +437,12 @@ export default function ProfilePage() {
     refetchOnWindowFocus: true,
     refetchOnMount: 'always',
   });
+  
+  const { data: payoutMethods } = useQuery({
+    queryKey: ['payout-methods'],
+    queryFn: () => api.get('/payments/methods').then((res) => res.data.methods),
+    enabled: hasHydrated && !!user,
+  });
   const [isSendingVerification, setIsSendingVerification] = useState(false);
   const [verificationCooldown, setVerificationCooldown] = useState(0);
   const [emailDraft, setEmailDraft] = useState('');
@@ -680,28 +686,31 @@ export default function ProfilePage() {
 
       <section className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5 sm:p-6">
         <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-green-400">Payout Methods</h3>
-        {user?.phone ? (
+        {payoutMethods && payoutMethods.length > 0 ? (
+          payoutMethods.map((method: any, index: number) => (
+            <div key={method.strategy} className={`${index > 0 ? 'mt-3 ' : ''}flex items-center justify-between rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3.5`}>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-800 text-lg">{method.icon}</div>
+                <div>
+                  <div className="text-sm font-semibold text-white">{method.label}</div>
+                  <div className="text-xs text-slate-500">{index === 0 ? `${formatPhone(user?.phone)} · Primary` : 'Available'}</div>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-slate-500" />
+            </div>
+          ))
+        ) : (
           <div className="flex items-center justify-between rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3.5">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-800 text-lg">📱</div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-800 text-lg">💳</div>
               <div>
-                <div className="text-sm font-semibold text-white">M-Pesa</div>
-                <div className="text-xs text-slate-500">{formatPhone(user.phone)} · Primary</div>
+                <div className="text-sm font-semibold text-white">No methods available</div>
+                <div className="text-xs text-slate-500">Contact support</div>
               </div>
             </div>
             <ChevronRight size={16} className="text-slate-500" />
           </div>
-        ) : null}
-        <div className="mt-3 flex items-center justify-between rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3.5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-800 text-lg">💳</div>
-            <div>
-              <div className="text-sm font-semibold text-white">Mobile Money</div>
-              <div className="text-xs text-slate-500">Available</div>
-            </div>
-          </div>
-          <ChevronRight size={16} className="text-slate-500" />
-        </div>
+        )}
         <button className="mt-3 w-full rounded-2xl border border-dashed border-slate-700 py-3 text-sm text-slate-400 transition-colors hover:border-green-400/40 hover:text-green-300">+ Add Payout Method</button>
       </section>
 

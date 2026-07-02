@@ -19,25 +19,18 @@ const { isActivationTestWindowEnabled, isUserActivated } = require('../utils/act
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 const PAYSTACK_COLLECTION_CURRENCY = {
   KE: 'KES',
-  UG: 'USD',
-  TZ: 'USD',
-  ET: 'USD',
   GH: 'GHS',
   NG: 'NGN',
+  CI: 'XOF',
 };
 
 const PAYSTACK_TRANSFER_RECIPIENTS = {
-  KE: {
-    type: 'mobile_money',
-    currency: 'KES',
-    bankCodeEnv: 'PAYSTACK_TRANSFER_BANK_CODE_KE',
-  },
-  GH: {
-    type: 'mobile_money',
-    currency: 'GHS',
-    bankCodeEnv: 'PAYSTACK_TRANSFER_BANK_CODE_GH',
-  },
+  KE: { type: 'mobile_money', currency: 'KES', bankCodeEnv: 'PAYSTACK_TRANSFER_BANK_CODE_KE' },
+  GH: { type: 'mobile_money', currency: 'GHS', bankCodeEnv: 'PAYSTACK_TRANSFER_BANK_CODE_GH' },
+  NG: { type: 'nuban', currency: 'NGN', bankCodeEnv: 'PAYSTACK_TRANSFER_BANK_CODE_NG' },
+  CI: { type: 'mobile_money', currency: 'XOF', bankCodeEnv: 'PAYSTACK_TRANSFER_BANK_CODE_CI' },
 };
+exports.PAYSTACK_TRANSFER_RECIPIENTS = PAYSTACK_TRANSFER_RECIPIENTS;
 
 
 const parseActivationTokenBonusByCountry = () => {
@@ -1602,4 +1595,101 @@ exports.processFridayBulkPayout = async () => {
     processed: payoutPlans.length,
     skipped,
   };
+};
+
+const verifyPawaPayDigest = (req) => {
+  const digestHeader = req.headers['content-digest'];
+  if (!digestHeader) return false;
+  const match = digestHeader.match(/sha-512=:(.+):/);
+  if (!match) return false;
+  const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body || {}));
+  const computed = crypto.createHash('sha512').update(rawBody).digest('base64');
+  return computed === match[1];
+};
+
+exports.pawapayCallback = async (req, res) => {
+  try {
+    if (!verifyPawaPayDigest(req)) {
+      logger.warn('PawaPay callback failed digest verification');
+      return res.status(401).json({ message: 'Invalid callback signature' });
+    }
+
+    let payload = req.body;
+    if (Buffer.isBuffer(req.body)) {
+      try { payload = JSON.parse(req.body.toString()); } catch (e) { payload = {}; }
+    }
+
+    const isPayout = !!payload.payoutId;
+    const id = payload.depositId || payload.payoutId;
+    const status = payload.status; // COMPLETED | FAILED | REJECTED
+    const metadata = Array.isArray(payload.metadata)
+      ? payload.metadata.reduce((acc, m) => ({ ...acc, [m.fieldName]: m.fieldValue }), {})
+      : (payload.metadata || {});
+
+    if (status === 'COMPLETED') {
+      if (isPayout) {
+        await finalizeFridayPayoutSuccess(id, payload.providerTransactionId || id);
+      } else if (metadata.type === 'activation' && metadata.userId) {
+        await publishToQueue('payment.activation', {
+          userId: metadata.userId,
+          amountLocal: Number(payload.depositedAmount || payload.requestedAmount),
+          currency: payload.currency,
+          providerTxId: payload.providerTransactionId || id,
+          provider: 'pawapay',
+        });
+      } else if (metadata.type === 'token_purchase') {
+        await fulfillTokenPurchase(id, 'pawapay', payload.providerTransactionId || id);
+      } else if (metadata.type === 'deposit') {
+        await fulfillWalletDeposit(id, 'pawapay', payload.providerTransactionId || id);
+      }
+    } else if (status === 'FAILED' || status === 'REJECTED') {
+      if (isPayout) {
+        await markFridayPayoutRetryable(id, `pawapay ${status}: ${payload.failureReason?.failureMessage || status}`);
+      }
+      logger.warn(`PawaPay ${isPayout ? 'payout' : 'deposit'} ${status}: ${id}`);
+    }
+
+    res.status(200).json({ received: true });
+  } catch (error) {
+    logger.error(`pawapayCallback error: ${error.message}`);
+    res.status(500).json({ message: 'Callback processing failed' });
+  }
+};
+
+const { PAYOUT_METHOD_DISPLAY } = require('../config/payoutMethodDisplay');
+const { isRailEnabled } = require('../services/railStateService');
+
+exports.getPayoutMethods = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    const countryConfig = COUNTRIES[user.country];
+    
+    if (!countryConfig || !countryConfig.paymentRouting || !countryConfig.paymentRouting.withdrawals) {
+      return res.json({ success: true, methods: [] });
+    }
+
+    const strategies = countryConfig.paymentRouting.withdrawals;
+    const methods = [];
+
+    for (const strategy of strategies) {
+      const enabled = await isRailEnabled(strategy, user.country);
+      if (enabled) {
+        const displayInfo = PAYOUT_METHOD_DISPLAY[strategy];
+        if (displayInfo) {
+          methods.push({
+            id: displayInfo.id,
+            strategy: strategy,
+            label: displayInfo.label,
+            icon: displayInfo.icon,
+            category: displayInfo.category,
+          });
+        }
+      }
+    }
+
+    res.json({ success: true, methods });
+  } catch (error) {
+    logger.error(`getPayoutMethods error: ${error.message}`);
+    res.status(500).json({ success: false, message: 'Failed to fetch payout methods' });
+  }
 };
