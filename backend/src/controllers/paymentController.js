@@ -1302,10 +1302,23 @@ exports.tanzaniaWalletCallback = async (req, res) => {
 
 exports.pawapayCallback = async (req, res) => {
   try {
-    const reference = req.body?.reference || req.body?.transactionReference || req.body?.externalId || req.body?.merchantReference;
-    const status = String(req.body?.status || req.body?.transactionStatus || req.body?.state || '').toLowerCase();
+    const signature = req.headers['content-digest'];
+    if (process.env.PAWAPAY_SECRET_KEY && signature) {
+      // Typically content-digest looks like 'sha-512=:base64hash:'
+      const hash = crypto.createHmac('sha512', process.env.PAWAPAY_SECRET_KEY)
+        .update(req.body ? (typeof req.body === 'string' ? req.body : JSON.stringify(req.body)) : '')
+        .digest('base64');
+      if (!signature.includes(hash)) {
+        logger.warn(`pawapayCallback signature mismatch`);
+        return res.status(401).json({ message: 'Invalid signature' });
+      }
+    }
+
+    const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    const reference = payload?.reference || payload?.transactionReference || payload?.externalId || payload?.merchantReference;
+    const status = String(payload?.status || payload?.transactionStatus || payload?.state || '').toLowerCase();
     if (reference && (status.includes('success') || status.includes('completed') || status.includes('approved'))) {
-      await fulfillPendingCollection(reference, 'pawapay', req.body?.transactionId || req.body?.providerTransactionId || reference);
+      await fulfillPendingCollection(reference, 'pawapay', payload?.transactionId || payload?.providerTransactionId || reference);
     }
     res.status(200).json({ received: true });
   } catch (error) {
