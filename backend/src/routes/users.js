@@ -24,19 +24,45 @@ router.get('/profile', protect, async (req, res) => {
   res.json({ success: true, user });
 });
 
+const NAME_CHANGE_COOLDOWN_DAYS = 30;
+
 const updateUserProfile = async (req, res, { adminOnly = false } = {}) => {
   if (adminOnly && !isAdminOrSuperadmin(req.user)) {
     return res.status(403).json({ success: false, message: 'Only admin and superadmin accounts can use this profile editor' });
   }
 
   const { name, bio, avatar, phone, userLanguage, browserLanguage, timezone } = req.body;
-  const currentUser = await User.findById(req.user.id).select('phone phoneVerified');
+  const currentUser = await User.findById(req.user.id).select('name nameLastChangedAt phone phoneVerified');
   if (!currentUser) {
     return res.status(404).json({ success: false, message: 'User not found' });
   }
   const updates = {};
 
-  if (name !== undefined) updates.name = name;
+  if (name !== undefined) {
+    const trimmedName = String(name).trim();
+    if (!trimmedName) {
+      return res.status(400).json({ success: false, message: 'Name cannot be empty' });
+    }
+
+    const isActualChange = trimmedName !== currentUser.name;
+
+    if (isActualChange) {
+      if (currentUser.nameLastChangedAt) {
+        const cooldownMs = NAME_CHANGE_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
+        const nextEligibleAt = new Date(currentUser.nameLastChangedAt.getTime() + cooldownMs);
+        if (nextEligibleAt > new Date()) {
+          return res.status(429).json({
+            success: false,
+            code: 'NAME_CHANGE_COOLDOWN',
+            message: 'You can only change your name once every 30 days.',
+            nextEligibleAt,
+          });
+        }
+      }
+      updates.name = trimmedName;
+      updates.nameLastChangedAt = new Date();
+    }
+  }
   if (bio !== undefined) updates.bio = bio;
   if (avatar !== undefined) updates.avatar = avatar;
   if (phone !== undefined) {

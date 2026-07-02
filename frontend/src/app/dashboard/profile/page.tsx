@@ -101,6 +101,26 @@ function NotificationsModal({ user, onClose, onSaved }: { user: any; onClose: ()
   );
 }
 
+function NameCooldownModal({ nextEligibleAt, onClose }: { nextEligibleAt: Date; onClose: () => void }) {
+  const formatted = nextEligibleAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  return (
+    <ModalShell title="Name change limit reached" onClose={onClose}>
+      <div className="space-y-3">
+        <p className="text-sm text-slate-300">
+          For security, your full name can only be changed once every 30 days.
+        </p>
+        <p className="text-sm text-slate-300">
+          You'll be able to change it again on <span className="font-semibold text-white">{formatted}</span>.
+        </p>
+        <div className="mt-4 flex justify-end">
+          <button onClick={onClose} className="btn-primary">Got it</button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
 function LanguageModal({ user, onClose, onSaved }: { user: any; onClose: () => void; onSaved?: () => void }) {
   const [lang, setLang] = useState((user as any)?.userLanguage || 'en');
   const [saving, setSaving] = useState(false);
@@ -451,6 +471,7 @@ export default function ProfilePage() {
   const [phoneOtp, setPhoneOtp] = useState('');
   const [editingPersonal, setEditingPersonal] = useState(false);
   const [modal, setModal] = useState<null | 'notifications' | 'language' | 'password' | 'achievements' | 'twofa' | 'kyc'>(null);
+  const [nameCooldownUntil, setNameCooldownUntil] = useState<Date | null>(null);
 
   const { register, handleSubmit, reset, getValues, watch } = useForm<ProfileForm>({
     defaultValues: { name: user?.name || '', bio: (user as any)?.bio || '', userLanguage: (user as any)?.userLanguage || '', phone: formatPhone(user?.phone) || '' },
@@ -490,10 +511,28 @@ export default function ProfilePage() {
 
   const saveProfile = async (data: ProfileForm) => {
     try {
-      await api.put('/users/profile', { ...data, browserLanguage: typeof navigator !== 'undefined' ? navigator.language.split('-')[0].toLowerCase() : '', timezone: typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : '' });
-      if (data.userLanguage) { localStorage.setItem('cfh-user-language', data.userLanguage); localStorage.setItem('cfh_language', data.userLanguage); document.documentElement.lang = data.userLanguage; }
-      await refreshUser(); toast.success('Profile updated'); setEditingPersonal(false); return true;
-    } catch { toast.error('Update failed'); return false; }
+      await api.put('/users/profile', {
+        ...data,
+        browserLanguage: typeof navigator !== 'undefined' ? navigator.language.split('-')[0].toLowerCase() : '',
+        timezone: typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : '',
+      });
+      if (data.userLanguage) {
+        localStorage.setItem('cfh-user-language', data.userLanguage);
+        localStorage.setItem('cfh_language', data.userLanguage);
+        document.documentElement.lang = data.userLanguage;
+      }
+      await refreshUser();
+      toast.success('Profile updated');
+      setEditingPersonal(false);
+      return true;
+    } catch (err: any) {
+      if (err?.response?.data?.code === 'NAME_CHANGE_COOLDOWN') {
+        setNameCooldownUntil(new Date(err.response.data.nextEligibleAt));
+        return false;
+      }
+      toast.error(err?.response?.data?.message || 'Update failed');
+      return false;
+    }
   };
 
   const requestEmailVerification = async () => {
@@ -625,7 +664,21 @@ export default function ProfilePage() {
           <div className="mb-4 flex items-center justify-between"><h3 className="text-xs font-bold uppercase tracking-widest text-green-400">Personal Information</h3><button type="button" onClick={() => setEditingPersonal(v => !v)} className="text-xs font-medium text-green-400 hover:underline">{editingPersonal ? 'Cancel' : 'Edit →'}</button></div>
           {editingPersonal ? (
             <form onSubmit={handleSubmit((data) => void saveProfile(data))} className="space-y-4">
-              <div><label className="mb-1.5 block text-xs font-medium text-slate-400">Full Name</label><input {...register('name')} className="input" placeholder="Your full name" /></div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-slate-400">Full Name</label>
+                <input {...register('name')} className="input" placeholder="Your full name" />
+                {(() => {
+                  const last = (user as any)?.nameLastChangedAt;
+                  if (!last) return null;
+                  const nextEligible = new Date(new Date(last).getTime() + 30 * 24 * 60 * 60 * 1000);
+                  if (nextEligible <= new Date()) return null;
+                  return (
+                    <p className="mt-1.5 text-xs text-amber-300">
+                      You can change your name again on {nextEligible.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.
+                    </p>
+                  );
+                })()}
+              </div>
               <div><label className="mb-1.5 block text-xs font-medium text-slate-400">Bio</label><textarea {...register('bio')} rows={3} className="input resize-none" placeholder="A short bio..." /></div>
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-slate-400">Phone Number</label>
@@ -683,6 +736,9 @@ export default function ProfilePage() {
       {modal === 'achievements' && <AchievementsModal user={user} onClose={() => setModal(null)} />}
       {modal === 'twofa' && <TwoFactorModal user={user} onClose={() => setModal(null)} onSaved={() => refreshUser()} />}
       {modal === 'kyc' && <KycModal user={user} onClose={() => setModal(null)} onSubmitted={() => refreshUser()} />}
+      {nameCooldownUntil && (
+        <NameCooldownModal nextEligibleAt={nameCooldownUntil} onClose={() => setNameCooldownUntil(null)} />
+      )}
 
       <section className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5 sm:p-6">
         <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-green-400">Payout Methods</h3>

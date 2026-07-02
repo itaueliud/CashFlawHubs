@@ -15,6 +15,7 @@ const userSchema = new mongoose.Schema({
   firstName: { type: String, trim: true },
   lastName: { type: String, trim: true },
   name: { type: String, required: true, trim: true },
+  nameLastChangedAt: { type: Date, default: null },
   email: {
     type: String,
     required: false,
@@ -62,9 +63,6 @@ const userSchema = new mongoose.Schema({
   },
   referredBy: { type: String, default: null }, // referralCode of referrer
   activationStatus: { type: Boolean, default: false },
-  emailVerified: { type: Boolean, default: false },
-  emailVerificationToken: { type: String, default: null },
-  emailVerificationExpiry: { type: Date, default: null },
   phoneVerified: { type: Boolean, default: false },
   dateOfBirth: { type: Date, default: null },
   userLanguage: { type: String, default: 'en' },
@@ -101,6 +99,26 @@ const userSchema = new mongoose.Schema({
     deviceFingerprint: { type: String, default: '' },
     createdAt: { type: Date, default: Date.now },
   }],
+  loginHistory: {
+    type: [
+      {
+        timestamp: { type: Date, required: true },
+        countedForChallenge: { type: Boolean, default: false },
+      },
+    ],
+    default: [],
+  },
+  jobAlerts: {
+    type: [
+      {
+        skill: { type: String, default: '' },
+        country: { type: String, default: 'KE' },
+        keywords: [{ type: String, trim: true }],
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    default: [],
+  },
 
   // Gamification
   level: { type: Number, default: 1 },
@@ -108,6 +126,15 @@ const userSchema = new mongoose.Schema({
   streak: { type: Number, default: 0 },
   lastActiveDate: { type: Date, default: null },
   badges: [{ type: String }],
+
+  // Notification preferences
+  notificationPrefs: {
+    earnings:     { type: Boolean, default: true },
+    tasks:        { type: Boolean, default: true },
+    updates:      { type: Boolean, default: true },
+    referrals:    { type: Boolean, default: true },
+    weeklyReport: { type: Boolean, default: false },
+  },
 
   // Stats
   totalEarned: { type: Number, default: 0 }, // in USD
@@ -124,11 +151,58 @@ const userSchema = new mongoose.Schema({
   failedLoginAttempts: { type: Number, default: 0 },
   lockUntil: { type: Date, default: null },
 
+  // Two-factor authentication flag
+  twoFactorEnabled: { type: Boolean, default: false },
+  twoFactorSecret: { type: String, default: null, select: false },
+  twoFactorBackupCodes: [{ type: String, select: false }],
+  twoFactorEnabledAt: { type: Date, default: null },
+
   role: { type: String, enum: ['user', 'admin', 'superadmin', 'ledger'], default: 'user' },
   userAccessType: { type: String, enum: ['real', 'test'], default: 'real' },
 
+  // Admin management fields
+  adminAllowedPages: { type: [String], default: [] },
+  adminNotes: [{
+    text: { type: String },
+    addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    addedAt: { type: Date, default: Date.now },
+  }],
+  flagStatus: { type: String, enum: ['clean', 'flagged', 'under_review'], default: 'clean' },
+  flagReason: { type: String, default: null },
+  warningCount: { type: Number, default: 0 },
+  suspensionHistory: [{
+    reason: { type: String },
+    duration: { type: String },
+    suspendedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    startDate: { type: Date },
+    endDate: { type: Date },
+  }],
+  moduleAccess: {
+    remoteJobs:      { type: Boolean, default: true },
+    surveys:         { type: Boolean, default: true },
+    microtasks:      { type: Boolean, default: true },
+    ads:             { type: Boolean, default: true },
+    offerwalls:      { type: Boolean, default: true },
+    cashTasks:       { type: Boolean, default: true },
+    dailyChallenges: { type: Boolean, default: true },
+    jobChats:        { type: Boolean, default: true },
+    referAndEarn:    { type: Boolean, default: true },
+  },
+  weeklyEarningCap: { type: Number, default: null },
   managedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   managedAt: { type: Date, default: null },
+  twoFactorSecret: { type: String, default: null, select: false },
+  twoFactorEnabled: { type: Boolean, default: false },
+  twoFactorBackupCodes: [{ type: String, select: false }],
+  twoFactorEnabledAt: { type: Date, default: null },
+  twoFaFailedAttempts: { type: Number, default: 0 },
+  twoFaLockedUntil: { type: Date, default: null },
+
+  fraudRiskScore: { type: Number, default: 0 },
+  fraudRiskLevel: { type: String, enum: ['low', 'medium', 'high'], default: 'low' },
+  fraudRiskReasons: [{ type: String }],
+  fraudReviewStatus: { type: String, enum: ['flagged', 'cleared', 'banned'], default: 'cleared' },
+  fraudReviewedAt: { type: Date, default: null },
 
   // Profile
   avatar: { type: String, default: null },

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Bell, CheckCheck, Dot, Loader2 } from 'lucide-react';
+import ThemeToggle from '@/components/ThemeToggle';
 import api from '@/lib/api';
 
 type NotificationItem = {
@@ -162,16 +163,19 @@ export default function NotificationBell() {
 
       {open ? (
         <div className="fixed inset-x-2 top-16 z-50 max-h-[calc(100vh-5rem)] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-300/40 sm:absolute sm:right-0 sm:top-12 sm:left-auto sm:w-[min(calc(100vw-1rem),22rem)] dark:border-slate-700 dark:bg-slate-950 dark:shadow-black/50">
-          <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <div className="text-sm font-semibold text-slate-900 dark:text-white">{t('notifications.notifications')}</div>
-              <div className="text-xs text-slate-500 dark:text-slate-500">{t('notifications.unread', { count: unreadCount })}</div>
+          <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 dark:border-slate-800">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-slate-900 dark:text-white">{t('notifications.notifications')}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-500">{t('notifications.unread', { count: unreadCount })}</div>
+              </div>
+              <ThemeToggle className="h-8 w-8 flex-shrink-0" />
             </div>
             <button
               type="button"
               disabled={readAllMutation.isPending || unreadCount === 0}
               onClick={() => readAllMutation.mutate()}
-              className="inline-flex w-full items-center justify-center gap-1 rounded-full border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-500 sm:w-auto"
+              className="inline-flex w-full items-center justify-center gap-1 rounded-full border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-500"
             >
               {readAllMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <CheckCheck size={12} />}
               {t('notifications.markAllRead')}
