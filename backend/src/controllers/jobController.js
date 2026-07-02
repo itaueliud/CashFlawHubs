@@ -842,7 +842,7 @@ exports.getMyPostedJobs = async (req, res) => {
 
     const transactionJobIds = postingTransactions
       .map((tx) => String(tx?.metadata?.jobId || tx?.metadata?.job_id || tx?.metadata?.jobIdStr || '').trim())
-      .filter(Boolean);
+      .filter((id) => /^[0-9a-fA-F]{24}$/.test(id));
 
     const legacyTxTimes = postingTransactions
       .map((tx) => (tx?.createdAt ? new Date(tx.createdAt).getTime() : null))
@@ -885,7 +885,7 @@ exports.getMyPostedJobs = async (req, res) => {
     }
 
     const ownerExternalIdRegex = ownerUserId
-      ? new RegExp('^internal-.*-' + ownerUserId.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&') + '$', 'i')
+      ? new RegExp('^internal-.*-' + ownerUserId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i')
       : null;
 
     const jobIdsToShow = [...new Set([...transactionJobIds, ...recoveredLegacyJobIds])];
