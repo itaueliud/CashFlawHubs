@@ -11,8 +11,11 @@ const CreatorSavedVideo = require('../models/CreatorSavedVideo');
 const { getCurrencyRate } = require('../services/exchangeService');
 const { COUNTRIES } = require('../config/countries');
 const {
+  CREATOR_HUB_UPLOAD_TYPES,
   CREATOR_HUB_CATEGORIES,
   CREATOR_HUB_TIERS,
+  CREATOR_HUB_DOCUMENT_TIERS,
+  CREATOR_HUB_TIERS_BY_TYPE,
   CREATOR_HUB_TITLE_MAX_CHARS,
   CREATOR_HUB_PLATFORM_FEE_PERCENT,
   KES_PER_TOKEN,
@@ -127,13 +130,16 @@ const serializeUpload = async (doc, viewer, unlockedSet, savedSet) => {
   const unlocked = isOwner || unlockedSet.has(doc._id.toString());
   const priceUSD = doc.isPremium ? resolvePremiumPriceUSD(doc, viewer.country) : 0;
   const priceLocal = doc.isPremium ? await resolveUploadPriceLocal(doc, viewer.country) : 0;
+  const tierMap = CREATOR_HUB_TIERS_BY_TYPE[doc.uploadType] || CREATOR_HUB_TIERS;
   return {
     _id: doc._id,
     title: doc.title,
     description: doc.description,
+    uploadType: doc.uploadType || 'video',
     category: doc.category,
+    subcategory: doc.subcategory || '',
     tier: doc.tier,
-    badge: CREATOR_HUB_TIERS[doc.tier]?.badge,
+    badge: tierMap[doc.tier]?.badge,
     isPremium: doc.isPremium,
     priceUSD,
     priceLocal,
@@ -143,6 +149,7 @@ const serializeUpload = async (doc, viewer, unlockedSet, savedSet) => {
     isSaved: savedSet ? savedSet.has(doc._id.toString()) : false,
     streamUrl: `/api/creator-hub/uploads/${doc._id}/stream`,
     videoPublicUrl: doc.videoPublicUrl || '',
+    fileName: doc.videoFileName || '',
     creator: doc.creatorId?.name ? { _id: creatorIdStr, name: doc.creatorId.name, country: doc.creatorId.country } : undefined,
     views: doc.views,
     unlocks: doc.unlocks,
@@ -176,8 +183,9 @@ const respondInsufficientTokens = (res, shortBy) =>
 exports.getMeta = async (req, res) => {
   res.json({
     success: true,
+    uploadTypes: CREATOR_HUB_UPLOAD_TYPES,
     categories: CREATOR_HUB_CATEGORIES,
-    tiers: CREATOR_HUB_TIERS,
+    tiers: { video: CREATOR_HUB_TIERS, document: CREATOR_HUB_DOCUMENT_TIERS },
     titleMaxChars: CREATOR_HUB_TITLE_MAX_CHARS,
     countries: COUNTRIES,
     defaultPremiumPriceByCountry: DEFAULT_PREMIUM_PRICE_BY_COUNTRY,
@@ -189,9 +197,11 @@ exports.getMeta = async (req, res) => {
 
 exports.listUploads = async (req, res) => {
   try {
-    const { category, tier, search, page = 1, limit = 20 } = req.query;
+    const { category, subcategory, uploadType, tier, search, page = 1, limit = 20 } = req.query;
     const query = { status: 'published' };
     if (category) query.category = category;
+    if (subcategory) query.subcategory = subcategory;
+    if (uploadType) query.uploadType = uploadType;
     if (tier) query.tier = tier;
     if (search) query.title = { $regex: String(search).trim().slice(0, 50), $options: 'i' };
 
@@ -261,9 +271,11 @@ exports.myUploads = async (req, res) => {
         _id: doc._id,
         title: doc.title,
         description: doc.description,
+        uploadType: doc.uploadType || 'video',
         category: doc.category,
+        subcategory: doc.subcategory || '',
         tier: doc.tier,
-        badge: CREATOR_HUB_TIERS[doc.tier]?.badge,
+        badge: (CREATOR_HUB_TIERS_BY_TYPE[doc.uploadType] || CREATOR_HUB_TIERS)[doc.tier]?.badge,
         isPremium: doc.isPremium,
         pricing: doc.isPremium
           ? {
@@ -350,18 +362,27 @@ exports.createUpload = async (req, res) => {
   const session = await User.db.startSession();
   let r2Key = '';
   try {
-    const { title, description, category, tier, isPremium, defaultPriceUSD, defaultPriceTokens, countryPrices } = req.body;
+    const { title, description, uploadType, category, subcategory, tier, isPremium, defaultPriceUSD, defaultPriceTokens, countryPrices } = req.body;
 
-    if (!req.file) return res.status(400).json({ success: false, message: 'A video file is required' });
+    if (!req.file) return res.status(400).json({ success: false, message: 'A file is required' });
 
-    const tierConfig = CREATOR_HUB_TIERS[tier];
+    const cleanUploadType = uploadType === 'document' ? 'document' : 'video';
+    const tierMap = CREATOR_HUB_TIERS_BY_TYPE[cleanUploadType];
+    const tierConfig = tierMap[tier];
     if (!tierConfig) {
       safeUnlink(req.file.path);
       return res.status(400).json({ success: false, message: 'Invalid package selected' });
     }
-    if (!CREATOR_HUB_CATEGORIES.some((c) => c.value === category)) {
+
+    const categoryConfig = CREATOR_HUB_CATEGORIES.find((c) => c.value === category);
+    if (!categoryConfig) {
       safeUnlink(req.file.path);
       return res.status(400).json({ success: false, message: 'Invalid category' });
+    }
+    const cleanSubcategory = String(subcategory || '');
+    if (cleanSubcategory && categoryConfig.subcategories && !categoryConfig.subcategories.some((s) => s.value === cleanSubcategory)) {
+      safeUnlink(req.file.path);
+      return res.status(400).json({ success: false, message: 'Invalid subcategory' });
     }
 
     const cleanTitle = String(title || '').trim();
@@ -379,21 +400,23 @@ exports.createUpload = async (req, res) => {
       return res.status(400).json({ success: false, message: `${tierConfig.label} allows files up to ${tierConfig.maxSizeMB}MB. Choose a higher package for a bigger file.` });
     }
 
-    let videoDurationSec = null;
-    try {
-      videoDurationSec = await getVideoDurationSeconds(req.file.path);
-    } catch {
-      videoDurationSec = null;
-    }
-
-    if (videoDurationSec !== null && videoDurationSec > tierConfig.maxDurationSec) {
-      safeUnlink(req.file.path);
-      return res.status(400).json({
-        success: false,
-        message: `Your video is ${Math.ceil(videoDurationSec)}s long. ${tierConfig.label} allows up to ${tierConfig.maxDurationSec}s. Trim it or choose a higher package.`,
-        videoDurationSec: Math.ceil(videoDurationSec),
-        maxAllowedSec: tierConfig.maxDurationSec,
-      });
+    // Duration check only applies to video uploads
+    if (cleanUploadType === 'video') {
+      let videoDurationSec = null;
+      try {
+        videoDurationSec = await getVideoDurationSeconds(req.file.path);
+      } catch {
+        videoDurationSec = null;
+      }
+      if (videoDurationSec !== null && videoDurationSec > tierConfig.maxDurationSec) {
+        safeUnlink(req.file.path);
+        return res.status(400).json({
+          success: false,
+          message: `Your video is ${Math.ceil(videoDurationSec)}s long. ${tierConfig.label} allows up to ${tierConfig.maxDurationSec}s. Trim it or choose a higher package.`,
+          videoDurationSec: Math.ceil(videoDurationSec),
+          maxAllowedSec: tierConfig.maxDurationSec,
+        });
+      }
     }
 
     const cleanDescription = String(description || '').trim();
@@ -414,11 +437,14 @@ exports.createUpload = async (req, res) => {
     const uploadDoc = new CreatorUpload({
       title: cleanTitle,
       description: cleanDescription,
+      uploadType: cleanUploadType,
       category,
+      subcategory: cleanSubcategory,
       tier,
       tokenCostPaid: tierConfig.tokenCost,
       videoFilePath: '',
-      videoMimeType: req.file.mimetype || 'video/mp4',
+      videoMimeType: req.file.mimetype || (cleanUploadType === 'video' ? 'video/mp4' : 'application/octet-stream'),
+      videoFileName: req.file.originalname || '',
       videoSizeBytes: req.file.size,
       videoStorageProvider: 'r2',
       videoStorageKey: '',
@@ -484,8 +510,10 @@ exports.createUpload = async (req, res) => {
       processedAt: new Date(),
       metadata: {
         creatorUploadId: uploadDoc._id.toString(),
+        uploadType: cleanUploadType,
         tier,
         category,
+        subcategory: cleanSubcategory,
         tokenCost: tierConfig.tokenCost,
         storageProvider: 'r2',
         storageKey,

@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/store/authStore';
-import { ArrowLeft, Bookmark, BookmarkCheck, Eye, Flame, Lock, MessageSquare, Smartphone, Wallet } from 'lucide-react';
+import { ArrowLeft, Bookmark, BookmarkCheck, Eye, FileText, Flame, Lock, MessageSquare, Smartphone, Wallet } from 'lucide-react';
 import { CreatorUploadItem } from './types';
 import CreatorHubShell from './CreatorHubShell';
 
@@ -200,6 +200,19 @@ export default function CreatorHubDetailView({ uploadId }: { uploadId?: string }
                   <button onClick={openPaywall} className="rounded-2xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-600">
                     Unlock Video
                   </button>
+                </div>
+              ) : upload.uploadType === 'document' ? (
+                <div className="flex aspect-video flex-col items-center justify-center gap-3 bg-gradient-to-br from-slate-800 to-slate-950 text-white">
+                  <FileText size={40} />
+                  <p className="text-sm font-semibold">{upload.fileName || 'Document'}</p>
+                  <a
+                    href={upload.videoPublicUrl || `${apiOrigin}${upload.streamUrl}?token=${encodeURIComponent(token || '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
+                  >
+                    Download / Open
+                  </a>
                 </div>
               ) : (
                 <video key={streamSrc} src={streamSrc} controls playsInline preload="metadata" className="aspect-video w-full bg-black" onError={() => toast.error('Video playback failed. Please try opening the raw stream link.')} />

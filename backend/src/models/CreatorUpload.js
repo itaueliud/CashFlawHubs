@@ -4,16 +4,27 @@ const creatorUploadSchema = new mongoose.Schema({
   creatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   title: { type: String, required: true, trim: true, maxlength: 50, index: true },
   description: { type: String, required: true, trim: true },
+
+  uploadType: { type: String, required: true, enum: ['video', 'document'], default: 'video', index: true },
+
   category: {
     type: String,
     required: true,
-    enum: ['services', 'talent_skills', 'businesses', 'apps_platforms', 'products', 'startups_projects'],
+    enum: [
+      'books_documents', 'education_learning', 'business_finance', 'technology',
+      'creative_design', 'professional_services', 'startups_innovation',
+      'products_reviews', 'talent_entertainment', 'lifestyle', 'marketing_promotion',
+      // Legacy values kept for backward compat with existing docs
+      'services', 'talent_skills', 'businesses', 'apps_platforms', 'products', 'startups_projects',
+    ],
     index: true,
   },
+  subcategory: { type: String, default: '' },
+
   tier: {
     type: String,
     required: true,
-    enum: ['normal', 'plus', 'featured', 'premium_spotlight'],
+    enum: ['normal', 'plus', 'featured', 'premium_spotlight', 'basic', 'standard', 'professional', 'premium', 'enterprise'],
   },
   tokenCostPaid: { type: Number, required: true },
   videoFilePath: { type: String, required: true, select: false },
@@ -37,8 +48,7 @@ const creatorUploadSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 creatorUploadSchema.index({ status: 1, category: 1, createdAt: -1 });
+creatorUploadSchema.index({ status: 1, uploadType: 1, createdAt: -1 });
 creatorUploadSchema.index({ creatorId: 1, createdAt: -1 });
 
 module.exports = mongoose.model('CreatorUpload', creatorUploadSchema);
-
-

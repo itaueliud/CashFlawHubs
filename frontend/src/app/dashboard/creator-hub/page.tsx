@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/store/authStore';
-import { Bookmark, Eye, Filter, Heart, Lock, Search, Play, BookmarkCheck, Sparkles } from 'lucide-react';
+import { Bookmark, Eye, FileText, Filter, Heart, Lock, Search, Play, BookmarkCheck, Sparkles } from 'lucide-react';
 import { CreatorHubMeta, CreatorUploadItem } from './types';
 import CreatorHubShell from './CreatorHubShell';
 
@@ -27,6 +27,7 @@ export default function CreatorHubBrowsePage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [category, setCategory] = useState(CATEGORY_ALL);
   const [tier, setTier] = useState(CATEGORY_ALL);
+  const [uploadTypeFilter, setUploadTypeFilter] = useState(CATEGORY_ALL);
   const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,6 +47,7 @@ export default function CreatorHubBrowsePage() {
         const params = new URLSearchParams();
         if (category !== CATEGORY_ALL) params.set('category', category);
         if (tier !== CATEGORY_ALL) params.set('tier', tier);
+        if (uploadTypeFilter !== CATEGORY_ALL) params.set('uploadType', uploadTypeFilter);
         if (debouncedSearch) params.set('search', debouncedSearch);
         const url = params.toString() ? `/creator-hub/uploads?${params.toString()}` : '/creator-hub/uploads';
         const { data } = await api.get(url, { timeout: CREATOR_HUB_REQUEST_TIMEOUT });
@@ -58,10 +60,13 @@ export default function CreatorHubBrowsePage() {
     };
     void load();
     return () => { cancelled = true; };
-  }, [category, tier, debouncedSearch]);
+  }, [category, tier, uploadTypeFilter, debouncedSearch]);
 
   const categories = meta?.categories || [];
-  const tiers = meta?.tiers || {};
+  // Flatten all tiers from both video and document into one list for the filter dropdown
+  const allTiers = meta?.tiers
+    ? Object.fromEntries([...Object.entries(meta.tiers.video || {}), ...Object.entries(meta.tiers.document || {})])
+    : {};
   const apiOrigin = api.defaults.baseURL?.replace(/\/api\/?$/, '') || '';
   const filteredStats = useMemo(() => ({
     total: uploads.length,
@@ -101,8 +106,8 @@ export default function CreatorHubBrowsePage() {
               <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
                 <Sparkles size={12} /> Creator Hub
               </div>
-              <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-900 dark:text-white">Browse discoverable videos</h2>
-              <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-300">Free videos can preview as thumbnails, while premium videos stay on a locked card until the viewer opens the detail view.</p>
+              <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-900 dark:text-white">Browse videos & documents</h2>
+              <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-300">Free content previews inline; premium content stays locked until opened.</p>
             </div>
             <div className="grid grid-cols-3 gap-2 text-sm sm:min-w-[20rem]">
               <div className="rounded-2xl border border-slate-200 bg-white/80 p-3 text-center dark:border-slate-700 dark:bg-slate-800/80">
@@ -131,6 +136,18 @@ export default function CreatorHubBrowsePage() {
                 className="w-full rounded-2xl border border-slate-300 bg-white py-3 pl-11 pr-4 text-sm outline-none transition focus:border-emerald-400 dark:border-slate-700 dark:bg-slate-900"
               />
             </div>
+            <div className="flex min-w-[160px] flex-1 flex-col gap-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Type</label>
+              <select
+                value={uploadTypeFilter}
+                onChange={(e) => setUploadTypeFilter(e.target.value)}
+                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 outline-none transition focus:border-emerald-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              >
+                <option value={CATEGORY_ALL}>All types</option>
+                <option value="video">🎥 Video</option>
+                <option value="document">📄 Document</option>
+              </select>
+            </div>
             <div className="flex min-w-[220px] flex-1 flex-col gap-1">
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Category</label>
               <select
@@ -154,7 +171,7 @@ export default function CreatorHubBrowsePage() {
                 className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 outline-none transition focus:border-emerald-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               >
                 <option value={CATEGORY_ALL}>All tiers</option>
-                {Object.entries(tiers).map(([key, value]) => (
+                {Object.entries(allTiers).map(([key, value]) => (
                   <option key={key} value={key}>
                     {value.label}
                   </option>
@@ -186,7 +203,12 @@ export default function CreatorHubBrowsePage() {
               <article key={item._id} className="group overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl dark:border-slate-800 dark:bg-slate-900">
                 <button onClick={() => router.push(`${CREATOR_HUB_ROUTE}/${item._id}`)} className="block w-full text-left">
                   <div className="relative aspect-video overflow-hidden bg-slate-900">
-                    {(!item.isPremium && !item.isLocked) ? (
+                    {item.uploadType === 'document' ? (
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-700 to-slate-900 text-white">
+                        <FileText size={32} />
+                        <span className="text-xs text-slate-300">{item.isLocked ? 'Unlock to download' : 'Document'}</span>
+                      </div>
+                    ) : (!item.isPremium && !item.isLocked) ? (
                       <video
                         src={videoSrc(item)}
                         className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
@@ -207,6 +229,7 @@ export default function CreatorHubBrowsePage() {
                     )}
                     <div className="absolute left-3 top-3 flex flex-wrap gap-2">
                       <span className="rounded-full border border-emerald-500/20 bg-emerald-500/90 px-2.5 py-1 text-[11px] font-semibold text-white">{item.badge || 'Creator'}</span>
+                      {item.uploadType === 'document' && <span className="rounded-full border border-sky-500/20 bg-sky-500/90 px-2.5 py-1 text-[11px] font-semibold text-white">📄 Doc</span>}
                       {item.isPremium && <span className="rounded-full border border-amber-500/20 bg-amber-500/90 px-2.5 py-1 text-[11px] font-semibold text-white">Premium</span>}
                       {item.isSaved && <span className="rounded-full border border-sky-500/20 bg-sky-500/90 px-2.5 py-1 text-[11px] font-semibold text-white">Saved</span>}
                     </div>

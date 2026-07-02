@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 
 const { protect } = require('../middleware/auth');
@@ -30,7 +30,7 @@ router.get('/saved', protect, listSavedUploads);
 router.get('/uploads/mine', protect, myUploads);
 router.get('/uploads/:id', protect, getUploadById);
 router.get('/uploads/:id/stream', streamAuthFromQuery, protect, streamUpload);
-router.post('/uploads', protect, creatorHubUpload.single('video'), createUpload);
+router.post('/uploads', protect, creatorHubUpload.single('file'), createUpload);
 router.post('/uploads/:id/save', protect, saveUpload);
 router.delete('/uploads/:id/save', protect, unsaveUpload);
 router.post('/uploads/:id/unlock', protect, unlockUploadWithWallet);

@@ -1,12 +1,26 @@
+export interface CreatorHubSubcategory {
+  value: string;
+  label: string;
+}
+
 export interface CreatorHubCategory {
   value: string;
   label: string;
+  isNew?: boolean;
+  subcategories: CreatorHubSubcategory[];
+}
+
+export interface CreatorHubUploadType {
+  value: 'video' | 'document';
+  label: string;
+  icon: string;
+  formats?: string[];
 }
 
 export interface CreatorHubTier {
   label: string;
   tokenCost: number;
-  maxDurationSec: number;
+  maxDurationSec?: number; // undefined for document tiers
   maxSizeMB: number;
   maxDescriptionChars: number;
   badge: string;
@@ -14,8 +28,9 @@ export interface CreatorHubTier {
 
 export interface CreatorHubMeta {
   success: boolean;
+  uploadTypes: CreatorHubUploadType[];
   categories: CreatorHubCategory[];
-  tiers: Record<string, CreatorHubTier>;
+  tiers: { video: Record<string, CreatorHubTier>; document: Record<string, CreatorHubTier> };
   titleMaxChars: number;
   countries: Record<string, { name: string; currency: string; symbol: string }>;
   tokenBalance: number;
@@ -28,7 +43,9 @@ export interface CreatorUploadItem {
   _id: string;
   title: string;
   description: string;
+  uploadType: 'video' | 'document';
   category: string;
+  subcategory?: string;
   tier: string;
   badge?: string;
   isPremium: boolean;
@@ -40,12 +57,7 @@ export interface CreatorUploadItem {
   priceCurrency?: string;
   streamUrl: string;
   videoPublicUrl?: string;
-  contact?: {
-    phone?: string;
-    email?: string;
-    whatsapp?: string;
-    website?: string;
-  };
+  fileName?: string;
   creator?: {
     _id: string;
     name: string;
@@ -60,17 +72,13 @@ export interface MyUploadItem {
   _id: string;
   title: string;
   description: string;
+  uploadType: 'video' | 'document';
   category: string;
+  subcategory?: string;
   tier: string;
   badge?: string;
   isPremium: boolean;
   pricing: null | { defaultUSD: number; defaultTokens?: number; byCountry: Record<string, number> };
-  contact?: {
-    phone?: string;
-    email?: string;
-    whatsapp?: string;
-    website?: string;
-  };
   status: string;
   views: number;
   unlocks: number;
