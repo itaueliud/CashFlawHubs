@@ -21,10 +21,6 @@ export default function CreatorHubUploadPage() {
   const [isPremium, setIsPremium] = useState(false);
   const [defaultPriceUSD, setDefaultPriceUSD] = useState('');
 
-  const [phone, setPhone] = useState(user?.phone || '');
-  const [email, setEmail] = useState(user?.email || '');
-  const [whatsapp, setWhatsapp] = useState('');
-  const [website, setWebsite] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -49,10 +45,6 @@ export default function CreatorHubUploadPage() {
     if (isPremium && defaultPriceUSD.trim()) {
       form.append('defaultPriceUSD', defaultPriceUSD.trim());
     }
-    form.append('phone', phone);
-    form.append('email', email);
-    form.append('whatsapp', whatsapp);
-    form.append('website', website);
     form.append('video', file);
 
     setSubmitting(true);
@@ -160,12 +152,7 @@ export default function CreatorHubUploadPage() {
           )}
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Contact phone" className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-900" />
-          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Contact email" className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-900" />
-          <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="WhatsApp" className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-900" />
-          <input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="Website / link" className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none dark:border-slate-700 dark:bg-slate-900" />
-        </div>
+
 
         <button onClick={handleSubmit} disabled={submitting || !canAfford} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50">
           {submitting ? 'Publishing...' : `Publish (${tierConfig?.tokenCost || 0} Tokens)`}

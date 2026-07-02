@@ -143,7 +143,6 @@ const serializeUpload = async (doc, viewer, unlockedSet, savedSet) => {
     isSaved: savedSet ? savedSet.has(doc._id.toString()) : false,
     streamUrl: `/api/creator-hub/uploads/${doc._id}/stream`,
     videoPublicUrl: doc.videoPublicUrl || '',
-    contact: doc.contact,
     creator: doc.creatorId?.name ? { _id: creatorIdStr, name: doc.creatorId.name, country: doc.creatorId.country } : undefined,
     views: doc.views,
     unlocks: doc.unlocks,
@@ -272,7 +271,6 @@ exports.myUploads = async (req, res) => {
               byCountry: Object.fromEntries(doc.pricing.byCountry || new Map()),
             }
           : null,
-        contact: doc.contact,
         status: doc.status,
         views: doc.views,
         unlocks: doc.unlocks,
@@ -352,7 +350,7 @@ exports.createUpload = async (req, res) => {
   const session = await User.db.startSession();
   let r2Key = '';
   try {
-    const { title, description, category, tier, isPremium, defaultPriceUSD, defaultPriceTokens, countryPrices, phone, email, whatsapp, website } = req.body;
+    const { title, description, category, tier, isPremium, defaultPriceUSD, defaultPriceTokens, countryPrices } = req.body;
 
     if (!req.file) return res.status(400).json({ success: false, message: 'A video file is required' });
 
@@ -421,17 +419,10 @@ exports.createUpload = async (req, res) => {
       tokenCostPaid: tierConfig.tokenCost,
       videoFilePath: '',
       videoMimeType: req.file.mimetype || 'video/mp4',
-      videoFileName: req.file.originalname || path.basename(req.file.path),
       videoSizeBytes: req.file.size,
       videoStorageProvider: 'r2',
       videoStorageKey: '',
       videoPublicUrl: '',
-      contact: {
-        phone: String(phone || '').trim(),
-        email: String(email || '').trim(),
-        whatsapp: String(whatsapp || '').trim(),
-        website: String(website || '').trim(),
-      },
       isPremium: premiumFlag,
       pricing,
       status: 'published',
@@ -653,7 +644,7 @@ exports.unlockUploadWithWallet = async (req, res) => {
 exports.streamUpload = async (req, res) => {
   try {
     const doc = await CreatorUpload.findById(req.params.id)
-      .select('+videoFilePath +videoMimeType +videoFileName +videoSizeBytes +videoStorageProvider +videoStorageKey creatorId isPremium pricing status title description category tier views unlocks tokensEarned usdEarned contact')
+      .select('+videoFilePath +videoMimeType +videoFileName +videoSizeBytes +videoStorageProvider +videoStorageKey creatorId isPremium pricing status title description category tier views unlocks tokensEarned usdEarned')
       .populate('creatorId', 'name country');
 
     if (!doc || doc.status !== 'published') {

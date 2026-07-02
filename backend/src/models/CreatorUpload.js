@@ -1,4 +1,4 @@
-﻿const mongoose = require('mongoose');
+const mongoose = require('mongoose');
 
 const creatorUploadSchema = new mongoose.Schema({
   creatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -23,12 +23,6 @@ const creatorUploadSchema = new mongoose.Schema({
   videoStorageProvider: { type: String, enum: ['local', 'r2'], default: 'local' },
   videoStorageKey: { type: String },
   videoPublicUrl: { type: String },
-  contact: {
-    phone: { type: String, default: '' },
-    email: { type: String, default: '' },
-    whatsapp: { type: String, default: '' },
-    website: { type: String, default: '' },
-  },
   isPremium: { type: Boolean, default: false },
   pricing: {
     defaultUSD: { type: Number, default: 0, min: 0 },
