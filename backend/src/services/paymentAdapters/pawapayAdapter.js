@@ -1,6 +1,5 @@
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
-const { recordSuccess, recordFailure } = require('../providerHealthTracker'); // from earlier fix
 
 const getBaseUrl = () =>
   (process.env.PAWAPAY_ENV === 'production'
@@ -48,7 +47,7 @@ exports.initiateDeposit = async ({ amountLocal, currency, customer, metadata = {
       metadata: Object.entries(metadata).map(([fieldName, fieldValue]) => ({ fieldName, fieldValue: String(fieldValue) })),
     });
 
-    await recordSuccess('pawapay');
+
     return {
       provider: 'pawapay',
       reference: depositId,
@@ -59,7 +58,6 @@ exports.initiateDeposit = async ({ amountLocal, currency, customer, metadata = {
       raw: data,
     };
   } catch (error) {
-    await recordFailure('pawapay', error);
     throw error;
   }
 };
@@ -83,7 +81,7 @@ exports.initiateWithdrawal = async ({ amountLocal, currency, user, metadata = {}
       metadata: Object.entries(metadata).map(([fieldName, fieldValue]) => ({ fieldName, fieldValue: String(fieldValue) })),
     });
 
-    await recordSuccess('pawapay');
+
     return {
       provider: 'pawapay',
       reference: payoutId,
@@ -92,7 +90,6 @@ exports.initiateWithdrawal = async ({ amountLocal, currency, user, metadata = {}
       raw: data,
     };
   } catch (error) {
-    await recordFailure('pawapay', error);
     throw error;
   }
 };
