@@ -1149,12 +1149,21 @@ exports.updateMyJobApplicationStatus = async (req, res) => {
     }
 
     const currentStatus = normalizeApplicationStatus(application.status);
-    if (normalizedNextStatus !== 'withdrawn') {
-      return res.status(403).json({ success: false, message: 'Applicants can only withdraw their own applications' });
+
+    // Applicants can self-report two outcomes from a redirected/external
+    // application: confirming they finished it ('applied'), or withdrawing.
+    const ALLOWED_SELF_TRANSITIONS = ['withdrawn', 'applied'];
+
+    if (!ALLOWED_SELF_TRANSITIONS.includes(normalizedNextStatus)) {
+      return res.status(403).json({ success: false, message: 'This status change is not allowed for applicants' });
     }
 
-    if (!['redirected', 'applied'].includes(currentStatus)) {
+    if (normalizedNextStatus === 'withdrawn' && !['redirected', 'applied'].includes(currentStatus)) {
       return res.status(400).json({ success: false, message: 'This application can no longer be withdrawn from the tracker' });
+    }
+
+    if (normalizedNextStatus === 'applied' && currentStatus !== 'redirected') {
+      return res.status(400).json({ success: false, message: 'This application has already been confirmed' });
     }
 
     const result = await persistApplicationStatusUpdate({

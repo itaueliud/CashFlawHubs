@@ -4,9 +4,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/lib/api';
-import { Search, Building2, Clock, Plus, Loader2, ArrowRight, Briefcase, Filter, SearchCheck, ShieldCheck, Sparkles, TrendingUp } from 'lucide-react';
+import { Search, Building2, Clock, Plus, Loader2, ArrowRight, Briefcase, SearchCheck, ShieldCheck, Sparkles, TrendingUp } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import toast from 'react-hot-toast';
+import ThemeToggle from '@/components/ThemeToggle';
+import { useTheme } from '@/components/ThemeProvider';
 
 const EMPTY_FORM = {
   title: '',
@@ -27,18 +29,23 @@ export default function JobsPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { theme } = useTheme();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [view, setView] = useState<'unique' | 'all' | 'duplicates'>('unique');
   const [page, setPage] = useState(1);
-  const [tab, setTab] = useState<'browse' | 'recent' | 'post' | 'onsite'>('browse');
+  const [tab, setTab] = useState<'browse' | 'recent' | 'post' | 'onsite' | 'who-hiring' | 'job-alerts'>('browse');
   const [posting, setPosting] = useState(false);
   const [syncingJobs, setSyncingJobs] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [alertSkill, setAlertSkill] = useState('');
+  const [alertCountry, setAlertCountry] = useState('KE');
+  const [alertKeywords, setAlertKeywords] = useState('');
+  const [savingAlert, setSavingAlert] = useState(false);
 
   useEffect(() => {
     const nextTab = searchParams?.get('tab');
-    if (nextTab === 'browse' || nextTab === 'recent' || nextTab === 'post' || nextTab === 'onsite') {
+    if (nextTab === 'browse' || nextTab === 'recent' || nextTab === 'post' || nextTab === 'onsite' || nextTab === 'who-hiring' || nextTab === 'job-alerts') {
       setTab(nextTab);
     }
   }, [searchParams]);
@@ -83,6 +90,47 @@ export default function JobsPage() {
     staleTime: 60_000,
   });
   const onsiteJobs: any[] = onsiteData?.jobs || [];
+
+  const { data: providerStatusData } = useQuery({
+    queryKey: ['jobs-providers-status'],
+    queryFn: () => api.get('/jobs/providers/status').then((r) => r.data),
+    staleTime: 60_000,
+  });
+  const providerStatus = providerStatusData?.status || {};
+
+  const { data: companiesData, isLoading: companiesLoading } = useQuery({
+    queryKey: ['jobs-providers-companies', alertSkill, alertCountry],
+    queryFn: () => {
+      const params = new URLSearchParams({ limit: '6', page: '0' });
+      if (alertSkill.trim()) params.set('skill', alertSkill.trim());
+      if (alertCountry) params.set('country', alertCountry);
+      return api.get(`/jobs/providers/companies?${params.toString()}`).then((r) => r.data);
+    },
+    enabled: tab === 'who-hiring',
+    staleTime: 60_000,
+  });
+  const companies: any[] = companiesData?.companies || [];
+
+  const { data: alertsData, isLoading: alertsLoading } = useQuery({
+    queryKey: ['jobs-providers-alerts', alertSkill, alertCountry],
+    queryFn: () => {
+      const params = new URLSearchParams({ limit: '6' });
+      if (alertSkill.trim()) params.set('skill', alertSkill.trim());
+      if (alertCountry) params.set('country', alertCountry);
+      return api.get(`/jobs/providers/alerts?${params.toString()}`).then((r) => r.data);
+    },
+    enabled: tab === 'job-alerts',
+    staleTime: 60_000,
+  });
+  const providerAlerts: any[] = alertsData?.alerts || [];
+
+  const { data: savedAlertsData, isLoading: savedAlertsLoading } = useQuery({
+    queryKey: ['jobs-providers-saved-alerts'],
+    queryFn: () => api.get('/jobs/providers/alerts/me').then((r) => r.data),
+    enabled: tab === 'job-alerts',
+    staleTime: 60_000,
+  });
+  const savedAlerts: any[] = savedAlertsData?.alerts || [];
 
   const jobs = data?.jobs || [];
   const pagination = data?.pagination || {};
@@ -155,28 +203,69 @@ export default function JobsPage() {
     }
   };
 
+  const onSaveAlert = async () => {
+    const skill = alertSkill.trim();
+    if (!skill) {
+      toast.error('Enter a skill or role to save your alert.');
+      return;
+    }
+
+    setSavingAlert(true);
+    try {
+      await api.post('/jobs/providers/alerts', {
+        skill,
+        country: alertCountry,
+        keywords: alertKeywords
+          .split(',')
+          .map((keyword) => keyword.trim())
+          .filter(Boolean),
+      });
+      toast.success('Job alert saved.');
+      queryClient.invalidateQueries({ queryKey: ['jobs-providers-saved-alerts'] });
+      queryClient.invalidateQueries({ queryKey: ['jobs-providers-alerts', alertSkill, alertCountry] });
+      setAlertSkill('');
+      setAlertKeywords('');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Unable to save alert.');
+    } finally {
+      setSavingAlert(false);
+    }
+  };
+
+  const onDeleteSavedAlert = async (id: string) => {
+    if (!id) return;
+
+    try {
+      await api.delete(`/jobs/providers/alerts/${id}`);
+      toast.success('Saved alert removed.');
+      queryClient.invalidateQueries({ queryKey: ['jobs-providers-saved-alerts'] });
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Unable to remove saved alert.');
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="overflow-hidden rounded-[2rem] border border-emerald-500/20 bg-gradient-to-br from-emerald-950 via-slate-950 to-slate-900 shadow-2xl shadow-emerald-950/20">
+    <div className={`space-y-6 ${theme}`}>
+      <div className="overflow-hidden rounded-[2rem] border border-emerald-500/20 bg-gradient-to-br from-emerald-50 via-white to-slate-50 shadow-2xl shadow-emerald-950/5 dark:from-emerald-950 dark:via-slate-950 dark:to-slate-900 dark:shadow-emerald-950/20">
         <div className="grid gap-8 p-6 lg:grid-cols-[1.4fr_0.8fr] lg:p-8">
           <div className="space-y-5">
             <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-emerald-300">
               <Sparkles size={12} /> {t('jobs.board.badge')}
             </div>
             <div>
-              <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">{t('jobs.board.title')}</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
+              <h1 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white sm:text-5xl">{t('jobs.board.title')}</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300 sm:text-base">
                 {t('jobs.board.description')}
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <div className="text-xs text-slate-400">{t('jobs.board.tokenBalance')}</div>
-                <div className="text-2xl font-black text-white">{user?.tokenBalance || 0}T</div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+                <div className="text-xs text-slate-500 dark:text-slate-400">{t('jobs.board.tokenBalance')}</div>
+                <div className="text-2xl font-black text-slate-900 dark:text-white">{user?.tokenBalance || 0}T</div>
               </div>
-              <div className="rounded-2xl border border-cyan-400/15 bg-cyan-500/10 px-4 py-3">
-                <div className="text-xs text-slate-400">Total Jobs</div>
-                <div className="text-2xl font-black text-cyan-300">{isLoading ? '…' : (data?.pagination?.total ?? jobs.length)}</div>
+              <div className="rounded-2xl border border-cyan-400/15 bg-cyan-50 px-4 py-3 dark:bg-cyan-500/10">
+                <div className="text-xs text-slate-500 dark:text-slate-400">Total Jobs</div>
+                <div className="text-2xl font-black text-cyan-600 dark:text-cyan-300">{isLoading ? '…' : (data?.pagination?.total ?? jobs.length)}</div>
               </div>
             </div>
           </div>
@@ -188,13 +277,13 @@ export default function JobsPage() {
               { label: t('jobs.board.trustedFlow'), value: t('jobs.board.trustedFlowValue'), icon: ShieldCheck },
               { label: t('jobs.board.marketplaceFeel'), value: t('jobs.board.marketplaceFeelValue'), icon: TrendingUp },
             ].map((item) => (
-              <div key={item.label} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/70 p-4">
-                <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-300">
+              <div key={item.label} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/70">
+                <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
                   <item.icon size={18} />
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-white">{item.label}</div>
-                  <div className="text-xs leading-5 text-slate-400">{item.value}</div>
+                  <div className="text-sm font-semibold text-slate-900 dark:text-white">{item.label}</div>
+                  <div className="text-xs leading-5 text-slate-500 dark:text-slate-400">{item.value}</div>
                 </div>
               </div>
             ))}
@@ -202,18 +291,19 @@ export default function JobsPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-500/10 bg-slate-900/90 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-emerald-500/10 dark:bg-slate-900/90">
         <div className="flex items-center gap-2">
-          {(['browse', 'recent', 'post', 'onsite'] as const).map((tabName) => (
+          {(['browse', 'recent', 'post', 'onsite', 'who-hiring', 'job-alerts'] as const).map((tabName) => (
             <button
               key={tabName}
               onClick={() => setTab(tabName)}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${tab === tabName ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${tab === tabName ? 'bg-emerald-500 text-slate-950' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'}`}
             >
-              {tabName === 'recent' ? '🕐 Recent' : tabName === 'onsite' ? '🏢 On-site' : tabName === 'browse' ? 'Browse' : 'Post'}
+              {tabName === 'recent' ? '🕐 Recent' : tabName === 'onsite' ? '🏢 On-site' : tabName === 'who-hiring' ? '🧠 Who\'s Hiring' : tabName === 'job-alerts' ? '🔔 Job Alerts' : tabName === 'post' ? 'Post' : 'Browse'}
             </button>
           ))}
         </div>
+        <ThemeToggle className="h-9 w-9" />
       </div>
 
       {tab === 'recent' && (
@@ -346,7 +436,157 @@ export default function JobsPage() {
         </div>
       )}
 
-      {tab === 'post' ? (
+      {tab === 'who-hiring' ? (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-emerald-500/10 bg-slate-900/90 p-4">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h2 className="text-lg font-black text-white">Who’s Hiring</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Discover companies that are currently opening roles in your preferred region and skill.</p>
+              </div>
+              <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300">
+                {providerStatus.theirStack?.status || 'unconfigured'}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-2xl border border-slate-700/50 bg-slate-900/80 p-4">
+              <div className="text-sm font-semibold text-white">Search companies</div>
+              <div className="mt-3 space-y-3">
+                <input value={alertSkill} onChange={(e) => setAlertSkill(e.target.value)} placeholder="React, design, ops..." className="input" />
+                <select value={alertCountry} onChange={(e) => setAlertCountry(e.target.value)} className="input">
+                  <option value="KE">Kenya</option>
+                  <option value="UG">Uganda</option>
+                  <option value="TZ">Tanzania</option>
+                  <option value="ET">Ethiopia</option>
+                  <option value="GH">Ghana</option>
+                  <option value="NG">Nigeria</option>
+                </select>
+                <p className="text-xs text-slate-500">We use the provider status to decide whether to show live TheirStack matches or a local fallback feed.</p>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-700/50 bg-slate-900/80 p-4">
+              <div className="text-sm font-semibold text-white">Provider readiness</div>
+              <div className="mt-3 space-y-2 text-sm text-slate-400">
+                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                  <div className="font-semibold text-slate-200">TheirStack</div>
+                  <div className="mt-1 text-xs">{providerStatus.theirStack?.message || 'Preparing provider status...'}</div>
+                </div>
+                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                  <div className="font-semibold text-slate-200">LoopCV</div>
+                  <div className="mt-1 text-xs">{providerStatus.loopcv?.message || 'Preparing provider status...'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {companiesLoading ? (
+            <div className="space-y-3">{Array(3).fill(0).map((_, i) => <div key={i} className="h-20 rounded-2xl bg-slate-800/50 animate-pulse" />)}</div>
+          ) : companies.length === 0 ? (
+            <div className="rounded-2xl border border-slate-700/50 bg-slate-900/50 py-12 text-center text-slate-400 text-sm">No company matches yet. Use a different skill or save a new alert.</div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {companies.map((company: any) => (
+                <div key={company.id} className="rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-lg font-black text-white">{company.name}</div>
+                      <div className="mt-1 text-sm text-slate-400">{company.headline}</div>
+                    </div>
+                    <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-2.5 py-1 text-[11px] font-semibold text-cyan-300">{company.industry || 'Hiring'}</span>
+                  </div>
+                  <div className="mt-3 text-sm text-slate-400">{company.description}</div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                    <span className="rounded-full border border-slate-700 bg-slate-800 px-2.5 py-1">{company.location}</span>
+                    {company.links?.slice(0, 1).map((link: any) => (
+                      <a key={link.url} href={link.url} target="_blank" rel="noreferrer" className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-emerald-300">{link.label}</a>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : tab === 'job-alerts' ? (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-emerald-500/10 bg-slate-900/90 p-4">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h2 className="text-lg font-black text-white">Job Alerts</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Create alert subscriptions and review fresh LoopCV signal cards in one place.</p>
+              </div>
+              <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300">
+                {providerStatus.loopcv?.status || 'unconfigured'}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="rounded-2xl border border-slate-700/50 bg-slate-900/80 p-4 space-y-3">
+              <div className="text-sm font-semibold text-white">Create alert</div>
+              <input value={alertSkill} onChange={(e) => setAlertSkill(e.target.value)} placeholder="React / Product designer" className="input" />
+              <select value={alertCountry} onChange={(e) => setAlertCountry(e.target.value)} className="input">
+                <option value="KE">Kenya</option>
+                <option value="UG">Uganda</option>
+                <option value="TZ">Tanzania</option>
+                <option value="ET">Ethiopia</option>
+                <option value="GH">Ghana</option>
+                <option value="NG">Nigeria</option>
+              </select>
+              <input value={alertKeywords} onChange={(e) => setAlertKeywords(e.target.value)} placeholder="remote, hybrid, startup" className="input" />
+              <button onClick={onSaveAlert} disabled={savingAlert} className="btn-primary inline-flex items-center gap-2">
+                {savingAlert && <Loader2 size={15} className="animate-spin" />} Save alert
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-slate-700/50 bg-slate-900/80 p-4 space-y-3">
+              <div className="text-sm font-semibold text-white">Saved alerts</div>
+              {savedAlertsLoading ? (
+                <div className="space-y-2">{Array(3).fill(0).map((_, i) => <div key={i} className="h-16 rounded-xl bg-slate-800/50 animate-pulse" />)}</div>
+              ) : savedAlerts.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-700/50 bg-slate-950/60 p-4 text-sm text-slate-500">No alerts saved yet. Create one to keep your preferences handy.</div>
+              ) : (
+                <div className="space-y-2">
+                  {savedAlerts.map((alert: any) => (
+                    <div key={alert._id || alert.id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-semibold text-slate-200">{alert.skill || 'Role'}</div>
+                          <div className="text-xs text-slate-500">{alert.country || 'KE'} • {Array.isArray(alert.keywords) ? alert.keywords.join(', ') : 'alerts'}</div>
+                        </div>
+                        <button onClick={() => onDeleteSavedAlert(alert._id || alert.id)} className="text-xs text-emerald-300">Remove</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {alertsLoading ? (
+            <div className="space-y-3">{Array(3).fill(0).map((_, i) => <div key={i} className="h-20 rounded-2xl bg-slate-800/50 animate-pulse" />)}</div>
+          ) : providerAlerts.length === 0 ? (
+            <div className="rounded-2xl border border-slate-700/50 bg-slate-900/50 py-12 text-center text-slate-400 text-sm">No incoming LoopCV alerts are available right now. Try another skill or save a broader filter.</div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {providerAlerts.map((alert: any) => (
+                <div key={alert.id} className="rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-lg font-black text-white">{alert.title}</div>
+                      <div className="mt-1 text-sm text-slate-400">{alert.organization}</div>
+                    </div>
+                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">{alert.location}</span>
+                  </div>
+                  <div className="mt-3 text-sm text-slate-400">{alert.summary}</div>
+                  <div className="mt-3 text-xs text-slate-500">Posted {new Date(alert.postedAt).toLocaleDateString()}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : tab === 'post' ? (
         <div className="mx-auto max-w-4xl space-y-4 rounded-[1.5rem] border border-emerald-500/10 bg-slate-900/90 p-5 shadow-xl shadow-emerald-950/10 md:p-6">
           <div className="mb-2">
             <h2 className="text-2xl font-black text-white">{t('jobs.board.postRole')}</h2>
@@ -512,14 +752,14 @@ export default function JobsPage() {
                           onClick={() => {
                             if (!job?._id) {
                               toast.error(t('jobs.board.actions.openThisJob'));
-                            return;
-                          }
-                          router.push(`/dashboard/jobs/${job._id}`);
+                              return;
+                            }
+                            router.push(`/dashboard/jobs/${job._id}`);
                           }}
                           className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
                         >
-                        {isOnSite ? t('jobs.board.actions.applyOnSite') : 'View Job'} <ArrowRight size={14} />
-                      </button>
+                          {isOnSite ? t('jobs.board.actions.applyOnSite') : 'View Job'} <ArrowRight size={14} />
+                        </button>
                       <div className="text-xs uppercase tracking-[0.2em] text-slate-500">{t('jobs.board.badge')}</div>
                     </div>
                   </div>
