@@ -127,7 +127,7 @@ export default function ProfilePage() {
     setError(null);
     setMessage(null);
     try {
-      await api.put('/users/profile', {
+      await api.put('/users/profile/admin', {
         name: form.name.trim(),
         phone: form.phone.trim(),
         bio: form.bio.trim(),
@@ -135,8 +135,6 @@ export default function ProfilePage() {
         userLanguage: form.userLanguage.trim(),
         timezone: form.timezone.trim(),
         browserLanguage: navigator.language || 'en',
-      }, {
-        headers: { 'x-profile-scope': 'admin' },
       });
       await refreshUser();
       await loadStatus();
@@ -164,9 +162,7 @@ export default function ProfilePage() {
     setError(null);
     setMessage(null);
     try {
-      const res = await api.post('/users/me/email', { newEmail: nextEmail }, {
-        headers: { 'x-profile-scope': 'admin' },
-      });
+      const res = await api.post('/users/me/email/admin', { newEmail: nextEmail });
       setMessage(res.data?.message || 'Verification link sent to the new email address.');
     } catch (err: any) {
       setError(String(err?.response?.data?.message || err?.message || 'Failed to request email change'));

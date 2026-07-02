@@ -9,7 +9,6 @@ const SUPPORTED_LANGUAGES = new Set(['en', 'sw', 'fr']);
 
 const PROFILE_COMPLETENESS_FIELDS = ['name', 'email', 'phone', 'country', 'bio', 'avatar', 'userLanguage', 'timezone'];
 
-const isAdminScopedProfileRequest = (req) => String(req.get('x-profile-scope') || req.headers['x-profile-scope'] || '').toLowerCase() === 'admin';
 const isAdminOrSuperadmin = (user = {}) => ['admin', 'superadmin'].includes(String(user?.role || '').toLowerCase());
 
 const calculateProfileCompleteness = (user = {}) => {
@@ -25,8 +24,8 @@ router.get('/profile', protect, async (req, res) => {
   res.json({ success: true, user });
 });
 
-router.put('/profile', protect, async (req, res) => {
-  if (isAdminScopedProfileRequest(req) && !isAdminOrSuperadmin(req.user)) {
+const updateUserProfile = async (req, res, { adminOnly = false } = {}) => {
+  if (adminOnly && !isAdminOrSuperadmin(req.user)) {
     return res.status(403).json({ success: false, message: 'Only admin and superadmin accounts can use this profile editor' });
   }
 
@@ -67,7 +66,15 @@ router.put('/profile', protect, async (req, res) => {
     await trackEvent(req.user.id, 'profile_complete');
   }
 
-  res.json({ success: true, user });
+  return res.json({ success: true, user });
+};
+
+router.put('/profile/admin', protect, async (req, res) => {
+  await updateUserProfile(req, res, { adminOnly: true });
+});
+
+router.put('/profile', protect, async (req, res) => {
+  await updateUserProfile(req, res);
 });
 
 router.patch('/:id/language', protect, async (req, res) => {
@@ -172,23 +179,31 @@ router.post('/profile/identity', protect, async (req, res) => {
   }
 });
 
-router.post('/me/email', protect, async (req, res) => {
+const requestEmailChangeForUser = async (req, res, { adminOnly = false } = {}) => {
   try {
-    if (isAdminScopedProfileRequest(req) && !isAdminOrSuperadmin(req.user)) {
+    if (adminOnly && !isAdminOrSuperadmin(req.user)) {
       return res.status(403).json({ success: false, message: 'Only admin and superadmin accounts can use this profile editor' });
     }
 
     const { newEmail } = req.body;
     const result = await initiateEmailChange(req.user.id, newEmail);
-    res.json({
+    return res.json({
       success: true,
       message: 'Verification link sent to new email',
       expiresAt: result.expiresAt,
       ...(process.env.NODE_ENV === 'development' ? { verifyLink: result.verifyLink } : {}),
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
   }
+};
+
+router.post('/me/email/admin', protect, async (req, res) => {
+  await requestEmailChangeForUser(req, res, { adminOnly: true });
+});
+
+router.post('/me/email', protect, async (req, res) => {
+  await requestEmailChangeForUser(req, res);
 });
 
 router.get('/verify-email', async (req, res) => {
