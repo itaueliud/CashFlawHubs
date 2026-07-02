@@ -6,8 +6,7 @@ const { getCurrencyRate } = require('../services/exchangeService');
 const { TOKEN_PACKAGES, getTokenPackageByTokens } = require('../config/tokenPackages');
 const logger = require('../utils/logger');
 
-const XP_REDEMPTION_BLOCK = 20000;
-const XP_REDEMPTION_LOCAL_KES = 1000;
+const { XP_REDEMPTION_BLOCK, XP_REDEMPTION_LOCAL_KES } = require('../services/xpEconomy');
 
 const getEatDate = () => new Date(Date.now() + (3 * 60 * 60 * 1000));
 

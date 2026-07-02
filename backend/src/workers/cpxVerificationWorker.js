@@ -14,19 +14,11 @@ async function approveCpxTransaction(tx) {
   );
   if (!updated) return; // another worker instance already handled it
 
-  // Move user earnings: pending → available
-  await Wallet.findOneAndUpdate(
-    { userId: tx.userId },
-    {
-      $inc: {
-        pendingBalance:   -tx.userShareUSD,
-        balanceUSD:        tx.userShareUSD, // Corrected from availableBalance to balanceUSD
-        surveyEarnings:    tx.userShareUSD,
-        totalEarned:       tx.userShareUSD,
-      },
-    },
-    { upsert: true }
-  );
+  // Award the user's share as XP (not cash). XP only becomes withdrawable
+  // cash later, via the wallet's XP redemption flow.
+  await User.findByIdAndUpdate(tx.userId, {
+    $inc: { xpPoints: tx.xpAwarded || 0, surveysCompleted: 1 },
+  });
 
   // Credit referrer commission
   if (tx.referrerId && tx.referralShareUSD > 0) {
@@ -34,7 +26,7 @@ async function approveCpxTransaction(tx) {
       { userId: tx.referrerId },
       {
         $inc: {
-          balanceUSD:       tx.referralShareUSD, // Corrected from availableBalance to balanceUSD
+          balanceUSD:       tx.referralShareUSD,
           referralEarnings: tx.referralShareUSD,
           totalEarned:      tx.referralShareUSD,
         },
@@ -43,12 +35,9 @@ async function approveCpxTransaction(tx) {
     );
   }
 
-  // Increment user surveysCompleted and XP points
+  // Tracking milestones
   try {
     const { trackEvent, checkEarningMilestones } = require('../services/eventTracker');
-    await User.findByIdAndUpdate(tx.userId, {
-      $inc: { xpPoints: 20, surveysCompleted: 1 }
-    });
     await trackEvent(tx.userId, 'survey_complete').catch(() => {});
     await checkEarningMilestones(tx.userId).catch(() => {});
   } catch (err) {
@@ -80,7 +69,7 @@ async function approveCpxTransaction(tx) {
     logger.error(`[CPX Worker] AuditLog creation failed: ${err.message}`);
   });
 
-  logger.info(`[CPX Worker] Approved: trans=${tx.cpxTransactionId} user=$${tx.userShareUSD} referral=$${tx.referralShareUSD} platform=$${tx.platformShareUSD}`);
+  logger.info(`[CPX Worker] Approved: trans=${tx.cpxTransactionId} xp=${tx.xpAwarded} referral=$${tx.referralShareUSD} platform=$${tx.platformShareUSD}`);
 }
 
 async function runCpxVerificationWorker() {

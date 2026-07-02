@@ -56,8 +56,8 @@ export const ConfirmModal = ({
         <p className="mt-2 text-sm text-slate-400">{description}</p>
         {children}
         <div className="mt-4 flex gap-2 justify-end">
-          <button onClick={onClose} className="rounded-md border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5">Cancel</button>
-          <button onClick={onConfirm} className={`rounded-md px-4 py-2 text-sm font-bold ${danger ? 'bg-red-500 text-white' : 'bg-cyan-500 text-white'}`}>{confirmLabel}</button>
+          <button type="button" onClick={onClose} className="rounded-md border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5">Cancel</button>
+          <button type="button" onClick={onConfirm} className={`rounded-md px-4 py-2 text-sm font-bold ${danger ? 'bg-red-500 text-white' : 'bg-cyan-500 text-white'}`}>{confirmLabel}</button>
         </div>
       </div>
     </div>

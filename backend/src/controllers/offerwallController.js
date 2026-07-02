@@ -231,8 +231,7 @@ exports.ayetStudiosCallback = async (req, res) => {
       return res.status(400).send('INVALID_AMOUNT');
     }
 
-    const wallet = await getOrCreateWallet(user);
-    await wallet.credit(amountUSD, 'offer');
+    const xpAwarded = Math.max(Math.round(amountUSD), 0);
     await trackOfferwallMetric('ayetstudios', 'credited');
 
     await Transaction.create({
@@ -247,14 +246,14 @@ exports.ayetStudiosCallback = async (req, res) => {
       status: 'successful',
       providerTransactionId: transaction_id,
       processedAt: new Date(),
-      metadata: { provider: 'ayetstudios' },
+      metadata: { provider: 'ayetstudios', xpAwarded },
     });
 
-    await User.findByIdAndUpdate(user._id, { $inc: { xpPoints: 30 } });
+    await User.findByIdAndUpdate(user._id, { $inc: { xpPoints: xpAwarded } });
     await trackEvent(user._id, 'offerwall_complete');
     await checkEarningMilestones(user._id);
 
-    logger.info(`Ayет Studios offer reward: $${amountUSD} for ${external_identifier}`);
+    logger.info(`Ayет Studios offer reward: ${xpAwarded} XP for ${external_identifier}`);
     await trackOfferwallMetric('ayetstudios', 'processed');
     res.send('OK');
   } catch (error) {
@@ -304,8 +303,7 @@ exports.adGateCallback = async (req, res) => {
       return res.status(400).send('0');
     }
 
-    const wallet = await getOrCreateWallet(user);
-    await wallet.credit(amountUSD, 'offer');
+    const xpAwarded = Math.max(Math.round(amountUSD), 0);
     await trackOfferwallMetric('adgate', 'credited');
 
     await Transaction.create({
@@ -320,10 +318,10 @@ exports.adGateCallback = async (req, res) => {
       status: 'successful',
       providerTransactionId: transaction_id,
       processedAt: new Date(),
-      metadata: { provider: 'adgate' },
+      metadata: { provider: 'adgate', xpAwarded },
     });
 
-    await User.findByIdAndUpdate(user._id, { $inc: { xpPoints: 30 } });
+    await User.findByIdAndUpdate(user._id, { $inc: { xpPoints: xpAwarded } });
     await trackEvent(user._id, 'offerwall_complete');
     await checkEarningMilestones(user._id);
     await trackOfferwallMetric('adgate', 'processed');

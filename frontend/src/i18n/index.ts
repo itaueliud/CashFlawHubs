@@ -53,7 +53,7 @@ export const setAppLanguage = async (language?: string | null) => {
 export const ensureI18nInitialized = async () => {
   if (i18n.isInitialized) return i18n;
 
-  i18n
+  await i18n
     .use(LanguageDetector)
     .use(initReactI18next)
     .init({

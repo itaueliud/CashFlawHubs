@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+﻿const mongoose = require('mongoose');
 
 const walletSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
@@ -14,8 +14,11 @@ const walletSchema = new mongoose.Schema({
   freelanceEarnings: { type: Number, default: 0 },
   challengeEarnings: { type: Number, default: 0 },
   xpEarnings: { type: Number, default: 0 },
+  creatorHubEarnings: { type: Number, default: 0 },
 
   pendingBalance: { type: Number, default: 0 }, // Awaiting confirmation
+  carryOver: { type: Number, default: 0 },
+  lastPaidAt: { type: Date, default: null },
   totalWithdrawn: { type: Number, default: 0 },
   totalEarned: { type: Number, default: 0 },
   totalDeposited: { type: Number, default: 0 },
@@ -34,6 +37,7 @@ walletSchema.methods.credit = async function (amount, source) {
     freelance: 'freelanceEarnings',
     challenge: 'challengeEarnings',
     xp: 'xpEarnings',
+    creatorHub: 'creatorHubEarnings',
   };
   if (sourceMap[source]) {
     this[sourceMap[source]] += amount;
@@ -55,3 +59,5 @@ walletSchema.methods.deposit = async function (amount) {
 };
 
 module.exports = mongoose.model('Wallet', walletSchema);
+
+

@@ -105,8 +105,7 @@ exports.postback = async (req, res) => {
     }
 
     const creditAmount = Math.min(parsedAmount, REWARD_CAP_USD);
-    const wallet = await getWallet(user._id);
-    await wallet.credit(creditAmount, 'offer');
+    const xpAwarded = Math.max(Math.round(creditAmount), 0);
 
     await Transaction.create({
       userId: user._id,
@@ -127,8 +126,11 @@ exports.postback = async (req, res) => {
         offerName: offer_name,
         requestId: request_id,
         rawAmount: amount,
+        xpAwarded,
       },
     });
+
+    await User.findByIdAndUpdate(user._id, { $inc: { xpPoints: xpAwarded } });
 
     await trackEvent(user._id, 'offerwall_complete').catch(() => {});
     await checkEarningMilestones(user._id).catch(() => {});

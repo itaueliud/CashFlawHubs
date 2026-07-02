@@ -15,6 +15,7 @@ interface CpxTx {
   type:            string;
   grossUSD:        number;
   userShareUSD:    number;
+  xpAwarded:       number;
   status:          'pending' | 'approved' | 'paid' | 'reversed' | 'rejected';
   createdAt:       string;
   availableAfter:  string;
@@ -108,8 +109,8 @@ export default function SurveysPage() {
   }
 
   const transactions: CpxTx[] = historyData?.transactions || [];
-  const pendingTotal  = transactions.filter(t => t.status === 'pending').reduce((s, t) => s + t.userShareUSD, 0);
-  const approvedTotal = transactions.filter(t => ['approved','paid'].includes(t.status)).reduce((s, t) => s + t.userShareUSD, 0);
+  const pendingTotal  = transactions.filter(t => t.status === 'pending').reduce((s, t) => s + (t.xpAwarded || 0), 0);
+  const approvedTotal = transactions.filter(t => ['approved','paid'].includes(t.status)).reduce((s, t) => s + (t.xpAwarded || 0), 0);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -129,11 +130,11 @@ export default function SurveysPage() {
           <div className="grid grid-cols-2 gap-3 shrink-0">
             <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3">
               <div className="text-xs text-yellow-400/70 flex items-center gap-1"><Clock size={10}/> Pending</div>
-              <div className="text-xl font-black text-yellow-300">${pendingTotal.toFixed(2)}</div>
+              <div className="text-xl font-black text-yellow-300">{pendingTotal.toLocaleString()} XP</div>
             </div>
             <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3">
               <div className="text-xs text-emerald-400/70 flex items-center gap-1"><CheckCircle size={10}/> Approved</div>
-              <div className="text-xl font-black text-emerald-300">${approvedTotal.toFixed(2)}</div>
+              <div className="text-xl font-black text-emerald-300">{approvedTotal.toLocaleString()} XP</div>
             </div>
           </div>
         </div>
@@ -142,7 +143,7 @@ export default function SurveysPage() {
       {/* Notice */}
       <div className="flex items-start gap-3 rounded-xl border border-blue-500/20 bg-blue-500/10 p-4 text-sm text-blue-300">
         <AlertCircle size={16} className="mt-0.5 shrink-0" />
-        <span>Survey rewards are held for verification before being added to your available balance. Approved rewards appear in your wallet automatically.</span>
+        <span>Survey rewards are held for verification, then added to your XP as XP points. XP isn't withdrawable directly — redeem it into cash from your Wallet page.</span>
       </div>
 
       {/* Iframe */}
@@ -221,8 +222,7 @@ export default function SurveysPage() {
                   </span>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-bold text-white">${tx.userShareUSD.toFixed(4)}</div>
-                  <div className="text-[11px] text-slate-500">of ${tx.grossUSD.toFixed(4)} gross</div>
+                  <div className="text-sm font-bold text-white">+{Number(tx.xpAwarded || 0).toLocaleString()} XP</div>
                 </div>
               </div>
             ))}

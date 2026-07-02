@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { PAYSTACK_TRANSFER_RECIPIENTS } = require('../../config/paymentStack');
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 
@@ -36,10 +37,9 @@ exports.initiateDeposit = async ({ reference, amountLocal, currency, callbackUrl
 };
 
 exports.initiateWithdrawal = async ({ reference, amountLocal, currency, user }) => {
-  const { PAYSTACK_TRANSFER_RECIPIENTS } = require('../controllers/paymentController');
   const config = PAYSTACK_TRANSFER_RECIPIENTS[user.country];
   if (!config) throw new Error(`Paystack transfer not configured for ${user.country}`);
-  
+
   const bankCode = process.env[config.bankCodeEnv];
   if (!bankCode) throw new Error(`Missing ${config.bankCodeEnv} for ${user.country}`);
 

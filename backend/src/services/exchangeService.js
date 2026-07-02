@@ -18,13 +18,22 @@ const getTTL = (currency) => {
   return 60 * 60; // 60 minutes
 };
 
+const fetchExchangeRates = async () => {
+  try {
+    const { data } = await axios.get(
+      'https://api.frankfurter.app/latest?from=USD&to=KES,TZS,UGX,GHS,ETB,NGN,ZAR',
+      { timeout: 10000 }
+    );
+    return data.rates || null;
+  } catch (err) {
+    logger.warn(`Exchange rate fetch failed: ${err.message} - using cached rates`);
+    return null;
+  }
+};
+
 const refreshExchangeRates = async () => {
   try {
-    const res = await axios.get(
-      `https://v6.exchangerate-api.com/v6/${process.env.EXCHANGE_RATE_API_KEY}/latest/USD`,
-      { timeout: 5000 }
-    );
-    const rates = res.data.conversion_rates;
+    const rates = await fetchExchangeRates();
     
     if (isRedisReady() && rates) {
       const redis = getRedis();
@@ -35,7 +44,7 @@ const refreshExchangeRates = async () => {
         }
       }
     }
-    logger.info('Updated exchange rates from bulk endpoint.');
+    logger.info('Updated exchange rates from Frankfurter.');
   } catch (err) {
     logger.warn(`Failed to update exchange rates: ${err.message}`);
   }

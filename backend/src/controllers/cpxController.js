@@ -109,6 +109,8 @@ async function handlePostback(req, res) {
     }
     if (!referrerId) referralShareUSD = 0;
 
+    const xpAwarded = Math.max(Math.round(grossUSD), 0);
+
     // ── 8. Determine hold duration ───────────────────────────────────────────
     // screenouts and bonuses are small — hold 24h; completes hold 48h
     const eventType   = String(type || 'complete').toLowerCase();
@@ -125,6 +127,7 @@ async function handlePostback(req, res) {
       type:              eventType,
       grossUSD,
       userShareUSD,
+      xpAwarded,
       platformShareUSD,
       referralShareUSD,
       referrerId,
@@ -134,26 +137,19 @@ async function handlePostback(req, res) {
       rawParams:         params,
     });
 
-    // ── 10. Add to pendingBalance ────────────────────────────────────────────
-    await Wallet.findOneAndUpdate(
-      { userId: user._id },
-      { $inc: { pendingBalance: userShareUSD } },
-      { upsert: true }
-    );
-
     // ── 11. Audit log ────────────────────────────────────────────────────────
     await AuditLog.create({
       actorId: user._id,
       actorRole: user.role || 'user',
       module: 'cpx',
       action: `cpx_${eventType}_pending`,
-      metadata: { trans_id, grossUSD, userShareUSD, platformShareUSD, referralShareUSD, holdHours },
+      metadata: { trans_id, grossUSD, userShareUSD, xpAwarded, platformShareUSD, referralShareUSD, holdHours },
       ipAddress: ip,
     }).catch((err) => {
       logger.error(`[CPX] AuditLog failed: ${err.message}`);
     });
 
-    logger.info(`[CPX] ${eventType} PENDING: user=${user_id} trans=${trans_id} gross=$${grossUSD} user_share=$${userShareUSD} hold=${holdHours}h`);
+    logger.info(`[CPX] ${eventType} PENDING: user=${user_id} trans=${trans_id} gross=$${grossUSD} xp_awarded=${xpAwarded} hold=${holdHours}h`);
 
   } catch (err) {
     logger.error(`[CPX] Postback error: ${err.message}`);
@@ -173,21 +169,13 @@ async function handleReversal(transactionId, user, ip) {
 
   if (wasApproved) {
     // Use balanceUSD instead of availableBalance
-    await Wallet.findOneAndUpdate(
-      { userId: user._id },
-      { $inc: { balanceUSD: -tx.userShareUSD, surveyEarnings: -tx.userShareUSD, totalEarned: -tx.userShareUSD } }
-    );
+    await User.findByIdAndUpdate(user._id, { $inc: { xpPoints: -tx.xpAwarded } });
     if (tx.referrerId && tx.referralShareUSD > 0) {
       await Wallet.findOneAndUpdate(
         { userId: tx.referrerId },
         { $inc: { balanceUSD: -tx.referralShareUSD, referralEarnings: -tx.referralShareUSD, totalEarned: -tx.referralShareUSD } }
       );
     }
-  } else {
-    await Wallet.findOneAndUpdate(
-      { userId: user._id },
-      { $inc: { pendingBalance: -tx.userShareUSD } }
-    );
   }
 
   await AuditLog.create({
@@ -244,7 +232,7 @@ async function getHistory(req, res) {
     const txs   = await CpxTransaction.find({ userId: req.user._id })
       .sort({ createdAt: -1 })
       .limit(limit)
-      .select('cpxTransactionId surveyId type grossUSD userShareUSD status createdAt availableAfter');
+      .select('cpxTransactionId surveyId type grossUSD userShareUSD xpAwarded status createdAt availableAfter');
     return res.json({ success: true, transactions: txs });
   } catch (err) {
     logger.error(`[CPX] getHistory error: ${err.message}`);

@@ -70,4 +70,26 @@ const getPaymentPriorityForCountry = (country) => {
   return { deposits: [], withdrawals: [] };
 };
 
-module.exports = { HYBRID_PAYMENT_STACK, COUNTRY_PAYMENT_PRIORITY, PROVIDER_STATUS, getPaymentPriorityForCountry };
+// Paystack per-country transfer configuration — shared here to avoid circular imports
+const PAYSTACK_TRANSFER_RECIPIENTS = {
+  KE: { type: 'mobile_money', currency: 'KES', bankCodeEnv: 'PAYSTACK_TRANSFER_BANK_CODE_KE' },
+  GH: { type: 'mobile_money', currency: 'GHS', bankCodeEnv: 'PAYSTACK_TRANSFER_BANK_CODE_GH' },
+  NG: { type: 'nuban',        currency: 'NGN', bankCodeEnv: 'PAYSTACK_TRANSFER_BANK_CODE_NG' },
+  CI: { type: 'mobile_money', currency: 'XOF', bankCodeEnv: 'PAYSTACK_TRANSFER_BANK_CODE_CI' },
+};
+
+const PAYSTACK_COLLECTION_CURRENCY = {
+  KE: 'KES',
+  GH: 'GHS',
+  NG: 'NGN',
+  CI: 'XOF',
+};
+
+module.exports = {
+  HYBRID_PAYMENT_STACK,
+  COUNTRY_PAYMENT_PRIORITY,
+  PROVIDER_STATUS,
+  getPaymentPriorityForCountry,
+  PAYSTACK_TRANSFER_RECIPIENTS,
+  PAYSTACK_COLLECTION_CURRENCY,
+};

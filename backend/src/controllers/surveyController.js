@@ -380,9 +380,8 @@ exports.cpxCallback = async (req, res) => {
       return res.send('1');
     }
 
-    // Credit wallet
-    const wallet = await getOrCreateWallet(user);
-    await wallet.credit(amountUSD, 'survey');
+    // XP reward
+    const xpAwarded = Math.max(Math.round(amountUSD), 0);
 
     // Log transaction
     await Transaction.create({
@@ -402,11 +401,12 @@ exports.cpxCallback = async (req, res) => {
         providerName: 'CPX Research',
         sessionId: session?.sessionId || sessionId || null,
         surveyId: session?.surveyId || null,
+        xpAwarded,
       },
     });
 
-    // XP reward
-    await User.findByIdAndUpdate(user._id, { $inc: { xpPoints: 20, surveysCompleted: 1 } });
+    // Apply XP points
+    await User.findByIdAndUpdate(user._id, { $inc: { xpPoints: xpAwarded, surveysCompleted: 1 } });
     await trackEvent(user._id, 'survey_complete');
 
     const startOfDay = getUtcDayStart();
@@ -419,7 +419,7 @@ exports.cpxCallback = async (req, res) => {
     if (todaySurveys >= 3) await trackEvent(user._id, 'survey_complete_3');
     await checkEarningMilestones(user._id);
 
-    logger.info(`CPX survey reward: $${amountUSD} for user ${user_id}`);
+    logger.info(`CPX survey reward: ${xpAwarded} XP for user ${user_id}`);
     res.send('1'); // CPX expects '1' on success
   } catch (error) {
     logger.error(`cpxCallback error: ${error.message}`);
@@ -473,8 +473,7 @@ exports.bitlabsCallback = async (req, res) => {
       return res.status(400).json({ success: false });
     }
 
-    const wallet = await getOrCreateWallet(user);
-    await wallet.credit(amountUSD, 'survey');
+    const xpAwarded = Math.max(Math.round(amountUSD), 0);
 
     await Transaction.create({
       userId: user._id,
@@ -493,10 +492,11 @@ exports.bitlabsCallback = async (req, res) => {
         providerName: 'BitLabs',
         sessionId: session?.sessionId || sessionId || null,
         surveyId: session?.surveyId || null,
+        xpAwarded,
       },
     });
 
-    await User.findByIdAndUpdate(user._id, { $inc: { xpPoints: 20, surveysCompleted: 1 } });
+    await User.findByIdAndUpdate(user._id, { $inc: { xpPoints: xpAwarded, surveysCompleted: 1 } });
     await trackEvent(user._id, 'survey_complete');
 
     const startOfDay = getUtcDayStart();
@@ -509,7 +509,7 @@ exports.bitlabsCallback = async (req, res) => {
     if (todaySurveys >= 3) await trackEvent(user._id, 'survey_complete_3');
     await checkEarningMilestones(user._id);
 
-    logger.info(`BitLabs reward: $${amountUSD} for user ${uid}`);
+    logger.info(`BitLabs reward: ${xpAwarded} XP for user ${uid}`);
     res.json({ success: true });
   } catch (error) {
     logger.error(`bitlabsCallback error: ${error.message}`);

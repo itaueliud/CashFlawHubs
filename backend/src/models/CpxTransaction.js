@@ -20,6 +20,7 @@ const cpxTransactionSchema = new mongoose.Schema(
     type:      { type: String, default: 'complete' }, // complete | screenout | bonus
     grossUSD:         { type: Number, required: true },
     userShareUSD:     { type: Number, required: true },
+    xpAwarded:        { type: Number, default: 0 },
     platformShareUSD: { type: Number, required: true },
     referralShareUSD: { type: Number, default: 0 },
     referrerId: {

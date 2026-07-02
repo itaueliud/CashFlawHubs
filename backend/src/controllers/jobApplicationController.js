@@ -55,7 +55,7 @@ const getApplicantStatusDescription = ({ status, jobSource, trackingEmail }) => 
   return STATUS_DESCRIPTIONS[normalized] || 'Application status updated.';
 };
 const APPLY_XP_REWARD = 25;
-const CONFIRM_XP_REWARD = 50;
+const CONFIRM_XP_REWARD = 15;
 const OFFER_XP_BONUS = 75;
 const getCanonicalFrontendUrl = () =>
   (process.env.CANONICAL_FRONTEND_URL || 'https://cashflowhubs.com').replace(/\/+$/, '');

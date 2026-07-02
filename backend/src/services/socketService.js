@@ -31,6 +31,9 @@ const initSocket = (httpServer, corsOrigins = []) => {
   io.on('connection', (socket) => {
     const userId = String(socket.user._id || socket.user.id);
     socket.join(`presence:${userId}`);
+    if (['ledger', 'admin', 'superadmin'].includes(String(socket.user.role || '').toLowerCase())) {
+      socket.join('ledger-room');
+    }
     io.emit('presence:update', { userId, status: 'online', at: new Date().toISOString() });
 
     socket.on('chat:join', ({ sessionId }) => {

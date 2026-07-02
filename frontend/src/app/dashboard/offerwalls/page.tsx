@@ -10,6 +10,9 @@ import { Loader2, Lock, Gift, RefreshCw, ExternalLink, Clock, CheckCircle2, XCir
 type RewardTx = {
   _id: string;
   amountUSD: number;
+  metadata?: {
+    xpAwarded?: number;
+  };
   status?: string;
   createdAt: string;
 };
@@ -117,7 +120,7 @@ export default function OfferwallsPage() {
         <Lock size={48} className="text-slate-600" />
         <h2 className="text-2xl font-black">Activation Required</h2>
         <p className="max-w-lg text-sm text-slate-400">
-          Activate your account to access offerwalls and start earning real USD rewards.
+          Activate your account to access offerwalls and start earning XP rewards.
         </p>
         <Link href="/dashboard/activate" className="btn-primary inline-flex items-center gap-2">
           Activate Now <ExternalLink size={14} />
@@ -162,7 +165,7 @@ export default function OfferwallsPage() {
           <div>
             <h1 className="text-3xl font-black tracking-tight">Offerwalls</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-300">
-              Complete offers and tasks to earn real USD rewards directly to your wallet.
+              Complete offers and tasks to earn XP directly to your account.
             </p>
           </div>
         </div>
@@ -170,7 +173,7 @@ export default function OfferwallsPage() {
 
       <div className="grid gap-4 md:grid-cols-3">
         {[
-          { label: 'Complete offers -> Earn USD', detail: 'Turn partner tasks into spendable balance', tone: 'from-emerald-500/15 to-emerald-500/5' },
+          { label: 'Complete offers -> Earn XP', detail: 'Turn partner tasks into XP points', tone: 'from-emerald-500/15 to-emerald-500/5' },
           { label: 'Instant wallet credit', detail: 'Rewards land in your wallet after verification', tone: 'from-cyan-500/15 to-cyan-500/5' },
           { label: 'Verified & secure', detail: 'Protected postbacks and duplicate checks', tone: 'from-slate-500/15 to-slate-500/5' },
         ].map((item) => (
@@ -271,7 +274,7 @@ export default function OfferwallsPage() {
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
                   <th className="px-3 py-3 font-medium">Date</th>
-                  <th className="px-3 py-3 font-medium">Amount USD</th>
+                  <th className="px-3 py-3 font-medium">XP Earned</th>
                   <th className="px-3 py-3 font-medium">Status</th>
                 </tr>
               </thead>
@@ -279,7 +282,7 @@ export default function OfferwallsPage() {
                 {rewards.map((reward) => (
                   <tr key={reward._id} className="hover:bg-slate-800/30">
                     <td className="px-3 py-3 text-slate-300">{new Date(reward.createdAt).toLocaleString()}</td>
-                    <td className="px-3 py-3 font-semibold text-emerald-400">${Number(reward.amountUSD || 0).toFixed(2)}</td>
+                    <td className="px-3 py-3 font-semibold text-emerald-400">{Number(reward.metadata?.xpAwarded || 0).toLocaleString()} XP</td>
                     <td className="px-3 py-3">
                       <StatusBadge status={reward.status} />
                     </td>
